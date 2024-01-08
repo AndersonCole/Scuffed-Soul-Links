@@ -1,0 +1,1 @@
+[{"Name": "PlatTest", "Game": "Platinum", "Version-Group": "platinum", "Players": ["<@1094077971083571250>", "<@341722760852013066>"], "Encounters": []}]
