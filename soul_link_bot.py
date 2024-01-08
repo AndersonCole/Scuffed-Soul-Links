@@ -7,7 +7,6 @@ Cole Anderson, Dec 2023
 import discord
 import random
 import regex as re
-import time
 from soul_link_functions import *
 import Paginator
 
@@ -237,6 +236,17 @@ class MyClient(discord.Client):
                     response = await setRunStatus(run_name, 'In Progress')
                     await message.channel.send(response)
 
+            elif input[0:8] == 'see-info':
+                if run_name == '':
+                    await message.channel.send('Select a run first using $sl select-run!')
+                else:
+                    embeds = await seeStats(run_name)
+
+                    if(type(embeds) == type('')):
+                        await message.channel.send(embeds)
+                    else:
+                        await Paginator.Simple().start(message.channel, pages=embeds)                    
+
             elif input[0:4] == 'dex ':
                 mon = input[4:]
 
@@ -306,6 +316,38 @@ class MyClient(discord.Client):
 
             else:
                 await message.channel.send('Command not recognized. Try using ```$sl help```')
+            
+        #mimikyu format command
+        elif message.content[0:8] == "$format ":
+            input = message.content[8:]
+            try:
+                if ',' in input:
+                    input = str(input).split(",")
+                    name = str(input[0]).strip()
+                    next_name = str(input[1]).strip()
+                    level_cap = int(input[2])
+                    input.pop(0)
+                    input.pop(0)
+                    input.pop(0)
+                    encounters = []
+                    for text in input:
+                        encounters.append(str(text).strip())
+
+                    encounters_text = '['
+                    if encounters == []:
+                        encounters_text += ']'
+                    for encounter in encounters:
+                        if encounter == encounters[-1]:
+                            encounters_text += f'\'{encounter}\']'
+                        else:
+                            encounters_text += f'\'{encounter}\', '
+                        
+                    await message.channel.send('{' + f'\'Stage\': , \'Name\': \'{name}\', \'Battle-Name\': \'{next_name}\', \'Level-Cap\': {level_cap}, \'Encounters\': {encounters_text}' + '}')
+                    await message.delete()
+                else:
+                    raise Exception()
+            except:
+                await message.channel.send("U fucked something up. Only send messages like this ```$format Gym 1, Misty, 20, Route 3, Route 4``` In this order, Name of the previous battle ex. Gym 1, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
 
 
 version_group = ''

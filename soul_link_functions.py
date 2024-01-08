@@ -46,12 +46,12 @@ async def help():
                                       '```$sl random-user``` @\'s a random user participating in the run\n' +
                                       '```$sl battles``` Lists out the next important battle and its level caps\n' +
                                       '```$sl progress``` Moves the runs progress past the next important battle\n' +
-                                      '```$sl add-note REM sleep is trendy``` Adds a note to the run, highlighting funny events or whatnot\n' +
+                                      '```$sl add-note REM sleep is trendy!``` Adds a note to the run, highlighting funny events or whatnot\n' +
                                       '```$sl select-run HGAttempt1``` Selects a run to focus on\n' +
                                       '```$sl see-runs``` Lists out all runs\n' +
                                       '```$sl win-run``` Ends the run in victory\n' +
                                       '```$sl fail-run``` Ends the run in failure\n' +
-                                      '```$sl see-stats``` Prints out all relevant stats for the currently selected run\n\n' +
+                                      '```$sl see-info``` Prints out all relevant stats for the currently selected run\n\n' +
                                       '```$sl dex Bulbasaur``` Shows data on selected pokemon\n' +
                                       '```$sl moves Bulbasaur 24``` Shows the four moves the mon has at a specific level\n' +
                                       '```$sl add-nickname Ttar 248``` Adds nicknames to link to pokedex numbers. Don\'t add nicknames for mons with forms\n' +
@@ -728,6 +728,73 @@ async def addNote(run_name, note):
 
     return f'Note successfully added to {run["Name"]}'
 #endregion
+
+#region $sl see-info command
+async def seeStats(run_name):
+    run = getRun(run_name)
+
+    if run is None:
+        return 'Somehow the run name is invalid. Get <@341722760852013066> to look into it lol'
+    
+    embeds = []
+
+    game_data = [obj for obj in games if any(group.lower() == run['Game'].lower() for group in obj['Games'])][0]
+
+    if run['Run-Status'] == 'In Progress':
+        description_string = 'This run is currently In Progress!'
+    else:
+        description_string = f'This run ended in {run["Run-Status"]}!'
+
+    description_string += '\nTo see active and dead links, use the $sl links and $sl deaths commands!'
+
+    embed = discord.Embed(title=f'{run_name} Stats',
+                          description=description_string,
+                          color=game_data['Colour'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())])
+    
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
+    else: 
+        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
+
+    player_string = ''
+    link_string = ''
+    link_emoji = game_data['Link-Emoji'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())]
+
+    for player in run['Players']:
+        if player == run['Players'][-1]:
+            player_string += f'{player}'
+        else:
+            player_string += f'{player}{link_emoji}'
+    
+    for progress_index in range(run['Current-Progress']):
+        embed.title = f'{run_name} Info\nThe Team vs. {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Battle-Name"]} at Lv.{[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Level-Cap"]}!'
+        
+        if len(run['Teams'][progress_index]) > 0:
+            for encounter in run['Teams'][progress_index]:
+                for index, dex_num in enumerate(encounter['Pokemon']):
+                    mon_name = getMonName(dex_num)
+                    if mon_name is None:
+                        mon_name = 'Invalid Name'
+                    if index == len(encounter['Pokemon']) - 1:
+                        link_string += f'{mon_name}\n'
+                    else:
+                        link_string += f'{mon_name}{link_emoji}'
+        else:
+            link_string = 'No team was specified for this battle!'
+        
+        embed.add_field(name=player_string,
+                        value=link_string,
+                        inline=True)
+        
+        embeds.append(copy.deepcopy(embed))
+
+        embed.clear_fields()
+        encounter_string = ''
+        player_string = ''
+
+    return embeds
+#endregion 
 
 #region $sl win-run, fail-run, undo-status command
 async def setRunStatus(run_name, status):
