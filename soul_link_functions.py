@@ -12,6 +12,7 @@ import random
 import regex as re
 import math
 import copy
+import asyncio
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
@@ -57,7 +58,8 @@ async def help():
                                       '```$sl moves Bulbasaur 24``` Shows the four moves the mon has at a specific level\n' +
                                       '```$sl add-nickname Ttar 248``` Adds nicknames to link to pokedex numbers. Don\'t add nicknames for mons with forms\n' +
                                       '```$sl see-nicknames``` Prints out all nicknames\n' +
-                                      '```$sl catch Bulbasaur 5``` Caclulates the catch rate for the selected gen given the pokemon and level\n\n' +
+                                      '```$sl catch Bulbasaur 5``` Caclulates the catch rate for the selected gen given the pokemon and level\n' +
+                                      '```$sl rare-candies``` Shuckle explains how to aquire rare candies using PKHex\n\n' +
                                       'For Data on forms, type the pokemon\'s name like giratina origin, vulpix alola, charizard mega y, appletun gmax\n' +
                                       'Accessing data for a pokemon\'s default form will always work with their base name',
                           color=3553598)
@@ -553,9 +555,11 @@ async def createReason(user_input):
         {'role':'user', 'content':user_input}
     ]
     try:
-        response = openai.chat.completions.create(model="gpt-3.5-turbo", messages = messages, temperature=0.8, max_tokens=500)
+        response = await asyncio.wait_for(openai.chat.completions.create(model="gpt-3.5-turbo", messages = messages, temperature=0.8, max_tokens=500), timeout=30)
 
         return response.choices[0].message.content[0:2000]
+    except asyncio.TimeoutError:
+        return 'Shuckle took too long to respond. Probably went for it\'s 152nd beer... try again when it wakes up from its coma!'
     except:
         return '<@341722760852013066> ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
 #endregion

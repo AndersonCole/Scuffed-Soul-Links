@@ -325,6 +325,14 @@ class MyClient(discord.Client):
 
                 await message.channel.send('Run unfocused!')
 
+            elif input[0:12] == 'rare-candies':
+                await message.channel.send('Even though I\'ve had 151 beers, I remember how to use PKHex to get infinite rare candies... even the shadow people think you\'re a fraud!\n\n' +
+                                           'First you\'ll want to make sure you\'ve saved your game at least once, then go ahead and click on \'File/Export Backup Memory\' in DeSmuME. Save that file somewhere.\n' +
+                                           'Then open PKHex and load the save data. Go to the SAV tab above the box view, and edit the items in your bag. Remember that rare candies are in the medicine bag!\n' +
+                                           'Then go to \'File/Export SAV\', you can overwrite the old .sav file you originally loaded at this point.\n' +
+                                           'Finally, go to \'File/Import Backup Memory\' in DeSmuME, and your game should load, complete with 999 rare candies in your bag!\n\n' +
+                                           'Now if you\'ll excuse me, I have a lobotomy appointment to attend. I\'ll be back after the procedure with a mind as smooth as a freshly polished Pokeball! Cheers!')
+
             else:
                 await message.channel.send('Command not recognized. Try using ```$sl help```')
             
