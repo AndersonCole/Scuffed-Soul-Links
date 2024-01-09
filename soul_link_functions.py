@@ -610,6 +610,9 @@ async def listDeaths(run_name):
         encounter_string = ''
         player_string = ''
         
+    if len(embeds) == 0:
+        return 'There are no deaths! Yet...'
+    
     return embeds
 
         
