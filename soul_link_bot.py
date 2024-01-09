@@ -358,7 +358,7 @@ class MyClient(discord.Client):
                 else:
                     raise Exception()
             except:
-                await message.channel.send("U fucked something up. Only send messages like this ```$format Gym 1, Misty, 20, Route 3, Route 4``` In this order, Name of the previous battle ex. Gym 1, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
+                await message.channel.send("Mimikyu Lives On! But... you've still learned nothing and went and fucked something up. Only send messages like this ```$format Gym 1, Misty, 20, Route 3, Route 4``` In this order, Name of the previous battle ex. Gym 1, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
 
 
 version_group = ''
