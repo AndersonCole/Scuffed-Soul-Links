@@ -19,6 +19,7 @@ class MyClient(discord.Client):
         """This is the constructor. Sets the default 'intents' for the bot."""
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True
         super().__init__(intents=intents)
 
     async def on_ready(self):
@@ -66,6 +67,7 @@ class MyClient(discord.Client):
                                 if msg != 'Success':
                                     await message.channel.send(msg)
                                 else:
+                                    await createRole(run_name, players, message.guild)
                                     await message.channel.send('Run Created! Focus set to the newly created run')
                             else:
                                 await message.channel.send("Specify more than one player!")
@@ -76,6 +78,7 @@ class MyClient(discord.Client):
                             if msg != 'Success':
                                 await message.channel.send(msg)
                             else:
+                                await createRole(run_name, players, message.guild)
                                 await message.channel.send('Run Created! Focus set to the newly created run')
                         else:
                             raise Exception('Specify more than one player!')
@@ -123,6 +126,14 @@ class MyClient(discord.Client):
                     else:
                         await Paginator.Simple().start(message.channel, pages=embeds)
             
+            elif input [0:10] == 'link-name ':
+                if run_name == '':
+                    await message.channel.send('Select a run first using $sl select-run!')
+                else:
+                    response = await getLinkName(run_name, str(input[10:]).strip(), message.author.mention)
+
+                    await message.channel.send(response)
+
             elif input[0:10] == 'new-death ':
                 if run_name == '':
                     await message.channel.send('Select a run first using $sl select-run!')

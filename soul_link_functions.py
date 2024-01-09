@@ -38,6 +38,7 @@ async def help():
                                       '```$sl encounter Starter, Bulbasaur``` Adds data to an encounter, the other users in the sl can call the command again to set their encountered mon\n' +
                                       '```$sl encounter Starter, @Player1 Bulbasaur, @Player2 Charmander``` Another option for adding data to an encounter, you can specify encounters for as many players as needed\n' +
                                       '```$sl links``` Lists out the active links for the current run\n' +
+                                      '```$sl link-name Bulbasaur``` Gives you the name of the link for the specified mon\n' +
                                       '```$sl new-death Starter, Metronome explosion :(``` Removes the link from the active links\n' +
                                       '```$sl deaths``` Lists out all the dead links, and cause of death\n' +
                                       '```$sl create-reason It was Nate\'s fault the starters died``` Explain the situation, and an excuse for the cause of death will be generated\n' +
@@ -163,7 +164,7 @@ async def saveRunData():
     with open('text_files/soul_link_runs.txt', 'r') as file:
         runs = json.loads(file.read())
 
-#region $sl new-sl command
+#region $sl new-sl command and createRole func
 async def createNewRun(game, name, players):
     version_group = getGroup(game)
 
@@ -181,7 +182,7 @@ async def createNewRun(game, name, players):
         dex_array.append(-1)
 
     team_array = []
-    for i in range(25):
+    for i in range(15):
         team_array.append([])
 
     encounters = []
@@ -211,6 +212,42 @@ async def createNewRun(game, name, players):
     await saveRunData()
 
     return version_group, name, 'Success'
+
+async def createRole(run_name, players, guild):
+    try:
+        run = getRun(run_name)
+        
+        if run is None:
+            raise Exception('Somehow the run name is invalid. Get <@341722760852013066> to look into it lol')
+
+        game_data = [obj for obj in games if any(group.lower() == run['Game'].lower() for group in obj['Games'])][0]
+
+        rand_num = random.randint(1, 5)
+        match rand_num:
+            case 1:
+                role_name = f'{run_name} Gamers'
+            case 2:
+                role_name = f'{run_name} Runners'
+            case 3:
+                role_name = f'Lobotomy Patients Attempt {run_name}'
+            case 4:
+                role_name = f'Haha Funny {run_name} Ping Role' 
+            case 5:
+                role_name = f'Gaslighting Central at {run_name}'
+            case _:
+                role_name = run_name
+                
+        role = await guild.create_role(name=role_name)
+
+        await role.edit(color=game_data['Colour'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())])
+
+        for player in players:
+            user_id = int(player[2:-1])
+            user = guild.get_member(user_id)
+
+            await user.add_roles(role)
+    except Exception as ex:
+        print(ex)
 #endregion
 
 #region $sl encounter command
@@ -428,6 +465,30 @@ async def listLinks(run_name):
     
     return embeds    
 
+#endregion
+
+#region $sl get-link command
+async def getLinkName(run_name, mon, player):
+    run = getRun(run_name)
+    dex_num = getDexNum(mon)
+
+    if run is None:
+        return 'Somehow the run name is invalid. Get <@341722760852013066> to look into it lol'
+    
+    if dex_num == -1:
+        return f'The pokemon \'{mon}\' was not recognized!'
+    
+    player_index = matchPlayer(player, run)
+
+    if player_index is None:
+        return f'{player} was not recogized as a player in the currently selected run!'
+    
+    encounter = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == dex_num]
+
+    if len(encounter) == 0:
+        return f'{mon} was not recognized as a pokemon in one of your links! Only run this command using your own pokemon!'
+    
+    return f'{mon} was first encountered at {encounter[0]["Name"]}.'
 #endregion
 
 #region $sl new-death and undo-death command
@@ -747,16 +808,6 @@ async def seeStats(run_name):
 
     description_string += '\nTo see active and dead links, use the $sl links and $sl deaths commands!'
 
-    embed = discord.Embed(title=f'{run_name} Stats',
-                          description=description_string,
-                          color=game_data['Colour'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())])
-    
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
-    else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
-
     player_string = ''
     link_string = ''
     link_emoji = game_data['Link-Emoji'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())]
@@ -766,9 +817,19 @@ async def seeStats(run_name):
             player_string += f'{player}'
         else:
             player_string += f'{player}{link_emoji}'
+
+    embed = discord.Embed(title=f'{run_name} Stats',
+                          description=f'{description_string}\n{player_string}',
+                          color=game_data['Colour'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())])
     
-    for progress_index in range(run['Current-Progress']):
-        embed.title = f'{run_name} Info\nThe Team vs. {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Battle-Name"]} at Lv.{[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Level-Cap"]}!'
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
+    else: 
+        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
+    
+    for progress_index in range(run['Current-Progress'] + 1):
+        embed.title = f'{run_name} Info\nThe Team vs. {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Battle-Name"]} at Lv. {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Level-Cap"]}!'
         
         if len(run['Teams'][progress_index]) > 0:
             for encounter in run['Teams'][progress_index]:
@@ -783,15 +844,23 @@ async def seeStats(run_name):
         else:
             link_string = 'No team was specified for this battle!'
         
-        embed.add_field(name=player_string,
+        embed.add_field(name='',
                         value=link_string,
                         inline=True)
         
         embeds.append(copy.deepcopy(embed))
 
         embed.clear_fields()
-        encounter_string = ''
-        player_string = ''
+        link_string = ''
+
+    embed.title = f'{run_name} Info\nRun Notes'
+    embed.description = description_string
+
+    embed.add_field(name='',
+                    value=run['Run-Notes'][:1024],
+                    inline=True)
+    
+    embeds.append(embed)
 
     return embeds
 #endregion 
