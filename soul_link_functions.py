@@ -12,7 +12,6 @@ import random
 import regex as re
 import math
 import copy
-import asyncio
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
@@ -555,12 +554,11 @@ async def createReason(user_input):
         {'role':'user', 'content':user_input}
     ]
     try:
-        response = await asyncio.wait_for(openai.chat.completions.create(model="gpt-3.5-turbo", messages = messages, temperature=0.8, max_tokens=500), timeout=30)
+        response = openai.chat.completions.create(model="gpt-3.5-turbo", messages = messages, temperature=0.8, max_tokens=500)
 
         return response.choices[0].message.content[0:2000]
-    except asyncio.TimeoutError:
-        return 'Shuckle took too long to respond. Probably went for it\'s 152nd beer... try again when it wakes up from its coma!'
-    except:
+    except Exception as ex:
+        print(ex)
         return '<@341722760852013066> ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
 #endregion
 
