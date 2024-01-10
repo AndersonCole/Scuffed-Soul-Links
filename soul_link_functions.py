@@ -948,7 +948,7 @@ def movesetTextLevel(moveset, level):
             break
         tempMoveset.append(move)
         if len(tempMoveset) > 4:
-            tempMoveset.pop(-1)
+            tempMoveset.pop(0)
     moveset = tempMoveset
 
     for move in moveset:
