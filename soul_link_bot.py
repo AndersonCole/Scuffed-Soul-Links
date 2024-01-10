@@ -126,11 +126,30 @@ class MyClient(discord.Client):
                     else:
                         await Paginator.Simple().start(message.channel, pages=embeds)
             
-            elif input [0:10] == 'link-name ':
+            elif input[0:10] == 'link-data ':
                 if run_name == '':
                     await message.channel.send('Select a run first using $sl select-run!')
                 else:
-                    response = await getLinkName(run_name, str(input[10:]).strip(), message.author.mention)
+                    embed = await getLinkData(run_name, str(input[10:]).strip(), message.author.mention)
+
+                    if(type(embed) == type('')):
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send(embed=embed)
+
+            elif input[0:7] == 'evolve ':
+                if run_name == '':
+                    await message.channel.send('Select a run first using $sl select-run!')
+                else:
+                    response = await evolveMon(run_name, str(input[7:]).strip(), message.author.mention)
+
+                    await message.channel.send(response)
+
+            elif input[0:12] == 'undo-evolve ':
+                if run_name == '':
+                    await message.channel.send('Select a run first using $sl select-run!')
+                else:
+                    response = await undoEvolveMon(run_name, str(input[12:]).strip(), message.author.mention)
 
                     await message.channel.send(response)
 

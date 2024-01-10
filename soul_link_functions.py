@@ -38,7 +38,9 @@ async def help():
                                       '```$sl encounter Starter, Bulbasaur``` Adds data to an encounter, the other users in the sl can call the command again to set their encountered mon\n' +
                                       '```$sl encounter Starter, @Player1 Bulbasaur, @Player2 Charmander``` Another option for adding data to an encounter, you can specify encounters for as many players as needed\n' +
                                       '```$sl links``` Lists out the active links for the current run\n' +
-                                      '```$sl link-name Bulbasaur``` Gives you the name of the link for the specified mon\n' +
+                                      '```$sl link-data Bulbasaur``` Gives you information about the link for the specified mon you own\n' +
+                                      '```$sl link-data Starter``` Gives you information about the link for the area it was encountered\n' +
+                                      '```$sl evolve Bulbasaur``` Evolves a pokemon you own\n' +
                                       '```$sl new-death Starter, Metronome explosion :(``` Removes the link from the active links\n' +
                                       '```$sl deaths``` Lists out all the dead links, and cause of death\n' +
                                       '```$sl create-reason It was Nate\'s fault the starters died``` Explain the situation, and an excuse for the cause of death will be generated\n' +
@@ -119,7 +121,7 @@ def matchPlayer(player, run):
         return None
     
 def checkEncounter(name, run):
-    return any(encounter['Name'] == name for encounter in run['Encounters'])
+    return any(encounter['Name'].lower() == name.lower() for encounter in run['Encounters'])
 
 def tryAddPlayerData(player_string, encounter, player_len):
     if len(encounter) == player_len:
@@ -270,7 +272,7 @@ async def encounterMon(encounter_name, encounter, player, run_name):
     if not checkEncounter(encounter_name, run):
         return f'{encounter_name} was not recognized as a valid area for an encounter! Make sure to use the \'$sl progress\' command after each major battle to unlock new encounters!'
     
-    encounter_data = [obj for obj in run['Encounters'] if obj['Name'] == encounter_name][0]
+    encounter_data = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounter_name.lower()][0]
 
     encounter_data['Pokemon'][player_index] = dex_num
 
@@ -290,7 +292,7 @@ async def encounterMonGroup(encounter_name, encounters, run_name):
     if not checkEncounter(encounter_name, run):
         return f'{encounter_name} was not recognized as a valid area for an encounter! Make sure to use the \'$sl progress\' command after each major battle to unlock new encounters!'
     
-    encounter_data = [obj for obj in run['Encounters'] if obj['Name'] == encounter_name][0]
+    encounter_data = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounter_name.lower()][0]
 
     response_string = ''
 
@@ -468,28 +470,167 @@ async def listLinks(run_name):
 
 #endregion
 
-#region $sl get-link command
-async def getLinkName(run_name, mon, player):
+#region $sl link-data command
+async def getLinkData(run_name, input, player):
     run = getRun(run_name)
-    dex_num = getDexNum(mon)
 
     if run is None:
         return 'Somehow the run name is invalid. Get <@341722760852013066> to look into it lol'
     
-    if dex_num == -1:
-        return f'The pokemon \'{mon}\' was not recognized!'
+    game_data = [obj for obj in games if any(group.lower() == run['Game'].lower() for group in obj['Games'])][0]
+
+    player_string = ''
+    link_emoji = game_data['Link-Emoji'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())]
+
+    for player_name in run['Players']:
+        if player_name == run['Players'][-1]:
+            player_string += f'{player_name}'
+        else:
+            player_string += f'{player_name}{link_emoji}'
+
+    embed = discord.Embed(title=f'Link Data',
+                          description=player_string,
+                          color=game_data['Colour'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())])
+
+    if checkEncounter(input, run):
+        encounter_data = [encounter for encounter in run['Encounters'] if encounter['Name'].lower() == input.lower()][0]
+        encounter_string = ''
+        for index, dex_num in enumerate(encounter_data['Pokemon']):
+            if dex_num == -1:
+                mon_name = 'X'
+            else:
+                mon_name = getMonName(dex_num)
+                if mon_name is None:
+                    mon_name = 'Invalid Name'
+            if index == len(encounter_data['Pokemon']) - 1:
+                encounter_string += f'{mon_name}\n'
+            else:
+                encounter_string += f'{mon_name}{link_emoji}'
+
+        if encounter_data['Alive']:
+            status = 'Alive'
+        else:
+            status = 'Dead'
+
+        embed.add_field(name=f'{encounter_data["Name"]} - {status}',
+                        value=encounter_string,
+                        inline=True)
+        
+        return embed
+    else:
+        dex_num = getDexNum(input)
+
+        if dex_num == -1:
+            return f'{input} was not recognized as a valid mon name or as an encounter location!'
+        
+        player_index = matchPlayer(player, run)
+
+        if player_index is None:
+            return 'The author of this input was not recognized as a player in the currently selected run!'
+        
+        encounter_data = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == dex_num]
+        
+        if len(encounter_data) >= 1:
+            encounter_data = encounter_data[0]
+        else:
+            return f'You do not own a {input}!'
+
+        encounter_string = ''
+        for index, dex_num in enumerate(encounter_data['Pokemon']):
+            if dex_num == -1:
+                mon_name = 'X'
+            else:
+                mon_name = getMonName(dex_num)
+                if mon_name is None:
+                    mon_name = 'Invalid Name'
+            if index == len(encounter_data['Pokemon']) - 1:
+                encounter_string += f'{mon_name}\n'
+            else:
+                encounter_string += f'{mon_name}{link_emoji}'
+
+        if encounter_data['Alive']:
+            status = 'Alive'
+        else:
+            status = 'Dead'
+
+        embed.add_field(name=f'{encounter_data["Name"]} - {status}',
+                        value=encounter_string,
+                        inline=True)
+        
+        return embed
+#endregion
+    
+#region $sl evolve and undo-evolve command
+async def evolveMon(run_name, mon_name, player):
+    run = getRun(run_name)
+
+    if run is None:
+        return 'Somehow the run name is invalid. Get <@341722760852013066> to look into it lol'
+    
+    dex_num = getDexNum(mon_name)
+    mon = getMon(dex_num)
+
+    if dex_num == -1 or mon is None:
+        return f'{mon_name} was not recognized as a valid pokemon!'
     
     player_index = matchPlayer(player, run)
 
     if player_index is None:
-        return f'{player} was not recogized as a player in the currently selected run!'
+        return 'The author of this input was not recognized as a player in the currently selected run!'
     
-    encounter = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == dex_num]
+    if len(mon['Evolves-Into']) == 0:
+        return f'{mon_name} can\'t evolve!'
+    
 
-    if len(encounter) == 0:
-        return f'{mon} was not recognized as a pokemon in one of your links! Only run this command using your own pokemon!'
+    encounter_data = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == dex_num and obj['Completed'] and obj['Alive']]
+
+    if len(encounter_data) >= 1:
+        encounter_data = encounter_data[0]
+    else:
+        return f'You do not own a {mon_name}!'
     
-    return f'{mon} was first encountered at {encounter[0]["Name"]}.'
+    evo_mon = getMon(mon['Evolves-Into'][0]['DexNum'])
+
+    encounter_data['Pokemon'][player_index] = evo_mon['DexNum']
+
+    await saveRunData()
+
+    return f'Your {mon_name} from {encounter_data["Name"]} has evolved into a {evo_mon["Name"]}!\nIf this was a mistake, use $sl undo-evolve {evo_mon["Name"]}\nIf this is not the correct evolution, use $sl encounter {encounter_data["Name"]}, evo-name-here'
+
+async def undoEvolveMon(run_name, mon_name, player):
+    run = getRun(run_name)
+
+    if run is None:
+        return 'Somehow the run name is invalid. Get <@341722760852013066> to look into it lol'
+    
+    dex_num = getDexNum(mon_name)
+    mon = getMon(dex_num)
+
+    if dex_num == -1 or mon is None:
+        return f'{mon_name} was not recognized as a valid pokemon!'
+    
+    player_index = matchPlayer(player, run)
+
+    if player_index is None:
+        return 'The author of this input was not recognized as a player in the currently selected run!'
+    
+    if mon['Evolves-From'] is None:
+        return f'{mon_name} doesn\'t have a pre-evo!'
+    
+    encounter_data = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == dex_num and obj['Completed'] and obj['Alive']]
+
+    if len(encounter_data) >= 1:
+        encounter_data = encounter_data[0]
+    else:
+        return f'You do not own a {mon_name}!'
+    
+    pre_evo_mon = getMon(mon['Evolves-From'])
+
+    encounter_data['Pokemon'][player_index] = pre_evo_mon['DexNum']
+
+    await saveRunData()
+
+    return f'Your {mon_name} from {encounter_data["Name"]} unevolved back into a {pre_evo_mon["Name"]}!'
 #endregion
 
 #region $sl new-death and undo-death command
@@ -505,7 +646,7 @@ async def newDeath(encounter_name, reason, run_name):
     if not checkEncounter(encounter_name, run):
         return f'{encounter_name} was not recognized as a valid encounter name!'
     
-    encounter_data = [obj for obj in run['Encounters'] if obj['Name'] == encounter_name][0]
+    encounter_data = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounter_name.lower()][0]
     
     encounter_data['Alive'] = False
     encounter_data['Death-Reason'] = reason
@@ -523,7 +664,7 @@ async def undoDeath(encounter_name, run_name):
     if not checkEncounter(encounter_name, run):
         return f'{encounter_name} was not recognized as a valid encounter name!'
     
-    encounter_data = [obj for obj in run['Encounters'] if obj['Name'] == encounter_name][0]
+    encounter_data = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounter_name.lower()][0]
     
     if encounter_data['Alive']:
         return f'The encounter from {encounter_name} is already alive! Use $sl death {encounter_name} if you wanted to mark the encounter as dead!'
@@ -1335,11 +1476,11 @@ async def makePokedexEmbed(mon, version_group):
 
     embed.set_author(name='Pokémon Data', url=f'https://www.serebii.net/pokedex{[obj for obj in gens if any(group["Name"] == version_group for group in obj["Version-Groups"])][0]["Serebii-Link"]}/{str(mon_data["species"]["url"][42:].strip("/")).zfill(3)}.shtml')
 
-    embed.add_field(name='Stats',
+    embed.add_field(name=f'Stats - {int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "attack"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "defense"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"])} BST',
                     value=f'HP - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"]}\nAtk - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "attack"][0]["base_stat"]}\nDef - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "defense"][0]["base_stat"]}',
                     inline=True)
     
-    embed.add_field(name='᲼',
+    embed.add_field(name=f'᲼',
                     value=f'Spd - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]}\nSp.Atk - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]}\nSp.Def - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"]}',
                     inline=True)
 
