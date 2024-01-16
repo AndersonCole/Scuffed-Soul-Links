@@ -104,7 +104,7 @@ class MyClient(discord.Client):
                 else:
                     await message.channel.send("Invalid input! Use commas ',' in between values!")
 
-            elif input[0:14] == 'see-encounters':
+            elif input[0:10] == 'encounters':
                 if run_name == '':
                     await message.channel.send('Select a run first using $sl select-run!')
                 else:
@@ -195,7 +195,7 @@ class MyClient(discord.Client):
                 else:
                     await message.channel.send(msg)
 
-            elif input[0:8] == 'see-runs':
+            elif input[0:4] == 'runs':
                 embeds = await listRuns()
 
                 await Paginator.Simple().start(message.channel, pages=embeds)
@@ -266,7 +266,7 @@ class MyClient(discord.Client):
                     response = await setRunStatus(run_name, 'In Progress')
                     await message.channel.send(response)
 
-            elif input[0:8] == 'see-info':
+            elif input[0:8] == 'run-info':
                 if run_name == '':
                     await message.channel.send('Select a run first using $sl select-run!')
                 else:
@@ -332,7 +332,7 @@ class MyClient(discord.Client):
 
                 await message.channel.send(response)
 
-            elif input[0:13] == 'see-nicknames':
+            elif input[0:9] == 'nicknames':
 
                 embed = await seeNicknames()
 

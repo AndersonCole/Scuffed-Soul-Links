@@ -44,21 +44,21 @@ async def help():
                                       '```$sl new-death Starter, Metronome explosion :(``` Removes the link from the active links\n' +
                                       '```$sl deaths``` Lists out all the dead links, and cause of death\n' +
                                       '```$sl create-reason It was Nate\'s fault the starters died``` Explain the situation, and an excuse for the cause of death will be generated\n' +
-                                      '```$sl see-encounters``` Lists out all the areas where mons can be encountered\n' +
+                                      '```$sl encounters``` Lists out all the areas where mons can be encountered\n' +
                                       '```$sl choose-team Bulbasaur, Groudon, Kyogre...``` Selects a team for the next important battle. Matches mons to links. Not required\n' +
                                       '```$sl random-user``` @\'s a random user participating in the run\n' +
                                       '```$sl battles``` Lists out the next important battle and its level caps\n' +
                                       '```$sl progress``` Moves the runs progress past the next important battle\n' +
                                       '```$sl add-note REM sleep is trendy!``` Adds a note to the run, highlighting funny events or whatnot\n' +
                                       '```$sl select-run HGAttempt1``` Selects a run to focus on\n' +
-                                      '```$sl see-runs``` Lists out all runs\n' +
+                                      '```$sl runs``` Lists out all runs\n' +
                                       '```$sl win-run``` Ends the run in victory\n' +
                                       '```$sl fail-run``` Ends the run in failure\n' +
-                                      '```$sl see-info``` Prints out all relevant stats for the currently selected run\n\n' +
+                                      '```$sl run-info``` Prints out all relevant stats for the currently selected run\n\n' +
                                       '```$sl dex Bulbasaur``` Shows data on selected pokemon\n' +
                                       '```$sl moves Bulbasaur 24``` Shows the four moves the mon has at a specific level\n' +
                                       '```$sl add-nickname Ttar 248``` Adds nicknames to link to pokedex numbers. Don\'t add nicknames for mons with forms\n' +
-                                      '```$sl see-nicknames``` Prints out all nicknames\n' +
+                                      '```$sl nicknames``` Prints out all nicknames\n' +
                                       '```$sl catch Bulbasaur 5``` Caclulates the catch rate for the selected gen given the pokemon and level\n' +
                                       '```$sl rare-candies``` Shuckle explains how to aquire rare candies using PKHex\n\n' +
                                       'For Data on forms, type the pokemon\'s name like giratina origin, vulpix alola, charizard mega y, appletun gmax\n' +
@@ -330,7 +330,7 @@ async def encounterMonGroup(encounter_name, encounters, run_name):
 
 #endregion
 
-#region $sl see-encounters command
+#region $sl encounters command
 async def listEncounters(run_name):
     run = getRun(run_name)
 
@@ -771,7 +771,7 @@ def selectRun(name):
     return run['Version-Group'], run['Name'], 'Success'
 #endregion
 
-#region $sl see-runs command
+#region $sl runs command
 async def listRuns():
     embeds = []
 
@@ -855,7 +855,10 @@ async def chooseTeam(run_name, links, player):
         encounter_link = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == link]
 
         if len(encounter_link) > 0: 
-            encounter_data.append([obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == link and obj['Completed'] and obj['Alive']][0])
+            try:
+                encounter_data.append([obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == link and obj['Completed'] and obj['Alive']][0])
+            except:
+                return f'{temp_link} was not paired to a completed or alive link! Some fraud needs to mark their encounters or deaths!'
         else:
             return f'{temp_link} was not recognized as a pokemon you own! Make sure you\'re listing out your pokemon, and not everyone elses pokemon'
     
@@ -936,7 +939,7 @@ async def addNote(run_name, note):
     return f'Note successfully added to {run["Name"]}'
 #endregion
 
-#region $sl see-info command
+#region $sl run-info command
 async def seeStats(run_name):
     run = getRun(run_name)
 
@@ -1082,22 +1085,28 @@ def movesetTextLevel(moveset, level):
     move_name_text = ''
     move_type_category_text = ''
     move_power_accuracy_text = ''
+    comment = ''
 
     tempMoveset = []
     for move in moveset:
         if move['Level'] > level:
             break
+        elif move in tempMoveset:
+            continue
         tempMoveset.append(move)
         if len(tempMoveset) > 4:
             tempMoveset.pop(0)
     moveset = tempMoveset
 
+
     for move in moveset:
+        if move['Level'] <= 1:
+            comment = 'This moveset contains level 1 moves! Double check the moveset with $sl dex or Serebii!'
         move_name_text += f'{move["Name"]}\n'
         move_type_category_text += f'᲼{[obj for obj in types if obj["Name"] == move["Type"]][0]["Emoji"]} ᲼᲼ {[obj for obj in categories if obj["Name"] == move["Category"]][0]["Emoji"]}\n'
         move_power_accuracy_text += f'{move["Power"]}᲼᲼{"   " if move["Power"] == "᲼-᲼" and move["Accuracy"] == "100" else ""}{move["Accuracy"]}\n'
 
-    return move_name_text, move_type_category_text, move_power_accuracy_text
+    return move_name_text, move_type_category_text, move_power_accuracy_text, comment
 
 #endregion
 
@@ -1527,12 +1536,13 @@ async def showMoveSet(mon, level, version_group):
 
     moveset, version_group = await get_moves(mon_data['moves'], version_group)
 
-    moveset_names, moveset_types_categories, moveset_power_accuracy = movesetTextLevel(moveset, level)
+    moveset_names, moveset_types_categories, moveset_power_accuracy, comment = movesetTextLevel(moveset, level)
 
     version_group_name = re.split(r'[\s-.]+', version_group)
     version_group_name = ' '.join(word.capitalize() for word in version_group_name)
 
     embed = discord.Embed(title=f'Level {level} {mon_name}',
+                          description=comment,
                           color=[obj for obj in types if obj['Name'] == str(mon_data['types'][0]['type']['name']).capitalize()][0]['Colour'])
     
     rand_num = random.randint(1, 100)
@@ -1657,7 +1667,7 @@ async def addNickname(nickname, dex_num):
 
 #endregion
         
-#region $sl see-nicknames command
+#region $sl nicknames command
 async def seeNicknames():
     nicknames = [obj for obj in pokemon if obj['Nickname'] is True]
 
