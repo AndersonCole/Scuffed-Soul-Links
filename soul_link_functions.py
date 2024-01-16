@@ -1087,16 +1087,16 @@ def movesetTextLevel(moveset, level):
     move_power_accuracy_text = ''
     comment = ''
 
-    tempMoveset = []
+    temp_moveset = []
     for move in moveset:
         if move['Level'] > level:
             break
-        elif move in tempMoveset:
+        elif move['Name'] in [temp_move['Name'] for temp_move in temp_moveset]:
             continue
-        tempMoveset.append(move)
-        if len(tempMoveset) > 4:
-            tempMoveset.pop(0)
-    moveset = tempMoveset
+        temp_moveset.append(move)
+        if len(temp_moveset) > 4:
+            temp_moveset.pop(0)
+    moveset = temp_moveset
 
 
     for move in moveset:
@@ -1553,6 +1553,14 @@ async def showMoveSet(mon, level, version_group):
     
     embed.set_author(name='Moveset Data', url=f'https://www.serebii.net/pokedex{[obj for obj in gens if any(group["Name"] == version_group for group in obj["Version-Groups"])][0]["Serebii-Link"]}/{str(mon_data["species"]["url"][42:].strip("/")).zfill(3)}.shtml')
 
+    embed.add_field(name=f'31 IVs, 0 EVs, Neutral',
+                    value=f'HP - {calculateHP(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"]), level)}\nAtk - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "attack"][0]["base_stat"]), level)}\nDef - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "defense"][0]["base_stat"]), level)}',
+                    inline=True)
+    
+    embed.add_field(name=f'{int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "attack"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "defense"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"])} BST',
+                    value=f'Spd - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]), level)}\nSp.Atk - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]), level)}\nSp.Def - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"]), level)}',
+                    inline=True)
+    
     embed.add_field(name=f'Moveset Data from {version_group_name}',
                     value='',
                     inline=False)
@@ -1570,6 +1578,20 @@ async def showMoveSet(mon, level, version_group):
                     inline=True)
     
     return embed
+
+def calculateHP(base_stat, level):
+    if base_stat == 1:
+        hp_stat = 1
+    else:
+        hp_stat = math.floor(((2 * base_stat + 31) * level)/100) + level + 10
+
+    return hp_stat
+
+def calculateStat(base_stat, level):
+    stat = math.floor(((2 * base_stat + 31) * level)/100) + 5
+
+    return stat
+
 #endregion
 
 #endregion
