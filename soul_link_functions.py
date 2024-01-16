@@ -441,7 +441,7 @@ async def listLinks(run_name):
                 else:
                     encounter_string += f'{mon_name}{link_emoji}'
         else:
-            embed.add_field(name=player_string,
+            embed.add_field(name='',
                             value=encounter_string,
                             inline=True)
             
