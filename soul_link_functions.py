@@ -1101,7 +1101,7 @@ def movesetTextLevel(moveset, level):
 
     for move in moveset:
         if move['Level'] <= 1:
-            comment = 'This moveset contains level 1 moves! Double check the moveset with $sl dex or Serebii!'
+            comment = 'This moveset contains level 1 moves!\nDouble check the moveset with $sl dex or Serebii!'
         move_name_text += f'{move["Name"]}\n'
         move_type_category_text += f'᲼{[obj for obj in types if obj["Name"] == move["Type"]][0]["Emoji"]} ᲼᲼ {[obj for obj in categories if obj["Name"] == move["Category"]][0]["Emoji"]}\n'
         move_power_accuracy_text += f'{move["Power"]}᲼᲼{"   " if move["Power"] == "᲼-᲼" and move["Accuracy"] == "100" else ""}{move["Accuracy"]}\n'
