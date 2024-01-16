@@ -130,7 +130,14 @@ class MyClient(discord.Client):
                 if run_name == '':
                     await message.channel.send('Select a run first using $sl select-run!')
                 else:
-                    embed = await getLinkData(run_name, str(input[10:]).strip(), message.author.mention)
+                    if re.search(r'<@\d+>', input[10:].strip()) is not None:
+                        input = re.split(r'[\s]+', input[10:])
+                        player_name = input[0]
+                        input.pop(0)
+                        input = ' '.join(word for word in input)
+                        embed = await getLinkData(run_name, str(input).strip(), player_name)
+                    else:
+                        embed = await getLinkData(run_name, str(input[10:]).strip(), message.author.mention)
 
                     if(type(embed) == type('')):
                         await message.channel.send(embed)
