@@ -393,7 +393,18 @@ class MyClient(discord.Client):
                     raise Exception()
             except:
                 await message.channel.send("Mimikyu Lives On! But... you've still learned nothing and went and fucked something up. Only send messages like this ```$format Gym 1, Misty, 20, Route 3, Route 4``` In this order, Name of the previous battle ex. Gym 1, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
+        
+        #mudae lmao
+        elif 'is about to be grinded into kakera by **anderson499**' in message.content:
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+            else: 
+                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+            input = message.content[4:]
 
+            await message.channel.send(f'Your divorce papers are ready. So sad to see a blossoming relationship end so soon...\n' +
+                                 f'But make sure to get that Mr. Krabs gif ready!\n```$divorce {message.content.split("**")[1]}```')
 
 version_group = ''
 most_recent_version_group = 'scarlet-violet'
