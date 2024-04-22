@@ -103,7 +103,7 @@ async def walkRoute(route_name, distance, direction, cell_count, user):
         return 'The name of the route was invalid, or you were not the one who created this route!'
     
     walkedRoutes.append({
-        'Name': route_name,
+        'Name': route_data['Name'],
         'Cells': cell_count,
         'Distance': distance,
         'Direction': direction,
@@ -112,7 +112,7 @@ async def walkRoute(route_name, distance, direction, cell_count, user):
         'User': user
     })
 
-    [obj for obj in routes if obj['Name'] == route_name and obj['User'] == user][0]['TimesWalked'] += 1
+    [obj for obj in routes if obj['Name'].lower() == route_name.lower() and obj['User'] == user][0]['TimesWalked'] += 1
 
     await saveRoutesData()
 
@@ -216,33 +216,37 @@ async def printoutRoutes(user):
         times_walked = no_badge_walked + bronze_walked + silver_walked + gold_walked
         total_cells = no_badge_cells + bronze_cells + silver_cells + gold_cells
 
-        stats_string = (f'Route Distance: {route["Distance"]}m\n'
-                        f'Times Walked: {times_walked}\n'
-                        f'Total Cells: {total_cells}\n\n'
-                        f'Cell% No Badge: {getCellPercentage(no_badge_walked, no_badge_cells)}\n'
-                        f'Cell% Bronze Badge: {getCellPercentage(bronze_walked, bronze_cells)}\n'
-                        f'Cell% Silver Badge: {getCellPercentage(silver_walked, silver_cells)}\n'
-                        f'Cell% Gold Badge: {getCellPercentage(gold_walked, gold_cells)}\n'
-                        f'Cell% Overall: {getCellPercentage(times_walked, total_cells)}')
+        if times_walked > 0:
+            stats_string = (f'Route Distance: {route["Distance"]}m\n'
+                            f'Times Walked: {times_walked}\n'
+                            f'Total Cells: {total_cells}\n\n'
+                            f'Cell% No Badge: {getCellPercentage(no_badge_walked, no_badge_cells)}\n'
+                            f'Cell% Bronze Badge: {getCellPercentage(bronze_walked, bronze_cells)}\n'
+                            f'Cell% Silver Badge: {getCellPercentage(silver_walked, silver_cells)}\n'
+                            f'Cell% Gold Badge: {getCellPercentage(gold_walked, gold_cells)}\n'
+                            f'Cell% Overall: {getCellPercentage(times_walked, total_cells)}')
 
-        embed.add_field(name='',
-                        value=stats_string,
-                        inline=True)
-        
-        badge = getBadgeLevel(route['TimesWalked'])
+            embed.add_field(name='',
+                            value=stats_string,
+                            inline=True)
+            
+            badge = getBadgeLevel(route['TimesWalked'])
 
-        if badge == 'Bronze':
-            embed.set_thumbnail(url='https://i.imgur.com/6ml8tPH.png')
-        elif badge == 'Silver':
-            embed.set_thumbnail(url='https://i.imgur.com/UQVgqzX.png')
-        elif badge == 'Gold':
-            embed.set_thumbnail(url='https://i.imgur.com/fOtlgwX.png')
-        else:
-            embed.set_thumbnail(url='https://i.imgur.com/NlaviUg.png')
+            if badge == 'Bronze':
+                embed.set_thumbnail(url='https://i.imgur.com/6ml8tPH.png')
+            elif badge == 'Silver':
+                embed.set_thumbnail(url='https://i.imgur.com/UQVgqzX.png')
+            elif badge == 'Gold':
+                embed.set_thumbnail(url='https://i.imgur.com/fOtlgwX.png')
+            else:
+                embed.set_thumbnail(url='https://i.imgur.com/NlaviUg.png')
 
-        embeds.append(copy.deepcopy(embed))
+            embeds.append(copy.deepcopy(embed))
 
-        embed.clear_fields()
+            embed.clear_fields()
 
-    return embeds
+    if len(embeds) > 0:
+        return embeds
+    else:
+        return 'You haven\'t walked any routes yet! Get out there soldier, Zygarde needs YOUR help to destroy ML!'
 #endregion
