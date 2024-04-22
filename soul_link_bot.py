@@ -36,8 +36,32 @@ class MyClient(discord.Client):
             return
         
         #region bot commands
+        if message.content[0:14] == '$shuckle help':
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+            else: 
+                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+
+            embed = discord.Embed(title=f'Shuckle Bot Commands',
+                                description='```$sl help``` Shows all the soul link commands\n' +
+                                            '```$routes help``` Shows all the routes commands\n' +
+                                            '```$format help``` Shows how to call the mimikyu format command\n' +
+                                            '```$pvp``` Brings up the pvp rank reqs image',
+                                color=3553598)
+
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                file = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
+                embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
+            else: 
+                file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
+                embed.set_thumbnail(url='attachment://swole_shuckle.png')
+            
+            await message.channel.send(embed=embed, file=file)
+
         #region soul links
-        if message.content[0:4] == '$sl ':
+        elif message.content[0:4] == '$sl ':
             rand_num = random.randint(1, 100)
             if rand_num == 69:
                 await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
@@ -428,10 +452,26 @@ class MyClient(discord.Client):
                 await message.channel.send('Only routes strongest soldiers may use these commands. Begone non-believer!')
         #endregion
         
+        #region pvp
+        elif message.content[0:4] == '$pvp':
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+            else: 
+                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+
+            file = discord.File('images/pvp.png', filename='pvp.png')
+
+            await message.channel.send(file=file)
+        #endregion
+
         #region mimikyu format
         elif message.content[0:8] == "$format ":
             input = message.content[8:]
             try:
+                if input == 'help':
+                    raise Exception()
+                
                 if ',' in input:
                     input = str(input).split(",")
                     name = str(input[0]).strip()
