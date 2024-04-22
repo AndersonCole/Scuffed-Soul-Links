@@ -8,6 +8,7 @@ import discord
 import random
 import regex as re
 from soul_link_functions import *
+from routes_functions import *
 import Paginator
 
 ## MYClient Class Definition
@@ -34,6 +35,8 @@ class MyClient(discord.Client):
         if message.author == self.user:
             return
         
+        #region bot commands
+        #region soul links
         if message.content[0:4] == '$sl ':
             rand_num = random.randint(1, 100)
             if rand_num == 69:
@@ -361,8 +364,71 @@ class MyClient(discord.Client):
 
             else:
                 await message.channel.send('Command not recognized. Try using ```$sl help```')
-            
-        #mimikyu format command
+        #endregion
+
+        #region routes
+        elif message.content[0:8] == '$routes ':
+            await message.add_reaction('<:Zygarde_Cell:1231761804032610384>')
+            input = message.content[8:]
+
+            if await checkStrongestSoldier(int(message.author.mention[2:-1]), message.guild):
+                if input == 'help':
+                    embed, file = await routesHelp()
+                    await message.channel.send(file=file, embed=embed)
+
+                elif input[0:4] == 'add ':
+                    if ',' in input:
+                        user_inputs = re.split(r'[,]+', input[4:])
+                        if len(user_inputs) == 3:
+                            embed = await addRoute(user_inputs[0].strip(), int(user_inputs[1]), int(user_inputs[2]), message.author.mention)
+                            await message.channel.send(embed)
+                        else:
+                            await message.channel.send('Invalid input! Check `$routes help`')
+                    else:
+                        await message.channel.send('Invalid input! Use commas \',\' in between values!')
+
+                elif input[0:5] == 'walk ':
+                    if ',' in input:
+                        user_inputs = re.split(r'[,]+', input[5:])
+                        if len(user_inputs) == 4:
+                            embed = await walkRoute(user_inputs[0].strip(), int(user_inputs[1]), user_inputs[2].strip(), int(user_inputs[3]), message.author.mention)
+                            await message.channel.send(embed)
+                        else:
+                            await message.channel.send('Invalid input! Check `$routes help`')
+                    else:
+                        await message.channel.send('Invalid input! Use commas \',\' in between values!')
+
+                elif input[0:4] == 'list':
+                    embed, file = await listRoutes(message.author.mention)
+
+                    if(type(embed) == type('')):
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send(file=file, embed=embed)
+
+                elif input[0:5] == 'today':
+                    embed, file = await printoutDay(message.author.mention)
+
+                    if(type(embed) == type('')):
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send(file=file, embed=embed)
+
+                elif input[0:5] == 'stats':
+                    embeds = await printoutRoutes(message.author.mention)
+
+                    if(type(embeds) == type('')):
+                        await message.channel.send(embeds)
+                    else:
+                        await Paginator.Simple().start(message.channel, pages=embeds)
+
+                else:
+                    await message.channel.send('Command not recognized. Try using ```$routes help```')
+            else:
+                await message.channel.send('Only routes strongest soldiers may use these commands. Begone non-believer!')
+        #endregion
+        
+        #region mimikyu format
         elif message.content[0:8] == "$format ":
             input = message.content[8:]
             try:
@@ -393,8 +459,9 @@ class MyClient(discord.Client):
                     raise Exception()
             except:
                 await message.channel.send("Mimikyu Lives On! But... you've still learned nothing and went and fucked something up. Only send messages like this ```$format Gym 1, Misty, 20, Route 3, Route 4``` In this order, Name of the previous battle ex. Gym 1, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
-        
-        #mudae lmao
+        #endregion
+
+        #region mudae
         elif 'is about to be grinded into kakera by **anderson499**' in message.content:
             rand_num = random.randint(1, 100)
             if rand_num == 69:
@@ -405,7 +472,9 @@ class MyClient(discord.Client):
 
             await message.channel.send(f'Your divorce papers are ready. So sad to see a blossoming relationship end so soon...\n' +
                                  f'But make sure to get that Mr. Krabs gif ready!\n```$divorce {message.content.split("**")[1]}```')
-
+        #endregion
+        #endregion
+        
 version_group = ''
 most_recent_version_group = 'scarlet-violet'
 
