@@ -9,6 +9,7 @@ import random
 import regex as re
 from soul_link_functions import *
 from routes_functions import *
+from dps_functions import *
 import Paginator
 
 ## MYClient Class Definition
@@ -46,6 +47,7 @@ class MyClient(discord.Client):
             embed = discord.Embed(title=f'Shuckle Bot Commands',
                                 description='```$sl help``` Shows all the soul link commands\n' +
                                             '```$routes help``` Shows all the routes commands\n' +
+                                            '```$dps help``` Shows all the PoGo dps commands\n' +
                                             '```$format help``` Shows how to call the mimikyu format command\n' +
                                             '```$pvp``` Brings up the pvp rank reqs image',
                                 color=3553598)
@@ -498,7 +500,7 @@ class MyClient(discord.Client):
                 else:
                     raise Exception()
             except:
-                await message.channel.send("Mimikyu Lives On! But... you've still learned nothing and went and fucked something up. Only send messages like this ```$format Gym 1, Misty, 20, Route 3, Route 4``` In this order, Name of the previous battle ex. Gym 1, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
+                await message.channel.send("Mimikyu Lives On! But... you've still learned nothing and went and fucked something up.\n Only send messages like this ```$format Gym 1, Misty, 20, Route 3, Route 4``` In this order, Name of the previous battle ex. Gym 1, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
         #endregion
 
         #region mudae
@@ -512,6 +514,87 @@ class MyClient(discord.Client):
 
             await message.channel.send(f'Your divorce papers are ready. So sad to see a blossoming relationship end so soon...\n' +
                                  f'But make sure to get that Mr. Krabs gif ready!\n```$divorce {message.content.split("**")[1]}```')
+        #endregion
+
+        #region pogo dps
+        elif message.content[0:5] == '$dps ':
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+            else: 
+                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+
+            input = message.content[5:]
+
+            if input == 'help':
+                embed, file = await dpsHelp()
+                await message.channel.send(file=file, embed=embed)
+            
+            
+            elif input[0:8] == 'add-mon ':
+                if ',' in input:
+                    user_inputs = re.split(r'[,]+', input[8:])
+                    if len(user_inputs) == 4:
+                        embed = await dpsAddMon(user_inputs[0].strip(), int(user_inputs[1]), int(user_inputs[2]), int(user_inputs[3]))
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send('Invalid input! Check `$dps help`')
+                else:
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
+            
+            elif input[0:9] == 'add-move ':
+                if ',' in input:
+                    user_inputs = re.split(r'[,]+', input[9:])
+                    if len(user_inputs) == 4:
+                        embed = await dpsAddFastMove(user_inputs[0].strip(), int(user_inputs[1]), int(user_inputs[2]), int(user_inputs[3]))
+                        await message.channel.send(embed)
+                    elif len(user_inputs) == 5:
+                        embed = await dpsAddChargedMove(user_inputs[0].strip(), int(user_inputs[1]), int(user_inputs[2]), int(user_inputs[3]), int(user_inputs[4]))
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send('Invalid input! Check `$dps help`')
+                else:
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
+            
+            elif input[0:12] == 'add-moveset ':
+                if ',' in input:
+                    user_inputs = re.split(r'[,]+', input[12:])
+                    if len(user_inputs) >= 2:
+                        embed = await dpsAddMoveset(user_inputs[0].strip(), user_inputs[1:])
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send('Invalid input! Check `$dps help`')
+                else:
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
+
+            elif input[0:10] == 'list-moves':
+                embeds = await listDPSMoves()
+
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
+
+            elif input[0:6] == 'check ':
+                if ',' in input:
+                    user_inputs = re.split(r'[,]+', input[6:])
+                    if len(user_inputs) == 2:
+                        embed = await dpsCheck(user_inputs[0].strip(), int(user_inputs[1]))
+                        if(type(embed) == type('')):
+                            await message.channel.send(embed)
+                        else:
+                            await message.channel.send(embed=embed)
+                    elif len(user_inputs) == 3:
+                        embed = await dpsCheck(user_inputs[0].strip(), int(user_inputs[1]), shadow=True)
+                        if(type(embed) == type('')):
+                            await message.channel.send(embed)
+                        else:
+                            await message.channel.send(embed=embed)
+                    else:
+                        await message.channel.send('Invalid input! Check `$dps help`')
+                else:
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
+
         #endregion
         #endregion
         
