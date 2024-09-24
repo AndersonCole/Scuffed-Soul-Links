@@ -567,6 +567,17 @@ class MyClient(discord.Client):
                 else:
                     await message.channel.send('Invalid input! Use commas \',\' in between values!')
 
+            elif input[0:15] == 'remove-moveset ':
+                if ',' in input:
+                    user_inputs = re.split(r'[,]+', input[15:])
+                    if len(user_inputs) >= 2:
+                        embed = await dpsRemoveMoveset(user_inputs[0].strip(), user_inputs[1:])
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send('Invalid input! Check `$dps help`')
+                else:
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
+
             elif input[0:10] == 'list-moves':
                 embeds = await listDPSMoves()
 
@@ -575,27 +586,43 @@ class MyClient(discord.Client):
                 else:
                     await Paginator.Simple().start(message.channel, pages=embeds)
 
+            elif input[0:9] == 'list-mons':
+                embeds = await listDPSMons()
+
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
+            
+            elif input[0:12] == 'delete-move ':
+                embed = await deleteDPSMove(input[12:])
+
+                await message.channel.send(embed)
+
+            elif input[0:11] == 'delete-mon ':
+                embed = await deleteDPSMon(input[11:])
+
+                await message.channel.send(embed)
+
             elif input[0:6] == 'check ':
                 if ',' in input:
                     user_inputs = re.split(r'[,]+', input[6:])
-                    if len(user_inputs) == 2:
-                        embed = await dpsCheck(user_inputs[0].strip(), int(user_inputs[1]))
-                        if(type(embed) == type('')):
-                            await message.channel.send(embed)
-                        else:
-                            await message.channel.send(embed=embed)
-                    elif len(user_inputs) == 3:
-                        embed = await dpsCheck(user_inputs[0].strip(), int(user_inputs[1]), shadow=True)
+                    if len(user_inputs) >= 2:
+                        embed = await dpsCheck(user_inputs[0].strip(), user_inputs[1:])
                         if(type(embed) == type('')):
                             await message.channel.send(embed)
                         else:
                             await message.channel.send(embed=embed)
                     else:
-                        await message.channel.send('Invalid input! Check `$dps help`')
+                        await message.channel.send('I don\'t know wtf you\'re trying to input!')
                 else:
-                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
+                    embed = await dpsCheck(input[6:].strip())
+                    if(type(embed) == type('')):
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send(embed=embed)
             else:
-                await message.channel.send('I don\'t understand this input!')
+                await message.channel.send('I don\'t know wtf you\'re trying to input!')
 
         #endregion
         #endregion
