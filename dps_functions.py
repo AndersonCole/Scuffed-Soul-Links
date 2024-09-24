@@ -308,8 +308,10 @@ async def listDPSMoves():
 
 #region dps calculations
 async def dpsCheck(monName, level, shadow=False):
-    ENEMY_DPS_SCALING = 4
-    BOSS_DEFENCE = 200
+    ENEMY_DPS_SCALING = 4.0
+    BOSS_ATTACK = 200
+    BOSS_DEFENCE = 70
+    STAB_MULTIPLIER = 1.2
     EXTRA_DPS_VALUE = 0.5
 
     if not checkDuplicateMon(monName):
@@ -368,11 +370,11 @@ async def dpsCheck(monName, level, shadow=False):
 
     for fastMove in fastMoves:
         for chargedMove in chargedMoves:
-            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_DEFENCE, EXTRA_DPS_VALUE)
+            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, STAB_MULTIPLIER, EXTRA_DPS_VALUE)
 
             newFastMove = await calcRoundedFastMoves(fastMove)
             newChargedMove = await calcRoundedChargedMoves(chargedMove)
-            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, ENEMY_DPS_SCALING, BOSS_DEFENCE, EXTRA_DPS_VALUE)
+            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, STAB_MULTIPLIER, EXTRA_DPS_VALUE)
 
             if shadow:
                 oldDPS = oldDPS*1.2
@@ -403,15 +405,15 @@ async def dpsCheck(monName, level, shadow=False):
 
     return embed
 
-async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_DEFENCE, EXTRA_DPS_VALUE):
-    dpsBoss = await calcBossDPS(ENEMY_DPS_SCALING, defence)
+async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, STAB_MULTIPLIER, EXTRA_DPS_VALUE):
+    dpsBoss = await calcBossDPS(ENEMY_DPS_SCALING, BOSS_ATTACK, defence)
 
-    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], EXTRA_DPS_VALUE)
+    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], STAB_MULTIPLIER, EXTRA_DPS_VALUE)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
     chargedMove['Energy'] = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
-    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], EXTRA_DPS_VALUE)
-    chargedEps = await calcChargedEPS(chargedMove['Energy'], fastMove['Energy'])
+    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], STAB_MULTIPLIER, EXTRA_DPS_VALUE)
+    chargedEps = await calcChargedEPS(chargedMove['Energy'], chargedMove['Duration'])
 
     energyEfficiency = await calcEnergyEfficiency(fastDps, fastEps, chargedDps, chargedEps)
 
@@ -430,8 +432,8 @@ async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsB
         chargedEnergy = chargedEnergyDelta
     return int(chargedEnergy)
     
-async def calcBossDPS(dpsScaling, defence):
-    dpsBoss = (dpsScaling*200)/defence
+async def calcBossDPS(dpsScaling, bossAttack, defence):
+    dpsBoss = dpsScaling*bossAttack/defence
     return dpsBoss
 
 '''
@@ -440,28 +442,30 @@ async def calcSurvivalTime(dpsBoss, stamina):
     return survivalTime
 '''
 
-async def calcFastDPS(fastDamage, fastDuration, EXTRA_DPS_VALUE):
-    dpsFast = (fastDamage + EXTRA_DPS_VALUE)/fastDuration
+async def calcFastDPS(fastDamage, fastDuration, STAB_MULTIPLIER, EXTRA_DPS_VALUE):
+    dmgFast = (fastDamage * STAB_MULTIPLIER) + EXTRA_DPS_VALUE
+    dpsFast = dmgFast/fastDuration
     return dpsFast
 
 async def calcFastEPS(fastEnergy, fastDuration):
     epsFast = fastEnergy/fastDuration
     return epsFast
 
-async def calcChargedDPS(chargedDamage, chargedDuration, EXTRA_DPS_VALUE):
-    dpsCharged = (chargedDamage + EXTRA_DPS_VALUE)/chargedDuration
+async def calcChargedDPS(chargedDamage, chargedDuration, STAB_MULTIPLIER, EXTRA_DPS_VALUE):
+    dmgCharged = (chargedDamage * STAB_MULTIPLIER) + EXTRA_DPS_VALUE
+    dpsCharged = dmgCharged/chargedDuration
     return dpsCharged
 
-async def calcChargedEPS(chargedEnergy, fastEnergy):
-    epsCharged = chargedEnergy/fastEnergy
+async def calcChargedEPS(chargedEnergy, chargedDuration):
+    epsCharged = chargedEnergy/chargedDuration
     return epsCharged
 
 async def calcEnergyEfficiency(dpsFast, epsFast, dpsCharged, epsCharged):
-    energyEff = (dpsCharged - dpsFast)/(epsFast - (-epsCharged))
+    energyEff = (dpsCharged - dpsFast)/(epsFast + epsCharged)
     return energyEff
 
 async def calcWeaveDPS(dpsFast, epsFast, energyEff, dpsBoss):
-    dpsWeave = dpsFast + energyEff * (epsFast + 0.5 * dpsBoss)
+    dpsWeave = dpsFast + energyEff * (epsFast + (0.5 * dpsBoss))
     return dpsWeave
 '''
 async def calcRatio(epsFast, epsCharged, dpsBoss):
@@ -473,11 +477,11 @@ async def calcCycleTime(chargedDuration, ratio):
     return cycle
 '''
 async def calcFinalMovesetDPS(dpsFast, dpsCharged, chargedDuration, dpsWeave, dpsBoss, stamina):
-    dpsMoveset = dpsWeave - dpsBoss/(2*stamina) * chargedDuration * (dpsCharged - dpsFast)
+    dpsMoveset = dpsWeave - (dpsBoss/(2*stamina)) * chargedDuration * (dpsCharged - dpsFast)
     return dpsMoveset
 
 async def calcFinalDPS(dpsMoveset, attack, defBoss):
-    dpsFinal = dpsMoveset * (attack/(2*defBoss))
+    dpsFinal = dpsMoveset * (0.5*attack/defBoss)
     return dpsFinal
 
 async def calcRoundedFastMoves(move):

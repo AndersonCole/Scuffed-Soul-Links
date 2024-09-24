@@ -594,6 +594,8 @@ class MyClient(discord.Client):
                         await message.channel.send('Invalid input! Check `$dps help`')
                 else:
                     await message.channel.send('Invalid input! Use commas \',\' in between values!')
+            else:
+                await message.channel.send('I don\'t understand this input!')
 
         #endregion
         #endregion
