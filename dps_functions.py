@@ -37,7 +37,7 @@ async def dpsHelp():
 
     embed = discord.Embed(title=f'Shuckles PoGo DPS Commands',
                             description='```$dps check Kartana``` Calcs the dps for the moveset for the mon at level 50\n' +
-                                        '```$dps check Kartana, 50, Shadow, NoFastSTAB, NoChargeSTAB``` Calcs the dps for the moveset based on the provided modifiers. Any order is allowed.\n' +
+                                        '```$dps check Kartana, 50, 14/15/15, Shadow, NoFastSTAB, NoChargeSTAB, WeatherBoost, MegaBoost, BossAtk200, BossDef70``` Calcs the dps for the moveset based on the provided modifiers. Any order is allowed.\n' +
                                         '```$dps add-move Razor Leaf, 13, 7, 1000``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
                                         '```$dps add-move Leaf Blade, 70, 33, 2400, 1250``` For charged moves, list their damage, energy cost, duration, and damage window start, with the times in milliseconds.\n' +
                                         '```$dps add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order.\n' +
@@ -49,7 +49,7 @@ async def dpsHelp():
                                         '```$dps delete-move Razor Leaf``` Deletes a move from the registered list.\n' +
                                         '```$dps add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
                                         '```$dps check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n' +
-                                        'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order, and that all calcs are done based on hundo ivs.\nhttps://db.pokemongohub.net is good for checking move data.', 
+                                        'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order.\nhttps://db.pokemongohub.net is good for checking move data.', 
                             color=3553598)
 
     rand_num = random.randint(1, 100)
@@ -434,23 +434,27 @@ async def deleteDPSMon(monName):
 #region dps calculations
 async def dpsCheck(monName, extraInputs=None):
     ENEMY_DPS_SCALING = 4.0
-    BOSS_ATTACK = 200
-    BOSS_DEFENCE = 70
     EXTRA_DPS_VALUE = 0.5
 
+    bossAttack = 200
+    bossDefence = 70
+
     level = 50
+    attack_iv = 15
+    defence_iv = 15
+    stamina_iv = 15
+
     fastSTABMultiplier = 1.2
     chargedSTABMultipler = 1.2
 
     shadowMultiplier = 1.0
     shadowText = ''
-
-    attack_iv = 15
-    defence_iv = 15
-    stamina_iv = 15
     
+    weatherMultiplier = 1.0
+    megaMultiplier = 1.0
+
     if extraInputs != None:
-        level, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, errorText = await determineExtraInputs(extraInputs)
+        level, attack_iv, defence_iv, stamina_iv, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, weatherMultiplier, megaMultiplier, bossAttack, bossDefence, errorText = await determineExtraInputs(extraInputs)
         if errorText != '':
             return errorText
     
@@ -469,9 +473,9 @@ async def dpsCheck(monName, extraInputs=None):
     cpMultiplier = await getCPMultiplier(level)
     if cpMultiplier == 0:
         return 'Level must be between 40-51, or a multiple of 5!'
-    calculated_attack = (mon['Attack'] + 15)*cpMultiplier
-    calculated_defence = (mon['Defence'] + 15)*cpMultiplier
-    calculated_stamina = (mon['Stamina'] + 15)*cpMultiplier
+    calculated_attack = (mon['Attack'] + attack_iv)*cpMultiplier
+    calculated_defence = (mon['Defence'] + defence_iv)*cpMultiplier
+    calculated_stamina = (mon['Stamina'] + stamina_iv)*cpMultiplier
 
     fastMoves = []
     chargedMoves= []
@@ -496,16 +500,16 @@ async def dpsCheck(monName, extraInputs=None):
     #movePwrIncrease = ''
 
     embed = discord.Embed(title=f'DPS Calculations for {shadowText}{formatForDisplay(mon["Name"])} at Lv {level}',
-                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
+                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {attack_iv}/{defence_iv}/{stamina_iv}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
                           color=embedColour)
 
     for fastMove in fastMoves:
         for chargedMove in chargedMoves:
-            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, EXTRA_DPS_VALUE)
+            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, weatherMultiplier, megaMultiplier, EXTRA_DPS_VALUE)
 
             newFastMove = await calcRoundedFastMoves(fastMove)
             newChargedMove = await calcRoundedChargedMoves(chargedMove)
-            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, EXTRA_DPS_VALUE)
+            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, weatherMultiplier, megaMultiplier, EXTRA_DPS_VALUE)
 
             moveNameOutput += f'{formatForDisplay(fastMove["Name"])}{displayDurationChange(fastMove["Duration"], newFastMove["Duration"])} | {formatForDisplay(chargedMove["Name"])}{displayDurationChange(chargedMove["Duration"], newChargedMove["Duration"])}\n'
             moveDPSOutput += f'{roundDPS(oldDPS)} -> {roundDPS(newDPS)}\n'
@@ -535,18 +539,40 @@ async def dpsCheck(monName, extraInputs=None):
     return embed
 
 async def determineExtraInputs(extraInputs):
+    bossAttack = 200
+    bossDefence = 70
+
     level = 50
+    attack_iv = 15
+    defence_iv = 15
+    stamina_iv = 15
+
     fastSTABMultiplier = 1.2
     chargedSTABMultipler = 1.2
 
     shadowMultiplier = 1.0
     shadowText = ''
+    
+    weatherMultiplier = 1.0
+    megaMultiplier = 1.0
 
     errorText = ''
 
     for input in extraInputs:
         if input.strip().isdigit():
             level = int(input)
+        elif '/' in str(input).strip():
+            ivs = re.split(r'[/]+', input.strip())
+            try:
+                for iv in ivs:
+                    if 0 > int(iv) > 15:
+                        raise Exception
+                attack_iv = int(ivs[0])
+                defence_iv = int(ivs[1])
+                stamina_iv = int(ivs[2])
+            except Exception as ex:
+                print(ex)
+                errorText += f'\'{input}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!'
         elif str(input).strip().lower() == 'shadow':
             shadowMultiplier = 1.2
             shadowText = 'Shadow '
@@ -554,22 +580,42 @@ async def determineExtraInputs(extraInputs):
             fastSTABMultiplier = 1.0
         elif str(input).strip().lower() == 'nochargestab':
             chargedSTABMultipler = 1.0
+        elif str(input).strip().lower() == 'weatherboost':
+            weatherMultiplier = 1.2
+        elif str(input).strip().lower() == 'megaboost':
+            megaMultiplier = 1.3
+        elif str(input).strip().lower()[:7] == 'bossatk':
+            try :
+                atkVal = int(input.strip()[7:])
+                if 1 > atkVal > 1000:
+                    raise Exception
+                bossAttack = atkVal
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss attack value! Keep it between 1 and 1000!'
+        elif str(input).strip().lower()[:7] == 'bossdef':
+            try :
+                defVal = int(input.strip()[7:])
+                if 1 > defVal > 1000:
+                    raise Exception
+                bossDefence = defVal
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!'
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
 
     if errorText != '':
         errorText += '\nCheck `$dps help` to see all valid modifiers!'
     
-    return level, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, errorText
+    return level, attack_iv, defence_iv, stamina_iv, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, weatherMultiplier, megaMultiplier, bossAttack, bossDefence, errorText
 
-async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, FAST_STAB_MULTIPLIER, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, EXTRA_DPS_VALUE):
+async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, FAST_STAB_MULTIPLIER, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE):
     dpsBoss = await calcBossDPS(ENEMY_DPS_SCALING, BOSS_ATTACK, defence, SHADOW_MULTIPLIER)
 
-    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], FAST_STAB_MULTIPLIER, SHADOW_MULTIPLIER, EXTRA_DPS_VALUE)
+    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], FAST_STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
     chargedMove['Energy'] = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
-    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, EXTRA_DPS_VALUE)
+    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE)
     chargedEps = await calcChargedEPS(chargedMove['Energy'], chargedMove['Duration'])
 
     energyEfficiency = await calcEnergyEfficiency(fastDps, fastEps, chargedDps, chargedEps)
@@ -600,8 +646,8 @@ async def calcSurvivalTime(dpsBoss, stamina):
     return survivalTime
 '''
 
-async def calcFastDPS(fastDamage, fastDuration, STAB_MULTIPLIER, SHADOW_MULTIPLIER, EXTRA_DPS_VALUE):
-    dmgFast = (fastDamage * STAB_MULTIPLIER * SHADOW_MULTIPLIER) + EXTRA_DPS_VALUE
+async def calcFastDPS(fastDamage, fastDuration, STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE):
+    dmgFast = (fastDamage * STAB_MULTIPLIER * SHADOW_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER) + EXTRA_DPS_VALUE
     dpsFast = dmgFast/fastDuration
     return dpsFast
 
@@ -609,8 +655,8 @@ async def calcFastEPS(fastEnergy, fastDuration):
     epsFast = fastEnergy/fastDuration
     return epsFast
 
-async def calcChargedDPS(chargedDamage, chargedDuration, STAB_MULTIPLIER, SHADOW_MULTIPLIER, EXTRA_DPS_VALUE):
-    dmgCharged = (chargedDamage * STAB_MULTIPLIER * SHADOW_MULTIPLIER) + EXTRA_DPS_VALUE
+async def calcChargedDPS(chargedDamage, chargedDuration, STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE):
+    dmgCharged = (chargedDamage * STAB_MULTIPLIER * SHADOW_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER) + EXTRA_DPS_VALUE
     dpsCharged = dmgCharged/chargedDuration
     return dpsCharged
 
