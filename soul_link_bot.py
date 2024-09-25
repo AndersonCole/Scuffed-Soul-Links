@@ -621,6 +621,17 @@ class MyClient(discord.Client):
                         await message.channel.send(embed)
                     else:
                         await message.channel.send(embed=embed)
+
+            elif input[0:9] == 'add-note ':
+                embed = await addDPSNote(input[9:])
+
+                await message.channel.send(embed)
+            
+            elif input[0:12] == 'check-notes ':
+                embed = await readDPSNotes(message.author, input[12:])
+
+                await message.channel.send(embed)
+
             else:
                 await message.channel.send('I don\'t know wtf you\'re trying to input!')
 
