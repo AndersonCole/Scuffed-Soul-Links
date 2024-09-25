@@ -632,6 +632,11 @@ class MyClient(discord.Client):
 
                 await message.channel.send(embed)
 
+            elif input[0:7] == 'symbol ':
+                embed = await getDPSSymbol(float(input[7:]))
+
+                await message.channel.send(embed)
+
             else:
                 await message.channel.send('I don\'t know wtf you\'re trying to input!')
 

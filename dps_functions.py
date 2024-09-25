@@ -30,6 +30,7 @@ with open('text_files/soul_link_pokemon.txt', 'r') as file:
 with open('text_files/dps/notes.txt', 'r') as file:
     dpsNotes = file.read()
 
+#dev command $dps symbol {num}
 async def dpsHelp():
     file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
     shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
@@ -45,7 +46,9 @@ async def dpsHelp():
                                         '```$dps list-mons``` Lists all the registered mons.\n' +
                                         '```$dps list-moves``` Lists all the registered moves.\n' +
                                         '```$dps delete-mon Kartana``` Deletes a mon from the registered list.\n' +
-                                        '```$dps delete-move Razor Leaf``` Deletes a move from the registered list.\n\n' +
+                                        '```$dps delete-move Razor Leaf``` Deletes a move from the registered list.\n' +
+                                        '```$dps add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
+                                        '```$dps check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n' +
                                         'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order, and that all calcs are done based on hundo ivs.\nhttps://db.pokemongohub.net is good for checking move data.', 
                             color=3553598)
 
@@ -442,6 +445,10 @@ async def dpsCheck(monName, extraInputs=None):
     shadowMultiplier = 1.0
     shadowText = ''
 
+    attack_iv = 15
+    defence_iv = 15
+    stamina_iv = 15
+    
     if extraInputs != None:
         level, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, errorText = await determineExtraInputs(extraInputs)
         if errorText != '':
@@ -667,6 +674,16 @@ def calcDPSDifference(oldDPS, newDPS):
 
 async def getCPMultiplier(level):
     match level:
+        case 5:
+            return 0.29024988
+        case 8:
+            return 0.3752356
+        case 10:
+            return 0.4225
+        case 13:
+            return 0.48168495
+        case 15:
+            return 0.51739395
         case 20:
             return 0.5974
         case 25:
@@ -787,4 +804,30 @@ async def readDPSNotes(user, userInput):
         print(ex)
         return '<@341722760852013066> ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
 #endregion
+
+async def getDPSSymbol(dps):
+    if dps > 79:
+        return '神'
+    elif dps > 74:
+        return '帝'
+    elif dps > 69:
+        return '王'
+    elif dps > 64:
+        return '死'
+    elif dps > 59:
+        return 'ゴ'
+    elif dps > 54:
+        return '鬼'
+    elif dps > 49:
+        return '獣'
+    elif dps > 44:
+        return '龍'
+    elif dps > 39:
+        return '滅'
+    elif dps > 34:
+        return '攻'
+    elif dps > 29:
+        return 'ド'
+    return '∅'
+
 #endregion
