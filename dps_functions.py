@@ -122,7 +122,7 @@ async def saveDpsData():
         file.write(dpsNotes)
 
     with open('text_files/dps/notes.txt', 'r') as file:
-        moves = file.read()
+        dpsNotes = file.read()
 
 async def dpsAddMon(monName, attack, defence, stamina):
     if checkDuplicateMon(monName):
