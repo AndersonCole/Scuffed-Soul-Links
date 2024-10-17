@@ -107,7 +107,22 @@ games = [
     {'Name': 'x-y', 'Games': ['X', 'Y'], 'Colour': [90013, 13839173], 'Link-Emoji': ['<:_:1193409239406870698>', '<:_:1193409280896933988>'], 'Mascot': [716, 717], 'Progression': []},
     {'Name': 'omega-ruby-alpha-sapphire', 'Games': ['Omega Ruby', 'Alpha Sapphire'], 'Colour': [12452683, 2568359], 'Link-Emoji': ['<:_:1193409326400929832>', '<:_:1193409376891969646>'], 'Mascot': [10078, 10077], 'Progression': []},
     {'Name': 'sun-moon', 'Games': ['Sun', 'Moon'], 'Colour': [16094243, 2205919], 'Link-Emoji': ['<:_:1193409452691423242>', '<:_:1193409503790633023>'], 'Mascot': [791, 792], 'Progression': []},
-    {'Name': 'ultra-sun-ultra-moon', 'Games': ['Ultra Sun', 'Ultra Moon'], 'Colour': [11492140, 5188451], 'Link-Emoji': ['<:_:1193409578281488405>', '<:_:1193409621843529860>'], 'Mascot': [10155, 10156], 'Progression': []},
+    {'Name': 'ultra-sun-ultra-moon', 'Games': ['Ultra Sun', 'Ultra Moon'], 'Colour': [11492140, 5188451], 'Link-Emoji': ['<:_:1193409578281488405>', '<:_:1193409621843529860>'], 'Mascot': [10155, 10156], 'Progression': [
+                                            {'Stage': 0, 'Name': 'Start', 'Battle-Name': 'Normal Trial', 'Level-Cap': 12, 'Encounters': ['Starter', 'Route 1', 'Trainer\'s School', 'Hau\'oli City', 'Route 2', 'Hau\'oli Cemetery', 'Sandy Cave']},
+                                            {'Stage': 1, 'Name': 'Normal Trial', 'Battle-Name': 'Kahuna Hala', 'Level-Cap': 16, 'Encounters': ['Verdant Cavern', 'Route 3', 'Melemele Meadow', 'Seaward Cave']},
+                                            {'Stage': 2, 'Name': 'Kahuna Hala', 'Battle-Name': 'Water Trial', 'Level-Cap': 20, 'Encounters': ['Ten Carat Hill', 'Route 4', 'Paniola Ranch', 'Route 5', 'Brooklet Hill', 'Hau\'oli Beachfront', 'Melemele Sea', 'Kala\'e Bay']},
+                                            {'Stage': 3, 'Name': 'Water Trial', 'Battle-Name': 'Fire Trial', 'Level-Cap': 22, 'Encounters': ['Paniola Town', 'Route 6', 'Route 7', 'Wela Volcano Park', 'Diglett\'s Tunnel']},
+                                            {'Stage': 4, 'Name': 'Fire Trial', 'Battle-Name': 'Grass Trial', 'Level-Cap': 24, 'Encounters': ['Dividing Peak Tunnel', 'Route 8', 'Fossil Static']},
+                                            {'Stage': 5, 'Name': 'Grass Trial', 'Battle-Name': 'Kahuna Olivia', 'Level-Cap': 28, 'Encounters': ['Lush Jungle', 'Route 9', 'Memorial Hill', 'Akala Outskirts']},
+                                            {'Stage': 6, 'Name': 'Kahuna Olivia', 'Battle-Name': 'Electric Trial', 'Level-Cap': 33, 'Encounters': ['Hano Beach', 'Malie Garden', 'Malie City', 'Route 10', 'Route 11', 'Mount Hokulani']},
+                                            {'Stage': 7, 'Name': 'Electric Trial', 'Battle-Name': 'Ghost Trial', 'Level-Cap': 35, 'Encounters': ['Route 12', 'Blush Mountain', 'Route 13', 'Tapu Village', 'Mount Lanakila', 'Route 14', 'Route 15']},
+                                            {'Stage': 8, 'Name': 'Ghost Trial', 'Battle-Name': 'Kahuna Nanu', 'Level-Cap': 44, 'Encounters': ['Thrifty Megamart', 'Haina Desert', 'Route 16', 'Ula\'Ula Meadow', 'Route 17']},
+                                            {'Stage': 9, 'Name': 'Kahuna Nanu', 'Battle-Name': 'Dragon Trial', 'Level-Cap': 49, 'Encounters': ['Seafolk Village', 'Aerodactyl Gift', 'Poni Wilds', 'Ancient Poni Path', 'Poni Breaker Coast', 'Vast Poni Canyon', 'Exeggutor Island']},
+                                            {'Stage': 10, 'Name': 'Dragon Trial', 'Battle-Name': 'Fairy Trial', 'Level-Cap': 54, 'Encounters': ['Poipole Gift']},
+                                            {'Stage': 11, 'Name': 'Fairy Trial', 'Battle-Name': 'Kahuna Hapu', 'Level-Cap': 54, 'Encounters': []},
+                                            {'Stage': 12, 'Name': 'Kahuna Hapu', 'Battle-Name': 'Pokemon League', 'Level-Cap': 57, 'Encounters': ['Necrozma Static']},
+                                            {'Stage': 13, 'Name': 'Pokemon League', 'Battle-Name': 'Rainbow Rocket', 'Level-Cap': 68, 'Encounters': ['Type:Null Gift', 'Poni Grove', 'Poni Plains', 'Poni Coast', 'Poni Gauntlet', 'Poni Meadow', 'Resolution Cave', 'Zygarde Static', 'Legendary Static', 'Tapu Koko Static', 'Tapu Lele Static', 'Tapu Bulu Static', 'Tapu Fini Static', 'Team Rocket Castle']}
+    ]},
     {'Name': 'lets-go-pikachu-lets-go-eevee', 'Games': ['Lets Go Pikachu', 'Lets Go Eevee'], 'Colour': [16371533, 13342031], 'Link-Emoji': ['<:_:1193409693234761728>', '<:_:1193409732493447228>'], 'Mascot': [25, 133], 'Progression': []},
     {'Name': 'sword-shield', 'Games': ['Sword', 'Shield'], 'Colour': [44783, 15536485], 'Link-Emoji': ['<:_:1193411092509102130>', '<:_:1193411134577983498>'], 'Mascot': [888, 889], 'Progression': []},
     {'Name': 'brilliant-diamond-and-shining-pearl', 'Games': ['Brilliant Diamond', 'Shining Pearl'], 'Colour': [3048389, 13989256], 'Link-Emoji': ['<:_:1193409792459427962>', '<:_:1193409837476880476>'], 'Mascot': [483, 484], 'Progression': []},
@@ -131,4 +146,15 @@ Encounter is an array of encounters that have been encountered or still need to 
 runs = [
     {Name: 'HeartGold 3 Player Run', Game: 'HeartGold', Version-Group: 'heartgold-soulsilver', Current-Progress: 0, Players:[], Encounters: [{Name: 'Rt 1', Pokemon: []}], Teams: [{Name: 'Falkner', Links: ['Rt 1', 'Rt 2']}]}
 ]
+'''
+
+#Amount of encounters checker, to see overall balance
+'''
+for game in games:
+    encounter_count = 0
+    if len(game['Progression']) > 0:
+        for stage in game['Progression']:
+            for encounter in stage['Encounters']:
+                encounter_count += 1
+    print(f'{game["Name"]} has {encounter_count} encounters')
 '''

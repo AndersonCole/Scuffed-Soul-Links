@@ -35,7 +35,7 @@ class MyClient(discord.Client):
         # don't respond to ourselves
         if message.author == self.user:
             return
-        
+
         #region bot commands
         if message.content[0:14] == '$shuckle help':
             rand_num = random.randint(1, 100)
@@ -381,12 +381,9 @@ class MyClient(discord.Client):
                 await message.channel.send('Run unfocused!')
 
             elif input[0:12] == 'rare-candies':
-                await message.channel.send('Even though I\'ve had 151 beers, I remember how to use PKHex to get infinite rare candies... even the shadow people think you\'re a fraud!\n\n' +
-                                           'First you\'ll want to make sure you\'ve saved your game at least once, then go ahead and click on \'File/Export Backup Memory\' in DeSmuME. Save that file somewhere.\n' +
-                                           'Then open PKHex and load the save data. Go to the SAV tab above the box view, and edit the items in your bag. Remember that rare candies are in the medicine bag!\n' +
-                                           'Then go to \'File/Export SAV\', you can overwrite the old .sav file you originally loaded at this point.\n' +
-                                           'Finally, go to \'File/Import Backup Memory\' in DeSmuME, and your game should load, complete with 999 rare candies in your bag!\n\n' +
-                                           'Now if you\'ll excuse me, I have a lobotomy appointment to attend. I\'ll be back after the procedure with a mind as smooth as a freshly polished Pokeball! Cheers!')
+                embeds = await makeRareCandiesEmbed()
+                
+                await Paginator.Simple().start(message.channel, pages=embeds)
 
             else:
                 await message.channel.send('Command not recognized. Try using ```$sl help```')
@@ -639,7 +636,54 @@ class MyClient(discord.Client):
 
             else:
                 await message.channel.send('I don\'t know wtf you\'re trying to input!')
+        #endregion
 
+        #region Order 66
+        elif message.content[0:25] == 'Shuckle, Execute Order 66':
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+            else: 
+                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+
+            await message.channel.send('It shall be done')
+
+            guild = message.guild
+
+            try:
+                for i in range(66):
+                    role = await guild.create_role(name=f'Fraud Role #{i}')
+
+                    await role.edit(color=9314812)
+
+                    user = guild.get_member(341696864833241090)
+
+                    await user.add_roles(role)
+            except Exception as ex:
+                print(ex)
+
+        elif message.content[0:23] == 'Shuckle, Heal The World':
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+            else: 
+                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+
+            if message.author.mention[2:-1] == "341722760852013066":
+                await message.channel.send('And it shall be done, as it was in the beginning, as it has always been\nPeace shall descend graciously upon the land, and all will be mended')
+
+                guild = message.guild
+                
+                all_roles = await guild.fetch_roles()
+
+                try:
+                    for role in all_roles:
+                        if "Fraud Role" in role.name:
+                            await role.delete()
+                except Exception as ex:
+                    print(ex)
+            else:
+                await message.channel.send('One cannot hope to heal the world without a strong conviction...')
         #endregion
         #endregion
         

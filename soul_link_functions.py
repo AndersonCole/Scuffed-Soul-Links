@@ -18,10 +18,10 @@ from PIL import ImageFont
 from io import BytesIO
 from soul_link_dictionaries import types, categories, gens, games
 
-with open('text_files/soul_link_pokemon.txt', 'r') as file:
+with open('text_files/soul_links/pokemon.txt', 'r') as file:
     pokemon = json.loads(file.read())
 
-with open('text_files/soul_link_runs.txt', 'r') as file:
+with open('text_files/soul_links/runs.txt', 'r') as file:
     runs = json.loads(file.read())
 
 with open("tokens/openai_key.txt") as file:
@@ -161,10 +161,10 @@ def tryAddRunData(run, name_string):
 
 async def saveRunData():
     global runs
-    with open('text_files/soul_link_runs.txt', 'w') as file:
+    with open('text_files/soul_links/runs.txt', 'w') as file:
         file.write(json.dumps(runs))
 
-    with open('text_files/soul_link_runs.txt', 'r') as file:
+    with open('text_files/soul_links/runs.txt', 'r') as file:
         runs = json.loads(file.read())
 
 #region $sl new-sl command and createRole func
@@ -1129,6 +1129,10 @@ async def create_arrow_image(type, direction, method, value):
         item_image = Image.open(f'images/evo_helpers/heart.png').convert('RGBA')
         arrow_img.paste(item_image, (10, 4), mask=item_image)
         item_image.close()
+    elif method == 'mega-evo':
+        item_image = Image.open(f'images/evo_helpers/mega_evo.png').convert('RGBA')
+        arrow_img.paste(item_image, (10, 4), mask=item_image)
+        item_image.close()
     
     return arrow_img.rotate(direction)
 
@@ -1145,7 +1149,7 @@ async def open_http_image(url, bigImg=True):
 async def createEvoChainImage(dex_num, type):
 
     base_pokemon = [obj for obj in pokemon if obj['DexNum'] == dex_num][0]
-
+                
     while base_pokemon['Evolves-From'] is not None:
         base_pokemon = [obj for obj in pokemon if obj['DexNum'] == base_pokemon['Evolves-From']][0]
     
@@ -1596,6 +1600,48 @@ def calculateStat(base_stat, level):
 
 #endregion
 
+#region $sl rare-candies command
+async def makeRareCandiesEmbed():
+    embeds = []
+
+    embed = discord.Embed(title=f'Rare Candy Instructions',
+                          description='',
+                          color=7441607)
+    
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url='https://i.imgur.com/vwke1vY.png')
+    else: 
+        embed.set_thumbnail(url='https://i.imgur.com/N4RHrVQ.png')
+    
+    embed.add_field(name='For DeSmuME DS Emulator',
+                    value=  '\nEven though I\'ve had 151 beers, I remember how to use PKHex to get infinite rare candies... even the shadow people think you\'re a fraud!\n\n' +
+                            'First you\'ll want to make sure you\'ve saved your game at least once, then go ahead and click on \'File/Export Backup Memory\' in DeSmuME. Save that file somewhere.\n\n' +
+                            'Then open PKHex and load the save data. Go to the SAV tab above the box view, and edit the items in your bag.\n' +
+                            'Then go to \'File/Export SAV\', you can overwrite the old .sav file you originally loaded at this point.\n\n' +
+                            'Finally, go to \'File/Import Backup Memory\' in DeSmuME, and your game should load, complete with 999 rare candies in your bag!\n\n' +
+                            'Now if you\'ll excuse me, I have a lobotomy appointment to attend. I\'ll be back after the procedure with a mind as smooth as a freshly polished Pokeball! Cheers!',
+                    inline=False)
+    
+    embeds.append(copy.deepcopy(embed))
+
+    embed.clear_fields()
+
+    embed.add_field(name='For Citra 3DS Emulator',
+                    value=  'Even though I\'ve had 151 beers, I remember how to use PKHex to get infinite rare candies... even the shadow people think you\'re a fraud!\n\n' +
+                            'First you\'ll want to make sure you\'ve saved your game at least once, then go ahead and right-click on the game you\'re playing in Citra. Click on the \'Open Save Data Location\' option. That\'s the file you want to open in PKHex. Copy the path to that file.\n\n' +
+                            'Then open PKHex and load the save data. You can paste the file path now to find it easily. Go to the SAV tab above the box view, and edit the items in your bag.\n' +
+                            'Then go to \'File/Export SAV\', you can overwrite the old file you originally loaded at this point.\n\n' +
+                            'And thats all, you\'re done! Enjoy your rare candies!\n\n'
+                            'Now if you\'ll excuse me, I have a lobotomy appointment to attend. I\'ll be back after the procedure with a mind as smooth as a freshly polished Pokeball! Cheers!',
+                    inline=False)
+    
+    embeds.append(embed)
+
+    return embeds
+
+#endregion
+
 #region $sl catch command
 async def calculateCatchRate(mon, level, version_group):
     if not level.isnumeric() or int(level) > 100 or int(level) < 0:
@@ -1682,7 +1728,7 @@ async def addNickname(nickname, dex_num):
         'Evolves-From': mon['Evolves-From']
     })
 
-    with open('text_files/soul_link_pokemon.txt', 'w') as file:
+    with open('text_files/soul_links/pokemon.txt', 'w') as file:
         file.write(json.dumps(pokemon))
 
     return f'Nickname \'{nickname}\' successfully added for {mon["Name"]}'

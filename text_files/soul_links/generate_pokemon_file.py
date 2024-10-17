@@ -178,7 +178,7 @@ def generate_pokemon():
         if poke['Evolves-Into'] == []:
             poke['Evolves-Into'] = None
 
-    with open('soul_link_pokemon.txt', 'w') as file:
+    with open('pokemon.txt', 'w') as file:
         file.write(json.dumps(pokemon))
 
     with open('multiple_evo_mons.txt', 'w') as file:
@@ -251,7 +251,7 @@ def fixNames(pokemon):
     return pokemon
 
 def fixEvolvesInto():
-    with open('soul_link_pokemon.txt', 'r') as file:
+    with open('pokemon.txt', 'r') as file:
         pokemon = json.loads(file.read())
     
     '''
@@ -266,11 +266,11 @@ def fixEvolvesInto():
         if poke['Evolves-Into'] == None:
             poke['Evolves-Into'] = []
 
-    with open('soul_link_pokemon.txt', 'w') as file:
+    with open('pokemon.txt', 'w') as file:
         file.write(json.dumps(pokemon))
     
 def showPokemonWithMultipleEvos():
-    with open('soul_link_pokemon.txt', 'r') as file:
+    with open('pokemon.txt', 'r') as file:
         pokemon = json.loads(file.read())
 
     multipleEvos = [obj for obj in pokemon if obj['Evolves-Into'] is not None and len(obj['Evolves-Into']) > 1]
@@ -299,7 +299,7 @@ def showPokemonWithMultipleEvos():
 
             x = input('Continue Removing? y/n\n')
 
-    with open('soul_link_pokemon.txt', 'w') as file:
+    with open('pokemon.txt', 'w') as file:
         file.write(json.dumps(pokemon))
 
 
@@ -310,10 +310,10 @@ def showPokemonWithMultipleEvos():
 fixEvolvesInto()
 #showPokemonWithMultipleEvos()
 
-#with open('soul_link_pokemon.txt', 'w') as file:
+#with open('pokemon.txt', 'w') as file:
     #file.write(json.dumps(types))
 
-#with open('soul_link_pokemon.txt', 'r') as file:
+#with open('pokemon.txt', 'r') as file:
     #pokemon = json.loads(file.read())
 
 #Structure for Pokemon, generated from generate_pokemon_file.py

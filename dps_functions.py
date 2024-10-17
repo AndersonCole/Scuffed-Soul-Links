@@ -24,7 +24,7 @@ with open('text_files/dps/moves.txt', 'r') as file:
 with open('text_files/dps/pokemon.txt', 'r') as file:
     loadedMons = json.loads(file.read())
 
-with open('text_files/soul_link_pokemon.txt', 'r') as file:
+with open('text_files/soul_links/pokemon.txt', 'r') as file:
     pokemon = json.loads(file.read())
 
 with open('text_files/dps/notes.txt', 'r') as file:
@@ -37,7 +37,7 @@ async def dpsHelp():
 
     embed = discord.Embed(title=f'Shuckles PoGo DPS Commands',
                             description='```$dps check Kartana``` Calcs the dps for the moveset for the mon at level 50\n' +
-                                        '```$dps check Kartana, 50, 14/15/15, Shadow, NoFastSTAB, NoChargeSTAB, WeatherBoost, MegaBoost, FriendBoost, BossAtk200, BossDef70, FastEffective2X, ChargedEffective2X``` Calcs the dps for the moveset based on the provided modifiers. Any order is allowed.\n' +
+                                        '```$dps check Kartana, 50, 14/15/15, Shadow, NoFastSTAB, NoChargeSTAB, WeatherBoost, MegaBoost, FriendBoost, BossAtk200, BossDef70, FastEffective1.6x, ChargedEffective1.6x``` Calcs the dps for the moveset based on the provided modifiers. Any order is allowed.\n' +
                                         '```$dps add-move Razor Leaf, 13, 7, 1000``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
                                         '```$dps add-move Leaf Blade, 70, 33, 2400, 1250``` For charged moves, list their damage, energy cost, duration, and damage window start, with the times in milliseconds.\n' +
                                         '```$dps add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order.\n' +
