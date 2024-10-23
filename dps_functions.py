@@ -21,6 +21,9 @@ with open("tokens/openai_key.txt") as file:
 with open('text_files/dps/moves.txt', 'r') as file:
     moves = json.loads(file.read())
 
+with open('text_files/dps/move_changes.txt', 'r') as file:
+    changedMoves = json.loads(file.read())
+
 with open('text_files/dps/pokemon.txt', 'r') as file:
     loadedMons = json.loads(file.read())
 
@@ -37,7 +40,7 @@ async def dpsHelp():
 
     embed = discord.Embed(title=f'Shuckles PoGo DPS Commands',
                             description='```$dps check Kartana``` Calcs the dps for the moveset for the mon at level 50\n' +
-                                        '```$dps check Kartana, 50, 14/15/15, Shadow, NoFastSTAB, NoChargeSTAB, WeatherBoost, MegaBoost, FriendBoost, BossAtk200, BossDef70, FastEffective1.6x, ChargedEffective1.6x``` Calcs the dps for the moveset based on the provided modifiers. Any order is allowed.\n' +
+                                        '```$dps modifiers``` Lists out all the available modifers\n' +
                                         '```$dps add-move Razor Leaf, 13, 7, 1000``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
                                         '```$dps add-move Leaf Blade, 70, 33, 2400, 1250``` For charged moves, list their damage, energy cost, duration, and damage window start, with the times in milliseconds.\n' +
                                         '```$dps add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order.\n' +
@@ -45,11 +48,43 @@ async def dpsHelp():
                                         '```$dps remove-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Removes every move listed from a registered mon, as long as they\'re registered to it.\n' +
                                         '```$dps list-mons``` Lists all the registered mons.\n' +
                                         '```$dps list-moves``` Lists all the registered moves.\n' +
+                                        '```$dps list-move-changes``` Lists all the changes made in October to some moves.\n' +
                                         '```$dps delete-mon Kartana``` Deletes a mon from the registered list.\n' +
                                         '```$dps delete-move Razor Leaf``` Deletes a move from the registered list.\n' +
                                         '```$dps add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
-                                        '```$dps check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n' +
-                                        'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order.\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg.\nhttps://db.pokemongohub.net is good for checking move data.', 
+                                        '```$dps check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n\n' +
+                                        'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order.\nA \'★\' beside a move name indicates its been changed in an update.\nhttps://db.pokemongohub.net is good for checking move data.', 
+                            color=3553598)
+
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
+        return embed, shinyFile
+    else:
+        embed.set_thumbnail(url='attachment://swole_shuckle.png')
+        return embed, file
+
+async def dpsModifiers():
+    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
+    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
+
+    embed = discord.Embed(title=f'Shuckles PoGo DPS Modifiers',
+                            description='```$dps check Kartana, Shadow, 40``` Any modifier can be applied in any order, as shown\n\n' +
+                                        '```$dps check Kartana, 40``` Level: Calcs DPS at the specified level\n' +
+                                        '```$dps check Kartana, 14/15/15``` IVs: Calcs DPS from the given IVs. Always assume stats are listed in Attack/Defence/HP order.\n' +
+                                        '```$dps check Kartana, Shadow``` Shadow: Gives the mon a 1.2x atk boost and def nerf\n' +
+                                        '```$dps check Kartana, NoFastSTAB``` NoFastSTAB: Removes STAB from the mons fast attack\n' +
+                                        '```$dps check Kartana, NoChargedSTAB``` NoChargedSTAB: Removes STAB from the mons charged attack\n' +
+                                        '```$dps check Kartana, FastEffective1.6x``` FastEffectiveness: Applies type effectivity damage bonuses to fast moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
+                                        '```$dps check Kartana, ChargedEffective1.6x``` ChargedEffectiveness: Applies type effectivity damage bonuses to charged moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
+                                        '```$dps check Kartana, FriendBoost``` FriendBoost: Adds a 1.1x boost to both fast and charged attacks\n' +
+                                        '```$dps check Kartana, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to both fast and charged attacks\n' +
+                                        '```$dps check Kartana, MegaBoost``` MegaBoost: Adds a 1.3x boost to both fast and charged attacks\n' +
+                                        '```$dps check Kartana, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
+                                        '```$dps check Kartana, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
+                                        '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n' +
+                                        '```$dps check Kartana, 40``` Level: Calcs DPS at the specified level\n\n' +
+                                        'Everything should be case insensitive.\nDefault check assumes Lv50, Hundo, Not Shadow, STAB for everything, Neutral effectiveness, No Special Boosts', 
                             color=3553598)
 
     rand_num = random.randint(1, 100)
@@ -101,6 +136,26 @@ def displayDurationChange(oldDuration, newDuration):
 def roundDPS(dps):
     roundedDPS = round(dps, 2)
     return roundedDPS
+
+def moveChanged(moveName):
+    for move in changedMoves:
+        if move['Name'] == moveName:
+            return True
+    return False
+
+def getChangedMoveStats(moveName, oldPower, oldEnergy, applyChanges):
+    power = oldPower
+    energy = oldEnergy
+    if applyChanges:
+        for move in changedMoves:
+            if move['Name'] == moveName:
+                if move['PowerChanged']:
+                    power = move['NewPower']
+                if move['EnergyChanged']:
+                    energy = move['NewEnergy']
+                break
+    return power, energy
+
 #endregion
 
 #region dps commands
@@ -350,6 +405,66 @@ async def listDPSMoves():
     
     return embeds
 
+async def listDPSMoveChanges():
+    embeds = []
+
+    embed = discord.Embed(title=f'Changed Moves',
+                            description='These move changes happened in October 2024\n\'-\' means it was unchanged\nOld -> New',
+                            color=3553598)
+
+    moveText = ''
+    dmgText = ''
+    energyText = ''
+
+    pageCount = 15
+    for move in changedMoves:
+        if pageCount > 0:
+            moveText += f'{formatForDisplay(move["Name"])}\n'
+            if move['PowerChanged']:
+                dmgText += f'{move["OldPower"]} -> {move["NewPower"]}\n'
+            else:
+                dmgText += f'-\n'
+            if move['EnergyChanged']:
+                energyText += f'{move["OldEnergy"]} -> {move["NewEnergy"]}\n'
+            else:
+                energyText += f'-\n'
+            pageCount -= 1
+        else:
+            embed.add_field(name='Move',
+                            value=moveText,
+                            inline=True)
+            
+            embed.add_field(name='Damage',
+                            value=dmgText,
+                            inline=True)
+            
+            embed.add_field(name='Energy',
+                            value=energyText,
+                            inline=True)
+            embeds.append(copy.deepcopy(embed))
+
+            embed.clear_fields()
+            moveText = ''
+            dmgText = ''
+            energyText = ''
+            pageCount = 15
+
+    embed.add_field(name='Move',
+                            value=moveText,
+                            inline=True)
+            
+    embed.add_field(name='Damage',
+                    value=dmgText,
+                    inline=True)
+    
+    embed.add_field(name='Energy',
+                    value=energyText,
+                    inline=True)
+    
+    embeds.append(embed)
+    
+    return embeds
+
 async def listDPSMons():
     embeds = []
 
@@ -457,8 +572,10 @@ async def dpsCheck(monName, extraInputs=None):
     megaMultiplier = 1.0
     friendMultiplier = 1.0
 
+    applyMoveChanges = True
+
     if extraInputs != None:
-        level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, weatherMultiplier, megaMultiplier, friendMultiplier, bossAttack, bossDefence, errorText = await determineExtraInputs(extraInputs)
+        level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, weatherMultiplier, megaMultiplier, friendMultiplier, bossAttack, bossDefence, applyMoveChanges, errorText = await determineExtraInputs(extraInputs)
         if errorText != '':
             return errorText
     
@@ -487,12 +604,16 @@ async def dpsCheck(monName, extraInputs=None):
     chargedMovesText = ''
 
     for move in mon['Moves']:
+        changedIndicator = ''
+        if applyMoveChanges:
+            if moveChanged(move['Name']):
+                changedIndicator = '★'
         if move['Type'] == 'Fast':
             fastMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
-            fastMovesText += f'{formatForDisplay(move["Name"])}, '
+            fastMovesText += f'{formatForDisplay(move["Name"])}{changedIndicator}, '
         else:
             chargedMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
-            chargedMovesText += f'{formatForDisplay(move["Name"])}, '
+            chargedMovesText += f'{formatForDisplay(move["Name"])}{changedIndicator}, '
 
     if len(fastMoves) == 0:
         return 'This pokemon doesn\'t have any fast moves registered to it!'
@@ -501,23 +622,26 @@ async def dpsCheck(monName, extraInputs=None):
     
     moveNameOutput = ''
     moveDPSOutput = ''
-    #movePwrIncrease = ''
 
     embed = discord.Embed(title=f'DPS Calculations for {shadowText}{formatForDisplay(mon["Name"])} at Lv {level}',
                           description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {attack_iv}/{defence_iv}/{stamina_iv}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
                           color=embedColour)
 
     for fastMove in fastMoves:
+        copiedFastMove = copy.deepcopy(fastMove)
+        copiedFastMove['Damage'], copiedFastMove['Energy'] = getChangedMoveStats(copiedFastMove['Name'], copiedFastMove['Damage'], copiedFastMove['Energy'], applyMoveChanges)
         for chargedMove in chargedMoves:
-            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, weatherMultiplier, megaMultiplier, friendMultiplier, EXTRA_DPS_VALUE)
+            copiedChargedMove = copy.deepcopy(chargedMove)
+            copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], applyMoveChanges)
 
-            newFastMove = await calcRoundedFastMoves(fastMove)
-            newChargedMove = await calcRoundedChargedMoves(chargedMove)
+            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, copiedFastMove, copiedChargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, weatherMultiplier, megaMultiplier, friendMultiplier, EXTRA_DPS_VALUE)
+
+            newFastMove = await calcRoundedFastMoves(copiedFastMove)
+            newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
             newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, weatherMultiplier, megaMultiplier, friendMultiplier, EXTRA_DPS_VALUE)
 
             moveNameOutput += f'{formatForDisplay(fastMove["Name"])}{displayDurationChange(fastMove["Duration"], newFastMove["Duration"])} | {formatForDisplay(chargedMove["Name"])}{displayDurationChange(chargedMove["Duration"], newChargedMove["Duration"])}\n'
             moveDPSOutput += f'{roundDPS(oldDPS)} -> {roundDPS(newDPS)}\n'
-            #movePwrIncrease += f'{calcDPSDifference(oldDPS, newDPS)}%\n'
 
     embed.add_field(name='Moveset',
                     value=moveNameOutput,
@@ -542,6 +666,7 @@ async def dpsCheck(monName, extraInputs=None):
 
     return embed
 
+#region modifiers
 async def determineExtraInputs(extraInputs):
     bossAttack = 200
     bossDefence = 70
@@ -564,6 +689,8 @@ async def determineExtraInputs(extraInputs):
     megaMultiplier = 1.0
     friendMultiplier = 1.0
 
+    applyMoveChanges = True
+
     errorText = ''
 
     for input in extraInputs:
@@ -585,25 +712,29 @@ async def determineExtraInputs(extraInputs):
             shadowText = 'Shadow '
         elif str(input).strip().lower()[:13] == 'fasteffective':
             try :
+                if input.strip()[-1:] != 'x':
+                    raise Exception
                 val = float(input.strip()[13:-1])
                 if 0.1 > val or val > 4.0:
                     raise Exception
                 fastEffectiveness = val
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 4!'
+                errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!'
         elif str(input).strip().lower()[:16] == 'chargedeffective':
             try :
+                if input.strip()[-1:] != 'x':
+                    raise Exception
                 val = float(input.strip()[16:-1])
                 if 0.1 > val or val > 4.0:
                     raise Exception
                 chargedEffectiveness = val
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 4!'
+                errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!'
         elif str(input).strip().lower() == 'nofaststab':
             fastSTABMultiplier = 1.0
         elif str(input).strip().lower() == 'nofaststab':
             fastSTABMultiplier = 1.0
-        elif str(input).strip().lower() == 'nochargestab':
+        elif str(input).strip().lower() == 'nochargedstab':
             chargedSTABMultipler = 1.0
         elif str(input).strip().lower() == 'weatherboost':
             weatherMultiplier = 1.2
@@ -627,14 +758,18 @@ async def determineExtraInputs(extraInputs):
                 bossDefence = defVal
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!'
+        elif str(input).strip().lower()[:13] == 'nomovechanges':
+            applyMoveChanges = False
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
 
     if errorText != '':
         errorText += '\n\nCheck `$dps help` to see all valid modifiers!'
     
-    return level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, weatherMultiplier, megaMultiplier, friendMultiplier, bossAttack, bossDefence, errorText
+    return level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, weatherMultiplier, megaMultiplier, friendMultiplier, bossAttack, bossDefence, applyMoveChanges, errorText
+#endregion
 
+#region math calculations
 async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, FAST_EFFECTIVENESS, CHARGED_EFFECTIVENESS, FAST_STAB_MULTIPLIER, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, FRIEND_MULTIPLIER, EXTRA_DPS_VALUE):
     dpsBoss = await calcBossDPS(ENEMY_DPS_SCALING, BOSS_ATTACK, defence, SHADOW_MULTIPLIER)
 
@@ -656,11 +791,10 @@ async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_
     return finalDps
     
 async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsBoss):
-    chargedEnergyDeltaCopy = copy.deepcopy(chargedEnergyDelta)
-    if chargedEnergyDeltaCopy == 100:
-        chargedEnergy = chargedEnergyDeltaCopy + 0.5*(fastEnergy - 1) + chargedWindow*0.5*dpsBoss
+    if chargedEnergyDelta == 100:
+        chargedEnergy = chargedEnergyDelta + 0.5*(fastEnergy - 1) + chargedWindow*0.5*dpsBoss
     else:
-        chargedEnergy = chargedEnergyDeltaCopy
+        chargedEnergy = chargedEnergyDelta
     return int(chargedEnergy)
     
 async def calcBossDPS(dpsScaling, bossAttack, defence, SHADOW_MULTIPLIER):
@@ -791,6 +925,7 @@ async def getCPMultiplier(level):
             return 0.84529999
         case _:
             return 0
+#endregion
 #endregion
 
 #region chatgpt notes

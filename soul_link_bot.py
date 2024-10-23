@@ -527,7 +527,10 @@ class MyClient(discord.Client):
                 embed, file = await dpsHelp()
                 await message.channel.send(file=file, embed=embed)
             
-            
+            elif input == 'modifiers':
+                embed, file = await dpsModifiers()
+                await message.channel.send(file=file, embed=embed)
+
             elif input[0:8] == 'add-mon ':
                 if ',' in input:
                     user_inputs = re.split(r'[,]+', input[8:])
@@ -577,6 +580,14 @@ class MyClient(discord.Client):
 
             elif input[0:10] == 'list-moves':
                 embeds = await listDPSMoves()
+
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
+
+            elif input[0:17] == 'list-move-changes':
+                embeds = await listDPSMoveChanges()
 
                 if(type(embeds) == type('')):
                     await message.channel.send(embeds)
