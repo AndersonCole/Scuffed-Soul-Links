@@ -1015,7 +1015,7 @@ async def seeStats(run_name):
 #endregion 
 
 #region $sl win-run, fail-run, undo-status command
-async def setRunStatus(run_name, status):
+async def setRunStatus(run_name, status, guild):
     run = getRun(run_name)
 
     if run is None:
@@ -1024,8 +1024,17 @@ async def setRunStatus(run_name, status):
     if run['Run-Status'] == status:
         return f'The runs status is already {status}!'
     
-    run['Run-Status'] = status
+    all_roles = await guild.fetch_roles()
 
+    try:
+        for role in all_roles:
+            if run['Name'] in role.name:
+                await role.delete()
+    except Exception as ex:
+        print(ex)
+
+    run['Run-Status'] = status
+    
     await saveRunData()
 
     return f'The runs status was set to {status}! If this was a mistake, use $sl undo-status!'

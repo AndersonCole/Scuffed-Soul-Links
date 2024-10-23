@@ -285,21 +285,21 @@ class MyClient(discord.Client):
                 if run_name == '':
                     await message.channel.send('Select a run first using $sl select-run!')
                 else:
-                    response = await setRunStatus(run_name, 'Victory')
+                    response = await setRunStatus(run_name, 'Victory', message.guild)
                     await message.channel.send(response)
 
             elif input[0:8] == 'fail-run':
                 if run_name == '':
                     await message.channel.send('Select a run first using $sl select-run!')
                 else:
-                    response = await setRunStatus(run_name, 'Defeat')
+                    response = await setRunStatus(run_name, 'Defeat', message.guild)
                     await message.channel.send(response)
 
             elif input[0:11] == 'undo-status':
                 if run_name == '':
                     await message.channel.send('Select a run first using $sl select-run!')
                 else:
-                    response = await setRunStatus(run_name, 'In Progress')
+                    response = await setRunStatus(run_name, 'In Progress', message.guild)
                     await message.channel.send(response)
 
             elif input[0:8] == 'run-info':
