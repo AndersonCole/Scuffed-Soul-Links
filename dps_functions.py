@@ -80,11 +80,14 @@ async def dpsModifiers():
                                         '```$dps check Kartana, FriendBoost``` FriendBoost: Adds a 1.1x boost to both fast and charged attacks\n' +
                                         '```$dps check Kartana, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to both fast and charged attacks\n' +
                                         '```$dps check Kartana, MegaBoost``` MegaBoost: Adds a 1.3x boost to both fast and charged attacks\n' +
+                                        '```$dps check Kartana, PartyPower1``` PartyPower: Applies the party power boost at the specified rate\n1 = Every charged move, 2 = Every other, 3 = Every third, etc' +
                                         '```$dps check Kartana, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
                                         '```$dps check Kartana, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
-                                        '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n' +
-                                        '```$dps check Kartana, 40``` Level: Calcs DPS at the specified level\n\n' +
-                                        'Everything should be case insensitive.\nDefault check assumes Lv50, Hundo, Not Shadow, STAB for everything, Neutral effectiveness, No Special Boosts', 
+                                        '```$dps check Kartana, SortByOldDps``` SortByOldDps: Orders the output by the old dps\n' +
+                                        '```$dps check Kartana, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
+                                        '```$dps check Kartana, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n' +
+                                        '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n\n' +
+                                        'Everything should be case insensitive.\nDefault check assumes Lv50, Hundo, Not Shadow, STAB for everything, Neutral effectiveness, No Special Boosts, Sorted by Dps', 
                             color=3553598)
 
     rand_num = random.randint(1, 100)
@@ -571,11 +574,14 @@ async def dpsCheck(monName, extraInputs=None):
     weatherMultiplier = 1.0
     megaMultiplier = 1.0
     friendMultiplier = 1.0
+    partyPowerMultiplier = 1.0
 
     applyMoveChanges = True
 
+    resultSortOrder = 'ByNewDps'
+
     if extraInputs != None:
-        level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, weatherMultiplier, megaMultiplier, friendMultiplier, bossAttack, bossDefence, applyMoveChanges, errorText = await determineExtraInputs(extraInputs)
+        level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, friendMultiplier, weatherMultiplier, megaMultiplier, partyPowerMultiplier, bossAttack, bossDefence, resultSortOrder, applyMoveChanges, errorText = await determineExtraInputs(extraInputs)
         if errorText != '':
             return errorText
     
@@ -622,6 +628,7 @@ async def dpsCheck(monName, extraInputs=None):
     
     moveNameOutput = ''
     moveDPSOutput = ''
+    dpsResults = []
 
     embed = discord.Embed(title=f'DPS Calculations for {shadowText}{formatForDisplay(mon["Name"])} at Lv {level}',
                           description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {attack_iv}/{defence_iv}/{stamina_iv}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
@@ -634,14 +641,38 @@ async def dpsCheck(monName, extraInputs=None):
             copiedChargedMove = copy.deepcopy(chargedMove)
             copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], applyMoveChanges)
 
-            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, copiedFastMove, copiedChargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, weatherMultiplier, megaMultiplier, friendMultiplier, EXTRA_DPS_VALUE)
+            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, friendMultiplier, weatherMultiplier, megaMultiplier, partyPowerMultiplier, EXTRA_DPS_VALUE)
 
             newFastMove = await calcRoundedFastMoves(copiedFastMove)
             newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
-            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, weatherMultiplier, megaMultiplier, friendMultiplier, EXTRA_DPS_VALUE)
+            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, friendMultiplier, weatherMultiplier, megaMultiplier, partyPowerMultiplier, EXTRA_DPS_VALUE)
 
-            moveNameOutput += f'{formatForDisplay(fastMove["Name"])}{displayDurationChange(fastMove["Duration"], newFastMove["Duration"])} | {formatForDisplay(chargedMove["Name"])}{displayDurationChange(chargedMove["Duration"], newChargedMove["Duration"])}\n'
-            moveDPSOutput += f'{roundDPS(oldDPS)} -> {roundDPS(newDPS)}\n'
+            dpsResults.append({
+                'FastName': fastMove['Name'],
+                'FastDuration': fastMove['Duration'],
+                'NewFastDuration': newFastMove['Duration'],
+                'ChargedName': chargedMove['Name'],
+                'ChargedDuration': chargedMove['Duration'],
+                'NewChargedDuration': newChargedMove['Duration'],
+                'OldDPS': oldDPS,
+                'NewDPS': newDPS
+            })
+
+    if resultSortOrder == 'ByNewDps':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['NewDPS'], reverse=True)
+    elif resultSortOrder == 'ByOldDps':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['OldDPS'], reverse=True)
+    elif resultSortOrder == 'ByFast':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['FastName'])
+    elif resultSortOrder == 'ByCharged':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['ChargedName'])
+
+    for result in sortedDpsResults:
+        moveNameOutput += f'{formatForDisplay(result["FastName"])}{displayDurationChange(result["FastDuration"], result["NewFastDuration"])} | {formatForDisplay(result["ChargedName"])}{displayDurationChange(result["ChargedDuration"], result["NewChargedDuration"])}\n'
+        moveDPSOutput += f'{roundDPS(result["OldDPS"])} -> {roundDPS(result["NewDPS"])}\n'
+
+    if len(moveNameOutput) > 1024:
+        return f'You exceeded the character limit by {len(moveNameOutput) - 1024} characters! Get rid of some moves!'
 
     embed.add_field(name='Moveset',
                     value=moveNameOutput,
@@ -650,12 +681,6 @@ async def dpsCheck(monName, extraInputs=None):
     embed.add_field(name='Old -> New',
                     value=moveDPSOutput,
                     inline=True)
-    
-    '''
-    embed.add_field(name='% Diff',
-                    value=movePwrIncrease,
-                    inline=True)
-    '''
 
     rand_num = random.randint(1, 100)
     if rand_num == 69:
@@ -688,8 +713,11 @@ async def determineExtraInputs(extraInputs):
     weatherMultiplier = 1.0
     megaMultiplier = 1.0
     friendMultiplier = 1.0
+    partyPowerMultiplier = 1.0
 
     applyMoveChanges = True
+
+    resultSortOrder = 'ByNewDps'
 
     errorText = ''
 
@@ -736,12 +764,20 @@ async def determineExtraInputs(extraInputs):
             fastSTABMultiplier = 1.0
         elif str(input).strip().lower() == 'nochargedstab':
             chargedSTABMultipler = 1.0
+        elif str(input).strip().lower() == 'friendboost':
+            friendMultiplier = 1.1
         elif str(input).strip().lower() == 'weatherboost':
             weatherMultiplier = 1.2
         elif str(input).strip().lower() == 'megaboost':
             megaMultiplier = 1.3
-        elif str(input).strip().lower() == 'friendboost':
-            friendMultiplier = 1.1
+        elif str(input).strip().lower()[:10] == 'partypower':
+            try:
+                multiplier = int(input.strip()[10:])
+                if multiplier < 1 or multiplier > 5:
+                    raise Exception
+                partyPowerMultiplier = 1.0 + (1.0/float(multiplier))
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid party power value! Keep it between 1 and 5!'
         elif str(input).strip().lower()[:7] == 'bossatk':
             try :
                 atkVal = int(input.strip()[7:])
@@ -758,27 +794,33 @@ async def determineExtraInputs(extraInputs):
                 bossDefence = defVal
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!'
+        elif str(input).strip().lower()[:12] == 'sortbyolddps':
+            resultSortOrder = 'ByOldDps'
+        elif str(input).strip().lower()[:15] == 'sortbyfastmoves':
+            resultSortOrder = 'ByFast'
+        elif str(input).strip().lower()[:18] == 'sortbychargedmoves':
+            resultSortOrder = 'ByCharged'
         elif str(input).strip().lower()[:13] == 'nomovechanges':
             applyMoveChanges = False
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
 
     if errorText != '':
-        errorText += '\n\nCheck `$dps help` to see all valid modifiers!'
+        errorText += '\n\nCheck `$dps modifiers` to see all valid modifiers!'
     
-    return level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, weatherMultiplier, megaMultiplier, friendMultiplier, bossAttack, bossDefence, applyMoveChanges, errorText
+    return level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, friendMultiplier, weatherMultiplier, megaMultiplier, partyPowerMultiplier, bossAttack, bossDefence, resultSortOrder, applyMoveChanges, errorText
 #endregion
 
 #region math calculations
-async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, FAST_EFFECTIVENESS, CHARGED_EFFECTIVENESS, FAST_STAB_MULTIPLIER, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, FRIEND_MULTIPLIER, EXTRA_DPS_VALUE):
+async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, FAST_EFFECTIVENESS, CHARGED_EFFECTIVENESS, FAST_STAB_MULTIPLIER, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, PARTY_POWER_MULTIPLIER, EXTRA_DPS_VALUE):
     dpsBoss = await calcBossDPS(ENEMY_DPS_SCALING, BOSS_ATTACK, defence, SHADOW_MULTIPLIER)
 
-    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], FAST_EFFECTIVENESS, FAST_STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, FRIEND_MULTIPLIER, EXTRA_DPS_VALUE)
+    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], FAST_EFFECTIVENESS, FAST_STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
-    chargedMove['Energy'] = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
-    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], CHARGED_EFFECTIVENESS, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, FRIEND_MULTIPLIER, EXTRA_DPS_VALUE)
-    chargedEps = await calcChargedEPS(chargedMove['Energy'], chargedMove['Duration'])
+    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
+    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], CHARGED_EFFECTIVENESS, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, PARTY_POWER_MULTIPLIER, EXTRA_DPS_VALUE)
+    chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
     energyEfficiency = await calcEnergyEfficiency(fastDps, fastEps, chargedDps, chargedEps)
 
@@ -807,7 +849,7 @@ async def calcSurvivalTime(dpsBoss, stamina):
     return survivalTime
 '''
 
-async def calcFastDPS(fastDamage, fastDuration, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, FRIEND_MULTIPLIER, EXTRA_DPS_VALUE):
+async def calcFastDPS(fastDamage, fastDuration, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE):
     dmgFast = (fastDamage * EFFECTIVENESS * STAB_MULTIPLIER * SHADOW_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER * FRIEND_MULTIPLIER) + EXTRA_DPS_VALUE
     dpsFast = dmgFast/fastDuration
     return dpsFast
@@ -816,8 +858,8 @@ async def calcFastEPS(fastEnergy, fastDuration):
     epsFast = fastEnergy/fastDuration
     return epsFast
 
-async def calcChargedDPS(chargedDamage, chargedDuration, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, FRIEND_MULTIPLIER, EXTRA_DPS_VALUE):
-    dmgCharged = (chargedDamage * EFFECTIVENESS * STAB_MULTIPLIER * SHADOW_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER * FRIEND_MULTIPLIER) + EXTRA_DPS_VALUE
+async def calcChargedDPS(chargedDamage, chargedDuration, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, PARTY_POWER_MULTIPLIER, EXTRA_DPS_VALUE):
+    dmgCharged = (chargedDamage * EFFECTIVENESS * STAB_MULTIPLIER * SHADOW_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER * FRIEND_MULTIPLIER * PARTY_POWER_MULTIPLIER) + EXTRA_DPS_VALUE
     dpsCharged = dmgCharged/chargedDuration
     return dpsCharged
 
