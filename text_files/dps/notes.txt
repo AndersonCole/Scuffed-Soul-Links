@@ -1,2 +1,53 @@
-Reshiram has 43.18 fire type dps at level 50, Chandelure has 43.64 fire type dps at level 50, Blacephalon has 45.56 fire type dps at level 50, Blaziken has 42.75 fire type dps at level 50, Mega Charizard Y has 53.42 dps at level 50, Mega Blaziken has 57.07 fire type dps at level 50, Shadow Blaziken has 52.06 fire type dps at level 50, Shadow Chandelure has 52.18 fire type dps at level 50
-Zarude has 43.84 grass type dps at level 50, Shadow Venusaur has 46.9 grass type dps at level 50, Shadow Sceptile 47.88 grass type dps at level 50, Kartana has 47.73 grass type dps at level 50, Meowscarada has 49.68 grass type dps at level 50, Mega Sceptile has 55.44 grass type dps at level 50, Mega Venusaur has 46.29 grass type dps at level 50, Sky Shaymin has 41.86 grass type dps at level 50, Decidueye has 44.88 grass type dps at level 50
+I'm going to input the top Pokemon and their dps by type
+Flying: Mega Rayuaza: 67.71, Rayquaza: 52.24, Shadow Moltres: 48.29, Yveltal: 43.27, Moltres: 39.76
+Ground: Primal Groudon: 52.57, Shadow Groudon: 48.97, Shadow Excadrill: 48.09, Shadow Garchomp:45.45, Shadow Mamoswine: 45.61, Landorus Therian: 45.23, Shadow Rhyperior: 43.55, Groudon: 40.77
+Bug: Pheromosa: 46.69, Mega Heracross: 43.05, Mega Beedrill: 43.05, Mega Pinsir: 42.73, Shadow Pinsir: 40.96, Shadow Scizor: 40.91, Volcarona: 38.27, Genesect: 35.9
+Steel: Necrozma Dusk Mane: 57.89, Shadow Metagross: 52.22, Mega Metagross: 49.46, Shadow Excadrill: 44.53, Metagross: 43.11, Mega Lucario: 38.96, Dialga: 38.53, Origin Dialga: 37.79
+Water: Primal Kyogre: 53.09, Shadow Kyogre: 49.65, Shadow Kingler: 48.56, Mega Swampert: 47.14, Shadow Water Starters: 43.00ish, Kyogre: 41.19, Greninja: 40.47, Primarina: 38.76
+Electric: Shadow Electivire: 48.6, Xurkitree: 47.03, Shadow Raikou: 47.0, Thundurus Therian: 46.56, Mega Manectric: 46.55, Shadow Magnezone: 45.55, Shadow Zapdos: 45.09, Zekrom: 43.34, Shadow Zebstrika: 40.48, Electivire: 40.18
+Ice: Shadow Mamoswine: 45.3, Shadow Weavile: 43.72, Galar Darmanitan: 40.75, Baxcalibur: 38.43, Mega Glalie: 37.81, Mamoswine: 37.18, Mega Abomasnow: 36.98, Shadow Mewtwo: 36.5ish, Weavile: 36.04
+Dark: Shadow Tyranitar: 47.99, Mega Tyranitar: 47.44, Shadow Weavile: 45.79, Mega Absol: 44.67, Mega Houndoom: 44.5, Shadow Absol: 42.95, Hydreigon: 40.47, Darkrai: 40.33, Tyranitar: 39.54, Weavile: 37.88
+Fighting: Mega Lucario: 59.41, Mega Blaziken: 47.96, Shadow Conkeldurr: 47.74, Lucario: 46.35, Shadow Machamp: 45.84, Terrakion: 46.02, Keldeo: 42.93, Conkeldurr: 39.28, Machamp: 37.76
+Poison: Mega Beedrill: 47.95, Shadow Toxicroak: 41.99, Naganadel: 41.92, Nihilego: 39.66, Roserade: 38.46, Overqwil: 33.21
+Rock: Shadow Rampardos: 52.68, Mega Diancie: 48.13, Shadow Rhyperior: 46.42, Rampardos: 43.14, Mega Tyranitar: 41.97, Shadow Tyranitar: 41.67, Rhyperior: 38.16, Terrakion: 36.99
+Ghost: Mega Gengar: 55.08, Necrozma Dawn Wings: 53.59, Shadow Gengar: 50.97, Shadow Chandelure: 50.21, Blacephalon: 46.75, Gengar: 52.19, Chandelure: 41.54, Dragapult: 40.48
+Fire: Mega Blaziken: 56.4, Mega Charizard: 54.14, Shadow Blaziken: 51.34, Shadow Darmanitan: 49.55, Shadow Chandelure: 49.02, Shadow Heatran: 48.54, Blacephalon: 47.99, Shadow Fire Starters: 47ish, Shadow Moltres: 46.82, Reshiram: 46.57
+Grass: Mega Sceptile: 51.72, Kartana: 47.73, Shadow Sceptile: 44.83, Shaymin Sky: 43.24, Shadow Venusaur: 42.99, Mega Venusaur: 42.19, Zarude: 40.06
+Psychic: Shadow Mewtwo: 61.36, Mega Alakazam: 56.06, Mewtwo: 50.49, Hoopa Unbound: 48.28
+Dragon: Mega Rayquaza: 61.39, Shadow Salamence: 52.31, Mega Garchomp: 51.86, Origin Palkia: 49.51, Shadow Dragonite: 49.58, Shadow Garchomp: 49.26, Mega Salamence: 48.07, Rayquaza: 47.37, Haxorus: 47.2, Origin Dialga: 46.58, Dragapult: 44.48, Salamence: 43.54
+Fairy: Mega Gardevoir: 47.7, Shadow Gardevoir: 42.91, Enamorus: 41.33, Shadow Granbull: 39.92, Xerneas: 35.86, Gardevoir: 35.45, Togekiss: 33.8
+Now, that I've gone through all the best Pokemon, im going to list the best moves in order by type. They will be ordered as best first and worst last.
+Flying Type Fast Attacks: Gust, Wing Attack, Air Slash, Peck
+Flying Type Charged Attacks: Dragon Ascent, Fly, Oblivion Wing, Sky Attack, Bleakwind Storm, Brave Bird, Drill Peck, Acrobatics, Hurricane, Aerial Ace, Air Cutter, Feather Dance
+Ground Type Fast Attacks: Mud Slap, Mud Shot
+Ground Type Charged Attacks: Sandsear Storm, Precipice Blades, Earth Power, Scorching Sands, High Horsepower, Drill Run, Earthquake, Mud Bomb, Bone Club, Dig, Bulldoze, Sand Tomb
+Bug Type Fast Attacks: Fury Cutter, Bug Bite, Infestation, Struggle Bug
+Bug Type Charged Attacks: Bug Buzz, X Scissor, Megahorn, Signal Beam, Fell Stinger, Silver Wind, Lunge
+Steel Type Fast Attacks: Steel Wing, Metal Claw, Bullet Punch, Iron Tail, Metal Sound
+Steel Type Charged Attacks: Sunsteel Strike, Doom Desire, Meteor Mash, Double Iron Bash, Heavy Slam, Iron Head, Gyro Ball, Flash Cannon, Mirror Shot
+Water Type Fast Attacks: Water Shuriken, Bubble, Waterfall, Water Gun, Splash
+Water Type Charged Attacks: Hydro Cannon, Crabhammer, Sparkling Aria, Razor Shell, Weather Ball, Origin Pulse, Surf, Techno Blast, Liquidation, Hydro Pump, Aqua Tail, Brine, Bubble Beam, Muddy Water, Water Pulse, Octazooka, Aqua Jet
+Electric Type Fast Attacks: Thunder Fang, Thunder Shock, Volt Switch, Spark, Charge Beam
+Electric Type Charged Attacks: Aura Wheel, Fusion Bolt, Wild Charge, WIldbolt Storm, Volt Tackle, Thunderbolt, Discharge, Techno Blast, Zap Cannon, Thunder Punch, Thunder, Parabolic Charge
+Ice Type Fast Attacks: Frost Breath, Ice Fang, Ice Shard, Powder Snow
+Ice Type Charged Attacks: Glaciate, Weather Ball, Avalanche, Triple Axel, Icicle Spear, Ice Beam, Techno Blast, Blizzard, Ice Punch, Aurora Beam, Icy Wind
+Dark Type Fast Attacks: Snarl, Sucker Punch, Bite, Feint Attack
+Dark Type Charged Attacks: Aura Wheel, Darkest Lariat, Brutal Swing, Foul Play, Dark Pulse, Payback, Crunch, Night Slash, Obstruct
+Fighting Type Fast Attacks: Double Kick / Karate Chop, Force Palm, Counter, Low Kick, Rock Smash
+Fighting Type Charged Attacks: Flying Press, Aura Sphere, Sacred Sword, Dynamic Punch, Superpower, Focus Blast, High Jump Kick, Close Combat, Cross Chop, Power Up Punch, Brick Break, Submission, Drain Punch, Low Sweep
+Poison Type Fast Attacks: Poison Jab, Acid, Poison Sting
+Poison Type Charged Attacks: Sludge Bomb, Gunk Shot, Sludge, Cross Poison, Sludge Wave, Poison Fang, Acid Spray
+Rock Type Fast Attacks: Rollout, Rock Throw, Smack Down
+Rock Type Charged Attacks: Weather Ball, Rock Wrecker, Meteor Beam, Rock Slide, Power Gem, Rock Blast, Stone Edge, Ancient Power, Rock Tomb
+Ghost Type Fast Attacks: Lick, Shadow Claw, Hex, Astonish
+Ghost Type Charged Attacks: Moongeist Beam, Shadow Force, Shadow Ball, Rage Fist, Spirit Shackle, Shadow Bone, Poltergeist, Ominous Wind, Night Shade, Shadow Punch, Shadow Sneak
+Fire Type Fast Attacks: Fire Spin, Fire Fang, Incinerate, Ember
+Fire Type Charged Attacks: V-Create, Blast Burn, Weather Ball, Fusion Flare, Magma Storm, Mystical Fire, Blaze Kick, Techno Blast, Overheat, Sacred Fire, Flamethrower, Flame Burst, Fire Punch, Fire Blast, Heat Wave, Flame Wheel, Flame Charge
+Grass Type Fast Attacks: Vine Whip, Magical Leaf, Razor Leaf, Leafage, Bullet Seed
+Grass Type Charged Attacks: Frenzy Plant, Grass Knot, Power Whip, Leaf Blade, Leaf Storm, Seed Bomb, Trailblaze, Seed Flare, Petal Blizzard, Energy Ball, Leaf Tornado, Giga Drain, Mega Drain
+Psychic Type Fast Attacks: Confusion, Extrasensory, Psycho Cut / Psywave, Zen Headbutt
+Psychic Type Charged Attacks: Psystrike, Psychic, Synchronoise, Luster Purge, Future Sight, Mist Ball, Psyshock, Mirror Coat, Psybeam, Psychic Fangs, Heart Stamp, Psycho Boost
+Fairy Type Fast Attacks: Geomancy, Charm, Fairy Wind
+Fairy Type Charged Attacks: Nature's Madness, Dazzling Gleam, Play Rough, Moonblast, Draining Kiss, Disarming Voice
+Dragon Type Fast Attacks: Dragon Tail, Dragon Breath
+Dragon Type Charged Attacks: Roar of Time, Spacial Rend, Breaking Swipe, Outrage, Draco Meteor, Dragon Claw, Dragon Pulse
