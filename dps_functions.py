@@ -52,6 +52,7 @@ async def dpsHelp():
                                         '```$dps delete-mon Kartana``` Deletes a mon from the registered list.\n' +
                                         '```$dps delete-move Razor Leaf``` Deletes a move from the registered list.\n' +
                                         '```$dps add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
+                                        '```$dps delete-notes``` Deletes all saved notes.\n' +
                                         '```$dps check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n\n' +
                                         'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order.\nA \'★\' beside a move name indicates its been changed in an update.\nhttps://db.pokemongohub.net is good for checking move data.', 
                             color=3553598)
@@ -979,6 +980,17 @@ async def addDPSNote(note):
     await saveDpsData()
 
     return 'Note added successfully!'
+
+async def clearDPSNotes():
+    global dpsNotes
+
+    noteDeletionMessage = f'All notes were deleted! Here\'s what was in there, for posterity:\n{dpsNotes}'
+
+    dpsNotes = ''
+
+    await saveDpsData()
+
+    return noteDeletionMessage[:2000]
 
 async def readDPSNotes(user, userInput):
     rand_num = random.randint(1, 100)

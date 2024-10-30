@@ -635,6 +635,11 @@ class MyClient(discord.Client):
 
                 await message.channel.send(embed)
             
+            elif input[0:12] == 'delete-notes':
+                embed = await clearDPSNotes()
+
+                await message.channel.send(embed)
+
             elif input[0:12] == 'check-notes ':
                 embed = await readDPSNotes(message.author, input[12:])
 
