@@ -545,11 +545,11 @@ class MyClient(discord.Client):
             elif input[0:9] == 'add-move ':
                 if ',' in input:
                     user_inputs = re.split(r'[,]+', input[9:])
-                    if len(user_inputs) == 4:
-                        embed = await dpsAddFastMove(user_inputs[0].strip(), int(user_inputs[1]), int(user_inputs[2]), int(user_inputs[3]))
+                    if len(user_inputs) == 5:
+                        embed = await dpsAddFastMove(user_inputs[0].strip(), int(user_inputs[1]), int(user_inputs[2]), int(user_inputs[3]), user_inputs[4].strip())
                         await message.channel.send(embed)
-                    elif len(user_inputs) == 5:
-                        embed = await dpsAddChargedMove(user_inputs[0].strip(), int(user_inputs[1]), int(user_inputs[2]), int(user_inputs[3]), int(user_inputs[4]))
+                    elif len(user_inputs) == 6:
+                        embed = await dpsAddChargedMove(user_inputs[0].strip(), int(user_inputs[1]), int(user_inputs[2]), int(user_inputs[3]), int(user_inputs[4]), user_inputs[5].strip())
                         await message.channel.send(embed)
                     else:
                         await message.channel.send('Invalid input! Check `$dps help`')
@@ -649,6 +649,43 @@ class MyClient(discord.Client):
                 await message.channel.send('I don\'t know wtf you\'re trying to input!')
         #endregion
 
+        #region pogo dynamax
+        elif message.content[0:5] == '$max ':
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+            else: 
+                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+
+            input = message.content[5:]
+
+            if input == 'help':
+                embed, file = await dynamaxHelp()
+                await message.channel.send(file=file, embed=embed)
+            
+            elif input == 'modifiers':
+                embed, file = await dynamaxModifiers()
+                await message.channel.send(file=file, embed=embed)
+
+            elif input[0:6] == 'check ':
+                if ',' in input:
+                    user_inputs = re.split(r'[,]+', input[6:])
+                    if len(user_inputs) >= 2:
+                        embed = await maxDpsEpsCheck(user_inputs[0].strip(), user_inputs[1:])
+                        if(type(embed) == type('')):
+                            await message.channel.send(embed)
+                        else:
+                            await message.channel.send(embed=embed)
+                    else:
+                        await message.channel.send('I don\'t know wtf you\'re trying to input!')
+                else:
+                    embed = await maxDpsEpsCheck(input[6:].strip())
+                    if(type(embed) == type('')):
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send(embed=embed)
+        #endregion
+        
         #region Order 66
         elif message.content[0:25] == 'Shuckle, Execute Order 66':
             rand_num = random.randint(1, 100)

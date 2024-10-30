@@ -41,8 +41,8 @@ async def dpsHelp():
     embed = discord.Embed(title=f'Shuckles PoGo DPS Commands',
                             description='```$dps check Kartana``` Calcs the dps for the moveset for the mon at level 50\n' +
                                         '```$dps modifiers``` Lists out all the available modifers\n' +
-                                        '```$dps add-move Razor Leaf, 13, 7, 1000``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
-                                        '```$dps add-move Leaf Blade, 70, 33, 2400, 1250``` For charged moves, list their damage, energy cost, duration, and damage window start, with the times in milliseconds.\n' +
+                                        '```$dps add-move Razor Leaf, 13, 7, 1000, Grass``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
+                                        '```$dps add-move Leaf Blade, 70, 33, 2400, 1250, Grass``` For charged moves, list their damage, energy cost, duration, and damage window start, with the times in milliseconds.\n' +
                                         '```$dps add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order.\n' +
                                         '```$dps add-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Adds every move listed to a registered mon\n' +
                                         '```$dps remove-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Removes every move listed from a registered mon, as long as they\'re registered to it.\n' +
@@ -71,23 +71,26 @@ async def dpsModifiers():
     embed = discord.Embed(title=f'Shuckles PoGo DPS Modifiers',
                             description='```$dps check Kartana, Shadow, 40``` Any modifier can be applied in any order, as shown\n\n' +
                                         '```$dps check Kartana, 40``` Level: Calcs DPS at the specified level\n' +
-                                        '```$dps check Kartana, 14/15/15``` IVs: Calcs DPS from the given IVs. Always assume stats are listed in Attack/Defence/HP order.\n' +
+                                        '```$dps check Kartana, 14/15/15``` IVs: Calcs DPS from the given IVs\nAlways assume stats are listed in Attack/Defence/HP order\n' +
                                         '```$dps check Kartana, Shadow``` Shadow: Gives the mon a 1.2x atk boost and def nerf\n' +
-                                        '```$dps check Kartana, NoFastSTAB``` NoFastSTAB: Removes STAB from the mons fast attack\n' +
-                                        '```$dps check Kartana, NoChargedSTAB``` NoChargedSTAB: Removes STAB from the mons charged attack\n' +
+                                        '```$dps check Kartana, NoFastSTAB``` NoFastSTAB: Removes STAB from all the mons fast attack\n' +
+                                        '```$dps check Kartana, NoChargedSTAB``` NoChargedSTAB: Removes STAB from all the mons charged attack\n' +
+                                        '```$dps check Kartana, ForceFastSTAB``` ForceFastSTAB: Forces STAB on all the mons fast attacks\n' +
+                                        '```$dps check Kartana, ForceChargedSTAB``` ForceChargedSTAB: Forces STAB on all the mons charged attacks\n' +
                                         '```$dps check Kartana, FastEffective1.6x``` FastEffectiveness: Applies type effectivity damage bonuses to fast moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
                                         '```$dps check Kartana, ChargedEffective1.6x``` ChargedEffectiveness: Applies type effectivity damage bonuses to charged moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
                                         '```$dps check Kartana, FriendBoost``` FriendBoost: Adds a 1.1x boost to both fast and charged attacks\n' +
                                         '```$dps check Kartana, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to both fast and charged attacks\n' +
                                         '```$dps check Kartana, MegaBoost``` MegaBoost: Adds a 1.3x boost to both fast and charged attacks\n' +
-                                        '```$dps check Kartana, PartyPower1``` PartyPower: Applies the party power boost at the specified rate\n1 = Every charged move, 2 = Every other, 3 = Every third, etc' +
+                                        '```$dps check Kartana, PartyPower1``` PartyPower: Applies the party power boost at the specified rate\n1 = Every charged move, 2 = Every other, 3 = Every third, etc\n' +
                                         '```$dps check Kartana, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
                                         '```$dps check Kartana, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
+                                        '```$dps check Kartana, BossKyogre``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
                                         '```$dps check Kartana, SortByOldDps``` SortByOldDps: Orders the output by the old dps\n' +
                                         '```$dps check Kartana, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
                                         '```$dps check Kartana, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n' +
                                         '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n\n' +
-                                        'Everything should be case insensitive.\nDefault check assumes Lv50, Hundo, Not Shadow, STAB for everything, Neutral effectiveness, No Special Boosts, Sorted by Dps', 
+                                        'Everything should be case insensitive.\nDefault check assumes Lv50, Hundo, Not Shadow, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Dps', 
                             color=3553598)
 
     rand_num = random.randint(1, 100)
@@ -98,6 +101,60 @@ async def dpsModifiers():
         embed.set_thumbnail(url='attachment://swole_shuckle.png')
         return embed, file
 
+async def dynamaxHelp():
+    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
+    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
+
+    embed = discord.Embed(title=f'Shuckles PoGo Dynamax Commands',
+                            description='```$max check Charizard``` Calcs the dps and max eps for the moveset for the mon\n' +
+                                        '```$max modifiers``` Lists out all the available modifers\n\n' +
+                                        'The max commands use all the data added in the Raid DPS side of Shuckle.', 
+                            color=3553598)
+
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
+        return embed, shinyFile
+    else:
+        embed.set_thumbnail(url='attachment://swole_shuckle.png')
+        return embed, file
+
+async def dynamaxModifiers():
+    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
+    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
+
+    embed = discord.Embed(title=f'Shuckles PoGo Dynamax Modifiers',
+                            description='```$max check Charizard, NoFastSTAB, 50``` Any modifier can be applied in any order, as shown\n\n' +
+                                        '```$max check Charizard, 50``` Level: Calcs DPS and Max EPS at the specified level\n' +
+                                        '```$max check Charizard, 14/15/15``` IVs: Calcs DPS and Max EPS from the given IVs\nAlways assume stats are listed in Attack/Defence/HP order\n' +
+                                        '```$max check Charizard, NoFastSTAB``` NoFastSTAB: Removes STAB from all the mons fast attack\n' +
+                                        '```$max check Charizard, NoChargedSTAB``` NoChargedSTAB: Removes STAB from all the mons charged attack\n' +
+                                        '```$max check Charizard, ForceFastSTAB``` ForceFastSTAB: Forces STAB on all the mons fast attacks\n' +
+                                        '```$max check Charizard, ForceChargedSTAB``` ForceChargedSTAB: Forces STAB on all the mons charged attacks\n' +
+                                        '```$max check Charizard, FastEffective1.6x``` FastEffectiveness: Applies type effectivity damage bonuses to fast moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
+                                        '```$max check Charizard, ChargedEffective1.6x``` ChargedEffectiveness: Applies type effectivity damage bonuses to charged moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
+                                        '```$max check Charizard, FriendBoost``` FriendBoost: Adds a 1.1x boost to both fast and charged attacks\nNote that this may not actually work in real battles\n' +
+                                        '```$max check Charizard, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to both fast and charged attacks\nNote that this may not actually work in real battles\n' +
+                                        '```$max check Charizard, MegaBoost``` MegaBoost: Adds a 1.3x boost to both fast and charged attacks.\nNote that this probably isn\'t supposed to work in real battles\n' +
+                                        '```$max check Charizard, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
+                                        '```$max check Charizard, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
+                                        '```$max check Charizard, BossVenusaur``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
+                                        '```$max check Charizard, Tier3``` Tier: Sets the max energy gain modifier to that of the selected tier\n' +
+                                        '```$max check Charizard, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
+                                        '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n' +
+                                        '```$max check Charizard, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
+                                        '```$max check Charizard, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
+                                        'Everything should be case insensitive.\nDefault check assumes Lv20, Hundo, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Max Eps', 
+                            color=3553598)
+
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
+        return embed, shinyFile
+    else:
+        embed.set_thumbnail(url='attachment://swole_shuckle.png')
+        return embed, file
+    
 #region parsing funcs
 def formatName(mon_name):
     mon = re.sub(r'\s', '-', str(mon_name).strip().lower())
@@ -123,7 +180,19 @@ def getDexNum(mon):
         return [obj for obj in pokemon if obj['Name'] == mon][0]['DexNum']
     except:
         return -1
-    
+
+def formatMoveType(moveType):
+    moveType = moveType.lower()
+    moveType = moveType.capitalize()
+    return moveType
+
+def verifyMoveType(moveType):
+    moveType = formatMoveType(moveType)
+    temp = [obj for obj in types if obj['Name'] == moveType]
+    if len(temp) == 1:
+        return True
+    return False
+
 def formatForDisplay(name):
     words = re.split(r'[\s-.]+', name)
     name = ' '.join(word.capitalize() for word in words)
@@ -194,6 +263,9 @@ async def dpsAddMon(monName, attack, defence, stamina):
     
     dexNum = getDexNum(monName)
 
+    if dexNum == -1:
+        return f'The pokemon \'{monName}\' was not recognized!'
+
     monName = formatName(monName)
 
     loadedMons.append({
@@ -209,14 +281,19 @@ async def dpsAddMon(monName, attack, defence, stamina):
 
     return 'Mon added successfully!'
 
-async def dpsAddFastMove(moveName, damage, energy, duration):
+async def dpsAddFastMove(moveName, damage, energy, duration, moveType):
     if checkDuplicateMove(moveName):
         return 'That move is already registered!'
     
     if (1000 < damage or damage <= 0) or (100 < energy or energy <= 0) or (10000 < duration or duration <= 0):
         return 'Make sure the damage is between 1 and 1000, the energy between 1 and 100, and the duration between 1 and 10,000 ms!'
 
+    if not verifyMoveType(moveType):
+        return f'The entered type {moveType} was not recognized!'
+
     moveName = formatName(moveName)
+
+    moveType = formatMoveType(moveType)
 
     duration = duration/1000
 
@@ -225,14 +302,15 @@ async def dpsAddFastMove(moveName, damage, energy, duration):
         'Type': 'Fast',
         'Damage': damage,
         'Energy': energy,
-        'Duration': duration
+        'Duration': duration,
+        'MoveType': moveType
     })
 
     await saveDpsData()
 
     return 'Fast move added successfully!'
 
-async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindow):
+async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindow, moveType):
     if checkDuplicateMove(moveName):
         return 'That move is already registered!'
     
@@ -242,7 +320,12 @@ async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindo
     if  0 >= damageWindow > duration:
         return 'Make sure the damage window starts before the move ends, or is at least 1!'
     
+    if not verifyMoveType(moveType):
+        return f'The entered type {moveType} was not recognized!'
+    
     moveName = formatName(moveName)
+    
+    moveType = formatMoveType(moveType)
 
     duration = duration/1000
     damageWindow = damageWindow/1000
@@ -253,7 +336,8 @@ async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindo
         'Damage': damage,
         'Energy': energyDelta,
         'Duration': duration,
-        'DamageWindow': damageWindow
+        'DamageWindow': damageWindow,
+        'MoveType': moveType
     })
 
     await saveDpsData()
@@ -550,59 +634,38 @@ async def deleteDPSMon(monName):
 #endregion
 
 #region dps calculations
+#region raid dps check
 async def dpsCheck(monName, extraInputs=None):
-    ENEMY_DPS_SCALING = 4.0
-    EXTRA_DPS_VALUE = 0.5
-
-    bossAttack = 200
-    bossDefence = 70
-
-    level = 50
-    attack_iv = 15
-    defence_iv = 15
-    stamina_iv = 15
-
-    fastEffectiveness = 1.0
-    chargedEffectiveness = 1.0
-
-    fastSTABMultiplier = 1.2
-    chargedSTABMultipler = 1.2
-
-    shadowMultiplier = 1.0
-    shadowText = ''
-    
-    weatherMultiplier = 1.0
-    megaMultiplier = 1.0
-    friendMultiplier = 1.0
-    partyPowerMultiplier = 1.0
-
-    applyMoveChanges = True
-
-    resultSortOrder = 'ByNewDps'
+    modifiers = getDefaultModifiers()
 
     if extraInputs != None:
-        level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, friendMultiplier, weatherMultiplier, megaMultiplier, partyPowerMultiplier, bossAttack, bossDefence, resultSortOrder, applyMoveChanges, errorText = await determineExtraInputs(extraInputs)
+        modifiers, errorText = await determineExtraInputs(extraInputs)
         if errorText != '':
             return errorText
     
     if not checkDuplicateMon(monName):
         return 'That pokemon is not registered!'
     
+    monTypes = []
+
     mon = [obj for obj in loadedMons if obj['Name'] == formatName(monName)][0]
     if mon['ImageDexNum'] >= 0:
-        mon_data = requests.get(f'https://pokeapi.co/api/v2/pokemon/{mon["ImageDexNum"]}')
-        mon_data = mon_data.json()
-        mon_primary_type = str(mon_data['types'][0]['type']['name']).capitalize()
-        embedColour = [obj for obj in types if obj['Name'] == mon_primary_type][0]['Colour']
+        monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{mon["ImageDexNum"]}')
+        monData = monData.json()
+        monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
+        if len(monData['types']) > 1:
+            monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
+        embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
     else:
-        embedColour = 3553598
+        monTypes.append('???')
+        embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
 
-    cpMultiplier = await getCPMultiplier(level)
+    cpMultiplier = await getCPMultiplier(modifiers['Level'])
     if cpMultiplier == 0:
         return 'Level must be between 40-51, or a multiple of 5!'
-    calculated_attack = (mon['Attack'] + attack_iv)*cpMultiplier
-    calculated_defence = (mon['Defence'] + defence_iv)*cpMultiplier
-    calculated_stamina = (mon['Stamina'] + stamina_iv)*cpMultiplier
+    calculated_attack = (mon['Attack'] + modifiers['AttackIv'])*cpMultiplier
+    calculated_defence = (mon['Defence'] + modifiers['DefenceIv'])*cpMultiplier
+    calculated_stamina = (mon['Stamina'] + modifiers['StaminaIv'])*cpMultiplier
 
     fastMoves = []
     chargedMoves= []
@@ -611,7 +674,7 @@ async def dpsCheck(monName, extraInputs=None):
 
     for move in mon['Moves']:
         changedIndicator = ''
-        if applyMoveChanges:
+        if modifiers['ApplyMoveChanges']:
             if moveChanged(move['Name']):
                 changedIndicator = '★'
         if move['Type'] == 'Fast':
@@ -630,22 +693,43 @@ async def dpsCheck(monName, extraInputs=None):
     moveDPSOutput = ''
     dpsResults = []
 
-    embed = discord.Embed(title=f'DPS Calculations for {shadowText}{formatForDisplay(mon["Name"])} at Lv {level}',
-                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {attack_iv}/{defence_iv}/{stamina_iv}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
+    embed = discord.Embed(title=f'DPS Calculations for {modifiers["ShadowText"]}{formatForDisplay(mon["Name"])} at Lv {modifiers["Level"]}',
+                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["AttackIv"]}/{modifiers["DefenceIv"]}/{modifiers["StaminaIv"]}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
                           color=embedColour)
 
     for fastMove in fastMoves:
         copiedFastMove = copy.deepcopy(fastMove)
-        copiedFastMove['Damage'], copiedFastMove['Energy'] = getChangedMoveStats(copiedFastMove['Name'], copiedFastMove['Damage'], copiedFastMove['Energy'], applyMoveChanges)
+        copiedFastMove['Damage'], copiedFastMove['Energy'] = getChangedMoveStats(copiedFastMove['Name'], copiedFastMove['Damage'], copiedFastMove['Energy'], modifiers['ApplyMoveChanges'])
+        
+        if modifiers['ForceNoFastSTAB']:
+            modifiers['FastSTABMultiplier'] = 1.0
+        elif modifiers['ForceFastSTAB']:
+            modifiers['FastSTABMultiplier'] = 1.2
+        else:
+            if fastMove['MoveType'] in monTypes:
+                modifiers['FastSTABMultiplier'] = 1.2
+            else:
+                modifiers['FastSTABMultiplier'] = 1.0
+
         for chargedMove in chargedMoves:
             copiedChargedMove = copy.deepcopy(chargedMove)
-            copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], applyMoveChanges)
+            copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], modifiers['ApplyMoveChanges'])
 
-            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, friendMultiplier, weatherMultiplier, megaMultiplier, partyPowerMultiplier, EXTRA_DPS_VALUE)
+            if modifiers['ForceNoChargedSTAB']:
+                modifiers['ChargedSTABMultiplier'] = 1.0
+            elif modifiers['ForceChargedSTAB']:
+                modifiers['ChargedSTABMultiplier'] = 1.2
+            else:
+                if chargedMove['MoveType'] in monTypes:
+                    modifiers['ChargedSTABMultiplier'] = 1.2
+                else:
+                    modifiers['ChargedSTABMultiplier'] = 1.0
+
+            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, modifiers)
 
             newFastMove = await calcRoundedFastMoves(copiedFastMove)
             newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
-            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, ENEMY_DPS_SCALING, bossAttack, bossDefence, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, friendMultiplier, weatherMultiplier, megaMultiplier, partyPowerMultiplier, EXTRA_DPS_VALUE)
+            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, modifiers)
 
             dpsResults.append({
                 'FastName': fastMove['Name'],
@@ -658,13 +742,13 @@ async def dpsCheck(monName, extraInputs=None):
                 'NewDPS': newDPS
             })
 
-    if resultSortOrder == 'ByNewDps':
+    if modifiers['ResultSortOrder'] == 'ByNewDps':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['NewDPS'], reverse=True)
-    elif resultSortOrder == 'ByOldDps':
+    elif modifiers['ResultSortOrder'] == 'ByOldDps':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['OldDPS'], reverse=True)
-    elif resultSortOrder == 'ByFast':
+    elif modifiers['ResultSortOrder'] == 'ByFast':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['FastName'])
-    elif resultSortOrder == 'ByCharged':
+    elif modifiers['ResultSortOrder'] == 'ByCharged':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['ChargedName'])
 
     for result in sortedDpsResults:
@@ -690,136 +774,420 @@ async def dpsCheck(monName, extraInputs=None):
 
 
     return embed
+#endregion
+
+#region dynamaxmax dps eps calcs
+async def maxDpsEpsCheck(monName, extraInputs=None):
+    modifiers = getDefaultModifiers()
+    modifiers['Level'] = 20
+    modifiers['ResultSortOrder'] = 'ByMaxEps'
+
+    if extraInputs != None:
+        modifiers, errorText = await determineExtraMaxInputs(extraInputs)
+        if errorText != '':
+            return errorText
+    
+    if not checkDuplicateMon(monName):
+        return 'That pokemon is not registered!'
+    
+    monTypes = []
+
+    mon = [obj for obj in loadedMons if obj['Name'] == formatName(monName)][0]
+    if mon['ImageDexNum'] >= 0:
+        monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{mon["ImageDexNum"]}')
+        monData = monData.json()
+        monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
+        if len(monData['types']) > 1:
+            monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
+        embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
+    else:
+        monTypes.append('???')
+        embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
+
+    cpMultiplier = await getCPMultiplier(modifiers['Level'])
+    if cpMultiplier == 0:
+        return 'Level must be between 40-51, or a multiple of 5!'
+    calculated_attack = (mon['Attack'] + modifiers['AttackIv'])*cpMultiplier
+    calculated_defence = (mon['Defence'] + modifiers['DefenceIv'])*cpMultiplier
+    calculated_stamina = (mon['Stamina'] + modifiers['StaminaIv'])*cpMultiplier
+
+    fastMoves = []
+    chargedMoves= []
+    fastMovesText = ''
+    chargedMovesText = ''
+
+    for move in mon['Moves']:
+        if move['Type'] == 'Fast':
+            fastMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
+            fastMovesText += f'{formatForDisplay(move["Name"])}, '
+        else:
+            chargedMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
+            chargedMovesText += f'{formatForDisplay(move["Name"])}, '
+
+    if len(fastMoves) == 0:
+        return 'This pokemon doesn\'t have any fast moves registered to it!'
+    if len(chargedMoves) == 0:
+        return 'This pokemon doesn\'t have any charged moves registered to it!'
+    
+    moveNameOutput = ''
+    moveDpsEpsOutput = ''
+    dpsResults = []
+
+    embed = discord.Embed(title=f'Max DPS Calculations for {formatForDisplay(mon["Name"])} at Lv {modifiers["Level"]}',
+                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["AttackIv"]}/{modifiers["DefenceIv"]}/{modifiers["StaminaIv"]}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
+                          color=embedColour)
+
+    for fastMove in fastMoves:
+        copiedFastMove = copy.deepcopy(fastMove)
+        copiedFastMove['Damage'], copiedFastMove['Energy'] = getChangedMoveStats(copiedFastMove['Name'], copiedFastMove['Damage'], copiedFastMove['Energy'], True)
+        
+        if modifiers['ForceNoFastSTAB']:
+            modifiers['FastSTABMultiplier'] = 1.0
+        elif modifiers['ForceFastSTAB']:
+            modifiers['FastSTABMultiplier'] = 1.2
+        else:
+            if fastMove['MoveType'] in monTypes:
+                modifiers['FastSTABMultiplier'] = 1.2
+            else:
+                modifiers['FastSTABMultiplier'] = 1.0
+
+        for chargedMove in chargedMoves:
+            copiedChargedMove = copy.deepcopy(chargedMove)
+            copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], True)
+
+            if modifiers['ForceNoChargedSTAB']:
+                modifiers['ChargedSTABMultiplier'] = 1.0
+            elif modifiers['ForceChargedSTAB']:
+                modifiers['ChargedSTABMultiplier'] = 1.2
+            else:
+                if chargedMove['MoveType'] in monTypes:
+                    modifiers['ChargedSTABMultiplier'] = 1.2
+                else:
+                    modifiers['ChargedSTABMultiplier'] = 1.0
+
+            newFastMove = await calcRoundedFastMoves(copiedFastMove)
+            newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
+            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, modifiers)
+
+            maxEPS = await calcMaxEPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, modifiers)
+
+            dpsResults.append({
+                'FastName': fastMove['Name'],
+                'FastDuration': newFastMove['Duration'],
+                'ChargedName': chargedMove['Name'],
+                'ChargedDuration': newChargedMove['Duration'],
+                'DPS': newDPS,
+                'MaxEPS': maxEPS
+            })
+
+    if modifiers['ResultSortOrder'] == 'ByDps':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['DPS'], reverse=True)
+    elif modifiers['ResultSortOrder'] == 'ByMaxEps':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['MaxEPS'], reverse=True)
+    elif modifiers['ResultSortOrder'] == 'ByFast':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['FastName'])
+    elif modifiers['ResultSortOrder'] == 'ByCharged':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['ChargedName'])
+
+    for result in sortedDpsResults:
+        moveNameOutput += f'{formatForDisplay(result["FastName"])} | {formatForDisplay(result["ChargedName"])}\n'
+        moveDpsEpsOutput += f'{roundDPS(result["DPS"])} | {roundDPS(result["MaxEPS"])}\n'
+
+    if len(moveNameOutput) > 1024:
+        return f'You exceeded the character limit by {len(moveNameOutput) - 1024} characters! Get rid of some moves!'
+
+    embed.add_field(name='Moveset',
+                    value=moveNameOutput,
+                    inline=True)
+    
+    embed.add_field(name='DPS | Max EPS',
+                    value=moveDpsEpsOutput,
+                    inline=True)
+
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{mon["ImageDexNum"]}.png')
+    else: 
+        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{mon["ImageDexNum"]}.png')
+
+
+    return embed
+#endregion
 
 #region modifiers
+def getDefaultModifiers():
+    return {
+        'EnemyDpsScaling': 4.0,
+        'ExtraDpsValue': 0.5,
+
+        'Level': 50,
+        'AttackIv': 15,
+        'DefenceIv': 15,
+        'StaminaIv': 15,
+
+        'FastEffectiveness': 1.0,
+        'ChargedEffectiveness': 1.0,
+
+        'ForceNoFastSTAB': False,
+        'ForceFastSTAB': False,
+        'FastSTABMultiplier': 1.0,
+
+        'ForceNoChargedSTAB': False,
+        'ForceChargedSTAB': False,
+        'ChargedSTABMultiplier': 1.0,
+
+        'ShadowMultiplier': 1.0,
+        'ShadowText': '',
+        
+        'FriendMultiplier': 1.0,
+        'WeatherMultiplier': 1.0,
+        'MegaMultiplier': 1.0,
+        'PartyPowerMultiplier': 1.0,
+
+        'BossAttack': 200,
+        'BossDefence': 70,
+
+        'TierMultiplier': 50.0,
+        'ApplyMaxOrb': True,
+
+        'ApplyMoveChanges': True,
+
+        'ResultSortOrder': 'ByNewDps'
+    }
+
+#region raid inputs
 async def determineExtraInputs(extraInputs):
-    bossAttack = 200
-    bossDefence = 70
-
-    level = 50
-    attack_iv = 15
-    defence_iv = 15
-    stamina_iv = 15
-
-    fastEffectiveness = 1.0
-    chargedEffectiveness = 1.0
-
-    fastSTABMultiplier = 1.2
-    chargedSTABMultipler = 1.2
-
-    shadowMultiplier = 1.0
-    shadowText = ''
-    
-    weatherMultiplier = 1.0
-    megaMultiplier = 1.0
-    friendMultiplier = 1.0
-    partyPowerMultiplier = 1.0
-
-    applyMoveChanges = True
-
-    resultSortOrder = 'ByNewDps'
+    modifiers = getDefaultModifiers()
 
     errorText = ''
 
     for input in extraInputs:
         if input.strip().isdigit():
-            level = int(input)
+            modifiers['Level'] = int(input)
         elif '/' in str(input).strip():
             ivs = re.split(r'[/]+', input.strip())
             try:
                 for iv in ivs:
                     if 0 > int(iv) or int(iv) > 15:
                         raise Exception
-                attack_iv = int(ivs[0])
-                defence_iv = int(ivs[1])
-                stamina_iv = int(ivs[2])
-            except Exception as ex:
-                errorText += f'\'{input}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!'
+                modifiers['AttackIv'] = int(ivs[0])
+                modifiers['DefenceIv'] = int(ivs[1])
+                modifiers['StaminaIv'] = int(ivs[2])
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!\n'
         elif str(input).strip().lower() == 'shadow':
-            shadowMultiplier = 1.2
-            shadowText = 'Shadow '
+            modifiers['ShadowMultiplier'] = 1.2
+            modifiers['ShadowText'] = 'Shadow '
         elif str(input).strip().lower()[:13] == 'fasteffective':
-            try :
+            try:
                 if input.strip()[-1:] != 'x':
                     raise Exception
                 val = float(input.strip()[13:-1])
                 if 0.1 > val or val > 4.0:
                     raise Exception
-                fastEffectiveness = val
+                modifiers['FastEffectiveness'] = val
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!'
+                errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
         elif str(input).strip().lower()[:16] == 'chargedeffective':
-            try :
+            try:
                 if input.strip()[-1:] != 'x':
                     raise Exception
                 val = float(input.strip()[16:-1])
                 if 0.1 > val or val > 4.0:
                     raise Exception
-                chargedEffectiveness = val
+                modifiers['ChargedEffectiveness'] = val
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!'
+                errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
         elif str(input).strip().lower() == 'nofaststab':
-            fastSTABMultiplier = 1.0
-        elif str(input).strip().lower() == 'nofaststab':
-            fastSTABMultiplier = 1.0
+            modifiers['ForceNoFastSTAB'] = True
         elif str(input).strip().lower() == 'nochargedstab':
-            chargedSTABMultipler = 1.0
+            modifiers['ForceNoChargedSTAB'] = True
+        elif str(input).strip().lower() == 'forcefaststab':
+            modifiers['ForceFastSTAB'] = True
+        elif str(input).strip().lower() == 'forcechargedstab':
+            modifiers['ForceChargedSTAB'] = True
         elif str(input).strip().lower() == 'friendboost':
-            friendMultiplier = 1.1
+            modifiers['FriendMultiplier'] = 1.1
         elif str(input).strip().lower() == 'weatherboost':
-            weatherMultiplier = 1.2
+            modifiers['WeatherMultiplier'] = 1.2
         elif str(input).strip().lower() == 'megaboost':
-            megaMultiplier = 1.3
+            modifiers['MegaMultiplier'] = 1.3
         elif str(input).strip().lower()[:10] == 'partypower':
             try:
                 multiplier = int(input.strip()[10:])
                 if multiplier < 1 or multiplier > 5:
                     raise Exception
-                partyPowerMultiplier = 1.0 + (1.0/float(multiplier))
+                modifiers['PartyPowerMultiplier'] = 1.0 + (1.0/float(multiplier))
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid party power value! Keep it between 1 and 5!'
+                errorText += f'\'{input}\' wasn\'t understood as a valid party power value! Keep it between 1 and 5!\n'
         elif str(input).strip().lower()[:7] == 'bossatk':
-            try :
+            try:
                 atkVal = int(input.strip()[7:])
                 if 1 > atkVal or atkVal > 1000:
                     raise Exception
-                bossAttack = atkVal
+                modifiers['BossAttack'] = atkVal
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid boss attack value! Keep it between 1 and 1000!'
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss attack value! Keep it between 1 and 1000!\n'
         elif str(input).strip().lower()[:7] == 'bossdef':
-            try :
+            try:
                 defVal = int(input.strip()[7:])
                 if 1 > defVal or defVal > 1000:
                     raise Exception
-                bossDefence = defVal
+                modifiers['BossDefence'] = defVal
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!'
-        elif str(input).strip().lower()[:12] == 'sortbyolddps':
-            resultSortOrder = 'ByOldDps'
-        elif str(input).strip().lower()[:15] == 'sortbyfastmoves':
-            resultSortOrder = 'ByFast'
-        elif str(input).strip().lower()[:18] == 'sortbychargedmoves':
-            resultSortOrder = 'ByCharged'
-        elif str(input).strip().lower()[:13] == 'nomovechanges':
-            applyMoveChanges = False
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!\n'
+        elif str(input).strip().lower()[:4] == 'boss':
+            try:
+                bossMon = input.strip().lower()[4:]
+                if not checkDuplicateMon(bossMon):
+                    raise Exception
+                bossMon = [obj for obj in loadedMons if obj['Name'] == formatName(bossMon)][0]
+                modifiers['BossAttack'] = bossMon['Attack']
+                modifiers['BossDefence'] = bossMon['Defence']
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss name!\n'
+        elif str(input).strip().lower() == 'sortbyolddps':
+            modifiers['ResultSortOrder'] = 'ByOldDps'
+        elif str(input).strip().lower() == 'sortbyfastmoves':
+            modifiers['ResultSortOrder'] = 'ByFast'
+        elif str(input).strip().lower() == 'sortbychargedmoves':
+            modifiers['ResultSortOrder'] = 'ByCharged'
+        elif str(input).strip().lower() == 'nomovechanges':
+            modifiers['ApplyMoveChanges'] = False
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
 
     if errorText != '':
-        errorText += '\n\nCheck `$dps modifiers` to see all valid modifiers!'
+        errorText += '\nCheck `$dps modifiers` to see all valid modifiers!'
     
-    return level, attack_iv, defence_iv, stamina_iv, fastEffectiveness, chargedEffectiveness, fastSTABMultiplier, chargedSTABMultipler, shadowMultiplier, shadowText, friendMultiplier, weatherMultiplier, megaMultiplier, partyPowerMultiplier, bossAttack, bossDefence, resultSortOrder, applyMoveChanges, errorText
+    return modifiers, errorText
+#endregion
+
+#region dynamax inputs
+async def determineExtraMaxInputs(extraInputs):
+    modifiers = getDefaultModifiers()
+
+    modifiers['Level'] = 20
+    modifiers['ResultSortOrder'] = 'ByMaxEps'
+
+    errorText = ''
+
+    for input in extraInputs:
+        if input.strip().isdigit():
+            modifiers['Level'] = int(input)
+        elif '/' in str(input).strip():
+            ivs = re.split(r'[/]+', input.strip())
+            try:
+                for iv in ivs:
+                    if 0 > int(iv) or int(iv) > 15:
+                        raise Exception
+                modifiers['AttackIv'] = int(ivs[0])
+                modifiers['DefenceIv'] = int(ivs[1])
+                modifiers['StaminaIv'] = int(ivs[2])
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!\n'
+        elif str(input).strip().lower()[:13] == 'fasteffective':
+            try:
+                if input.strip()[-1:] != 'x':
+                    raise Exception
+                val = float(input.strip()[13:-1])
+                if 0.1 > val or val > 4.0:
+                    raise Exception
+                modifiers['FastEffectiveness'] = val
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
+        elif str(input).strip().lower()[:16] == 'chargedeffective':
+            try:
+                if input.strip()[-1:] != 'x':
+                    raise Exception
+                val = float(input.strip()[16:-1])
+                if 0.1 > val or val > 4.0:
+                    raise Exception
+                modifiers['ChargedEffectiveness'] = val
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
+        elif str(input).strip().lower() == 'nofaststab':
+            modifiers['ForceNoFastSTAB'] = True
+        elif str(input).strip().lower() == 'nochargedstab':
+            modifiers['ForceNoChargedSTAB'] = True
+        elif str(input).strip().lower() == 'forcefaststab':
+            modifiers['ForceFastSTAB'] = True
+        elif str(input).strip().lower() == 'forcechargedstab':
+            modifiers['ForceChargedSTAB'] = True
+        elif str(input).strip().lower() == 'friendboost':
+            modifiers['FriendMultiplier'] = 1.1
+        elif str(input).strip().lower() == 'weatherboost':
+            modifiers['WeatherMultiplier'] = 1.2
+        elif str(input).strip().lower() == 'megaboost':
+            modifiers['MegaMultiplier'] = 1.3
+        elif str(input).strip().lower()[:7] == 'bossatk':
+            try:
+                atkVal = int(input.strip()[7:])
+                if 1 > atkVal or atkVal > 1000:
+                    raise Exception
+                modifiers['BossAttack'] = atkVal
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss attack value! Keep it between 1 and 1000!\n'
+        elif str(input).strip().lower()[:7] == 'bossdef':
+            try:
+                defVal = int(input.strip()[7:])
+                if 1 > defVal or defVal > 1000:
+                    raise Exception
+                modifiers['BossDefence'] = defVal
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!\n'
+        elif str(input).strip().lower()[:4] == 'boss':
+            try:
+                bossMon = input.strip().lower()[4:]
+                if not checkDuplicateMon(bossMon):
+                    raise Exception
+                bossMon = [obj for obj in loadedMons if obj['Name'] == formatName(bossMon)][0]
+                modifiers['BossAttack'] = bossMon['Attack']
+                modifiers['BossDefence'] = bossMon['Defence']
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss name!\n'
+        elif str(input).strip().lower()[:4] == 'tier':
+            try :
+                tier = int(input.strip()[4:])
+                if tier == 1:
+                    modifiers['TierMultiplier'] = 8.5
+                elif tier == 3:
+                    modifiers['TierMultiplier'] = 50.0
+                elif tier == 5:
+                    modifiers['TierMultiplier'] = 50.0
+                elif tier == 6:
+                    modifiers['TierMultiplier'] = 50.0
+                else:
+                    raise Exception
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid dynamax battle tier!\n'
+        elif str(input).strip().lower() == 'nomaxorb':
+            modifiers['ApplyMaxOrb'] = False
+        elif str(input).strip().lower() == 'sortbydps':
+            modifiers['ResultSortOrder'] = 'ByDps'
+        elif str(input).strip().lower() == 'sortbyfastmoves':
+            modifiers['ResultSortOrder'] = 'ByFast'
+        elif str(input).strip().lower() == 'sortbychargedmoves':
+            modifiers['ResultSortOrder'] = 'ByCharged'
+        else:
+            errorText += f'The input \'{input}\' was not understood!\n'
+            
+    if errorText != '':
+        errorText += '\n\nCheck `$max modifiers` to see all valid modifiers!'
+    
+    return modifiers, errorText
+#endreion
 #endregion
 
 #region math calculations
-async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_DPS_SCALING, BOSS_ATTACK, BOSS_DEFENCE, FAST_EFFECTIVENESS, CHARGED_EFFECTIVENESS, FAST_STAB_MULTIPLIER, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, PARTY_POWER_MULTIPLIER, EXTRA_DPS_VALUE):
-    dpsBoss = await calcBossDPS(ENEMY_DPS_SCALING, BOSS_ATTACK, defence, SHADOW_MULTIPLIER)
+async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
+    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'])
 
-    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], FAST_EFFECTIVENESS, FAST_STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE)
+    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], modifiers['FastEffectiveness'], modifiers['FastSTABMultiplier'], modifiers['ShadowMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['ExtraDpsValue'])
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
     chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
-    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], CHARGED_EFFECTIVENESS, CHARGED_STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, PARTY_POWER_MULTIPLIER, EXTRA_DPS_VALUE)
+    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], modifiers['ChargedEffectiveness'], modifiers['ChargedSTABMultiplier'], modifiers['ShadowMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['PartyPowerMultiplier'], modifiers['ExtraDpsValue'])
     chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
     energyEfficiency = await calcEnergyEfficiency(fastDps, fastEps, chargedDps, chargedEps)
@@ -828,10 +1196,33 @@ async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, ENEMY_
 
     movesetDps = await calcFinalMovesetDPS(fastDps, chargedDps, chargedMove['Duration'], weaveDps, dpsBoss, stamina)
 
-    finalDps = await calcFinalDPS(movesetDps, attack, BOSS_DEFENCE)
+    finalDps = await calcFinalDPS(movesetDps, attack, modifiers['BossDefence'])
 
     return finalDps
-    
+
+async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
+    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'])
+
+    fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], modifiers['FastEffectiveness'], modifiers['FastSTABMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['TierMultiplier'], modifiers['ExtraDpsValue'])
+    fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
+
+    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
+    chargedMaxEps = await calcChargedMaxEPS(chargedMove['Damage'], chargedMove['Duration'], modifiers['ChargedEffectiveness'], modifiers['ChargedSTABMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['TierMultiplier'], modifiers['ExtraDpsValue'])
+    chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
+
+    energyEfficiency = await calcEnergyEfficiency(fastMaxEps, fastEps, chargedMaxEps, chargedEps)
+
+    weaveMaxEps = await calcWeaveDPS(fastMaxEps, fastEps, energyEfficiency, dpsBoss)
+
+    movesetMaxEps = await calcFinalMovesetDPS(fastMaxEps, chargedMaxEps, chargedMove['Duration'], weaveMaxEps, dpsBoss, stamina)
+
+    finalMaxEps = await calcFinalDPS(movesetMaxEps, attack, modifiers['BossDefence'])
+
+    if modifiers['ApplyMaxOrb']:
+        finalMaxEps += getMaxOrbEps()
+
+    return finalMaxEps
+
 async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsBoss):
     if chargedEnergyDelta == 100:
         chargedEnergy = chargedEnergyDelta + 0.5*(fastEnergy - 1) + chargedWindow*0.5*dpsBoss
@@ -891,6 +1282,19 @@ async def calcFinalDPS(dpsMoveset, attack, defBoss):
     dpsFinal = dpsMoveset * (0.5*attack/defBoss)
     return dpsFinal
 
+async def calcFastMaxEPS(fastDamage, fastDuration, EFFECTIVENESS, STAB_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, TIER_MULTIPLIER, EXTRA_DPS_VALUE):
+    dmgFast = (fastDamage * EFFECTIVENESS * STAB_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER * FRIEND_MULTIPLIER) + EXTRA_DPS_VALUE
+    epsFast = max(math.floor(dmgFast/TIER_MULTIPLIER), 1)/fastDuration
+    return epsFast
+
+async def calcChargedMaxEPS(chargedDamage, chargedDuration, EFFECTIVENESS, STAB_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, TIER_MULTIPLIER, EXTRA_DPS_VALUE):
+    dmgCharged = (chargedDamage * EFFECTIVENESS * STAB_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER * FRIEND_MULTIPLIER) + EXTRA_DPS_VALUE
+    epsCharged = max(math.floor(dmgCharged/TIER_MULTIPLIER), 1)/chargedDuration
+    return epsCharged
+
+def getMaxOrbEps():
+    return 10.0/15.0
+
 async def calcRoundedFastMoves(move):
     newDuration = round(move['Duration']*2)/2
     newMove = {
@@ -914,12 +1318,6 @@ async def calcRoundedChargedMoves(move):
         'DamageWindow': newDamageWindow
     }
     return newMove
-
-'''
-def calcDPSDifference(oldDPS, newDPS):
-    dpsDiff = ((newDPS/oldDPS)*100)-100
-    return round(dpsDiff, 2)
-'''
 
 async def getCPMultiplier(level):
     match level:
@@ -1080,3 +1478,19 @@ async def getDPSSymbol(dps):
     return '∅'
 
 #endregion
+
+async def updateMoveTypes():
+    for move in moves:
+        moveType = requests.get(f'https://pokeapi.co/api/v2/move/{move["Name"]}')
+        moveType = moveType.json()
+
+        try:
+            moveTypeName = formatMoveType(moveType['type']['name'])
+
+            print(f'{move["Name"]} : {moveTypeName} Type')
+
+            move['MoveType'] = moveTypeName
+        except Exception as ex:
+            print(f'An error occured with {move["Name"]}!\n{ex}')
+
+    await saveDpsData()
