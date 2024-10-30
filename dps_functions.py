@@ -130,22 +130,26 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, 14/15/15``` IVs: Calcs DPS and Max EPS from the given IVs\nAlways assume stats are listed in Attack/Defence/HP order\n' +
                                         '```$max check Charizard, NoFastSTAB``` NoFastSTAB: Removes STAB from all the mons fast attack\n' +
                                         '```$max check Charizard, NoChargedSTAB``` NoChargedSTAB: Removes STAB from all the mons charged attack\n' +
+                                        '```$max check Charizard, NoMaxSTAB``` NoMaxSTAB: Removes STAB from the mons max attack\n' +
                                         '```$max check Charizard, ForceFastSTAB``` ForceFastSTAB: Forces STAB on all the mons fast attacks\n' +
                                         '```$max check Charizard, ForceChargedSTAB``` ForceChargedSTAB: Forces STAB on all the mons charged attacks\n' +
                                         '```$max check Charizard, FastEffective1.6x``` FastEffectiveness: Applies type effectivity damage bonuses to fast moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
                                         '```$max check Charizard, ChargedEffective1.6x``` ChargedEffectiveness: Applies type effectivity damage bonuses to charged moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
+                                        '```$max check Charizard, MaxEffective1.6x``` MaxEffectiveness: Applies type effectivity damage bonuses to max moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
                                         '```$max check Charizard, FriendBoost``` FriendBoost: Adds a 1.1x boost to both fast and charged attacks\nNote that this may not actually work in real battles\n' +
                                         '```$max check Charizard, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to both fast and charged attacks\nNote that this may not actually work in real battles\n' +
                                         '```$max check Charizard, MegaBoost``` MegaBoost: Adds a 1.3x boost to both fast and charged attacks.\nNote that this probably isn\'t supposed to work in real battles\n' +
                                         '```$max check Charizard, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
                                         '```$max check Charizard, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
                                         '```$max check Charizard, BossVenusaur``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
+                                        '```$max check Charizard, DMax3``` DMax: Sets the level of a dynamax move\n' +
+                                        '```$max check Charizard, GMax3``` GMax: Sets the level of a gigantamax move\n' +
                                         '```$max check Charizard, Tier3``` Tier: Sets the max energy gain modifier to that of the selected tier\n' +
                                         '```$max check Charizard, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
                                         '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n' +
                                         '```$max check Charizard, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
                                         '```$max check Charizard, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
-                                        'Everything should be case insensitive.\nDefault check assumes Lv20, Hundo, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Max Eps', 
+                                        'Everything should be case insensitive.\nDefault check assumes Lv20, Hundo, calculates STAB, assumes STAB on max moves Neutral effectiveness, No Special Boosts, Sorted by Max Eps', 
                             color=3553598)
 
     rand_num = random.randint(1, 100)
@@ -787,8 +791,8 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
         modifiers, errorText = await determineExtraMaxInputs(extraInputs)
         if errorText != '':
             return errorText
-    
-    if not checkDuplicateMon(monName):
+
+    if not checkDuplicateMon(f'{monName}'):
         return 'That pokemon is not registered!'
     
     monTypes = []
@@ -829,13 +833,14 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
         return 'This pokemon doesn\'t have any fast moves registered to it!'
     if len(chargedMoves) == 0:
         return 'This pokemon doesn\'t have any charged moves registered to it!'
-    
+
     moveNameOutput = ''
-    moveDpsEpsOutput = ''
+    moveDpsOutput = ''
+    moveEpsOutput = ''
     dpsResults = []
 
     embed = discord.Embed(title=f'Max DPS Calculations for {formatForDisplay(mon["Name"])} at Lv {modifiers["Level"]}',
-                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["AttackIv"]}/{modifiers["DefenceIv"]}/{modifiers["StaminaIv"]}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
+                          description='',
                           color=embedColour)
 
     for fastMove in fastMoves:
@@ -881,6 +886,8 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
                 'MaxEPS': maxEPS
             })
 
+    maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], calculated_attack, modifiers['BossDefence'], modifiers['MaxEffectiveness'], modifiers['MaxSTABMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['ExtraDpsValue'])
+
     if modifiers['ResultSortOrder'] == 'ByDps':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['DPS'], reverse=True)
     elif modifiers['ResultSortOrder'] == 'ByMaxEps':
@@ -892,24 +899,37 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
 
     for result in sortedDpsResults:
         moveNameOutput += f'{formatForDisplay(result["FastName"])} | {formatForDisplay(result["ChargedName"])}\n'
-        moveDpsEpsOutput += f'{roundDPS(result["DPS"])} | {roundDPS(result["MaxEPS"])}\n'
+        moveDpsOutput += f'{roundDPS(result["DPS"])}\n'
+        moveEpsOutput += f'{roundDPS(result["MaxEPS"])}\n'
 
     if len(moveNameOutput) > 1024:
         return f'You exceeded the character limit by {len(moveNameOutput) - 1024} characters! Get rid of some moves!'
+
+    embed.description = f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["AttackIv"]}/{modifiers["DefenceIv"]}/{modifiers["StaminaIv"]}\n\n{modifiers["MaxMoveText"]} Move Damage: {roundDPS(maxMoveDamage)} dmg\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}'
 
     embed.add_field(name='Moveset',
                     value=moveNameOutput,
                     inline=True)
     
-    embed.add_field(name='DPS | Max EPS',
-                    value=moveDpsEpsOutput,
+    embed.add_field(name='DPS',
+                    value=moveDpsOutput,
+                    inline=True)
+    
+    embed.add_field(name='Max EPS',
+                    value=moveEpsOutput,
                     inline=True)
 
     rand_num = random.randint(1, 100)
+
+    if modifiers['GMaxText'] == '-gmax':
+        imageDexNum = [obj for obj in pokemon if obj['Name'] == formatName(f'{monName}{modifiers["GMaxText"]}')][0]['DexNum']
+    else:
+        imageDexNum = mon['ImageDexNum']
+    
     if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{mon["ImageDexNum"]}.png')
+        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{imageDexNum}.png')
     else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{mon["ImageDexNum"]}.png')
+        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{imageDexNum}.png')
 
 
     return embed
@@ -947,6 +967,12 @@ def getDefaultModifiers():
 
         'BossAttack': 200,
         'BossDefence': 70,
+
+        'MaxEffectiveness': 1.0,
+        'MaxSTABMultiplier': 1.2,
+        'MaxMovePower': 250,
+        'GMaxText': '',
+        'MaxMoveText': 'Lv 1 DMax ',
 
         'TierMultiplier': 50.0,
         'ApplyMaxOrb': True,
@@ -1147,6 +1173,53 @@ async def determineExtraMaxInputs(extraInputs):
                 modifiers['BossDefence'] = bossMon['Defence']
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss name!\n'
+        elif str(input).strip().lower()[:12] == 'maxeffective':
+            try:
+                if input.strip()[-1:] != 'x':
+                    raise Exception
+                val = float(input.strip()[12:-1])
+                if 0.1 > val or val > 4.0:
+                    raise Exception
+                modifiers['MaxEffectiveness'] = val
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid max move effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
+        elif str(input).strip().lower() == 'nomaxstab':
+            modifiers['MaxSTABMultiplier'] = 1.0
+        elif str(input).strip().lower()[:4] == 'dmax':
+            try :
+                tier = int(input.strip()[4:])
+                if tier == 1:
+                    modifiers['MaxMovePower'] = 250
+                    modifiers['MaxMoveText'] = 'Lv 1 DMax '
+                elif tier == 2:
+                    modifiers['MaxMovePower'] = 300
+                    modifiers['MaxMoveText'] = 'Lv 2 DMax '
+                elif tier == 3:
+                    modifiers['MaxMovePower'] = 350
+                    modifiers['MaxMoveText'] = 'Lv 3 DMax '
+                else:
+                    raise Exception
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid dynamax move level!\n'
+        elif str(input).strip().lower()[:4] == 'gmax':
+            try :
+                tier = int(input.strip()[4:])
+                if tier == 1:
+                    modifiers['MaxMovePower'] = 350
+                    modifiers['GMaxText'] = '-gmax'
+                    modifiers['MaxMoveText'] = 'Lv 1 GMax '
+                elif tier == 2:
+                    modifiers['MaxMovePower'] = 400
+                    modifiers['GMaxText'] = '-gmax'
+                    modifiers['MaxMoveText'] = 'Lv 2 GMax '
+                elif tier == 3:
+                    modifiers['MaxMovePower'] = 450
+                    modifiers['GMaxText'] = '-gmax'
+                    modifiers['MaxMoveText'] = 'Lv 3 GMax '
+                else:
+                    raise Exception
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid dynamax move level!\n'
         elif str(input).strip().lower()[:4] == 'tier':
             try :
                 tier = int(input.strip()[4:])
@@ -1177,7 +1250,7 @@ async def determineExtraMaxInputs(extraInputs):
         errorText += '\n\nCheck `$max modifiers` to see all valid modifiers!'
     
     return modifiers, errorText
-#endreion
+#endregion
 #endregion
 
 #region math calculations
@@ -1292,6 +1365,10 @@ async def calcChargedMaxEPS(chargedDamage, chargedDuration, EFFECTIVENESS, STAB_
     dmgCharged = (chargedDamage * EFFECTIVENESS * STAB_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER * FRIEND_MULTIPLIER) + EXTRA_DPS_VALUE
     epsCharged = max(math.floor(dmgCharged/TIER_MULTIPLIER), 1)/chargedDuration
     return epsCharged
+
+async def calcMaxMoveDamage(movePower, attack, bossDef, EFFECTIVENESS, STAB_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE):
+    damage = math.floor((0.5 * movePower * (attack/bossDef) * EFFECTIVENESS * STAB_MULTIPLIER * FRIEND_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER) + EXTRA_DPS_VALUE)
+    return damage
 
 def getMaxOrbEps():
     return 10.0/15.0
@@ -1491,18 +1568,19 @@ async def getDPSSymbol(dps):
 
 #endregion
 
-async def updateMoveTypes():
-    for move in moves:
+'''
+for move in moves:
+    try:
         moveType = requests.get(f'https://pokeapi.co/api/v2/move/{move["Name"]}')
         moveType = moveType.json()
 
-        try:
-            moveTypeName = formatMoveType(moveType['type']['name'])
+        moveTypeName = formatMoveType(moveType['type']['name'])
 
-            print(f'{move["Name"]} : {moveTypeName} Type')
+        #print(f'{move["Name"]} : {moveTypeName} Type')
 
-            move['MoveType'] = moveTypeName
-        except Exception as ex:
-            print(f'An error occured with {move["Name"]}!\n{ex}')
+        move['MoveType'] = moveTypeName
+    except Exception as ex:
+        print(f'An error occured with {move["Name"]}!\n{ex}')
 
-    await saveDpsData()
+await saveDpsData()
+'''

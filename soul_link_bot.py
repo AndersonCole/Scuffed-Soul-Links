@@ -48,6 +48,7 @@ class MyClient(discord.Client):
                                 description='```$sl help``` Shows all the soul link commands\n' +
                                             '```$routes help``` Shows all the routes commands\n' +
                                             '```$dps help``` Shows all the PoGo dps commands\n' +
+                                            '```$max help``` Shows all the PoGo dynamax commands\n' +
                                             '```$format help``` Shows how to call the mimikyu format command\n' +
                                             '```$pvp``` Brings up the pvp rank reqs image',
                                 color=3553598)
