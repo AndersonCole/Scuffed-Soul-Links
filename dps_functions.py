@@ -149,7 +149,7 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n' +
                                         '```$max check Charizard, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
                                         '```$max check Charizard, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
-                                        'Everything should be case insensitive.\nDefault check assumes Lv20, Hundo, calculates STAB, assumes STAB on max moves Neutral effectiveness, No Special Boosts, Sorted by Max Eps', 
+                                        'Everything should be case insensitive.\nDefault check assumes Lv40, Hundo, calculates STAB, assumes STAB on max moves Neutral effectiveness, No Special Boosts, Sorted by Max Eps', 
                             color=3553598)
 
     rand_num = random.randint(1, 100)
@@ -784,7 +784,7 @@ async def dpsCheck(monName, extraInputs=None):
 #region dynamaxmax dps eps calcs
 async def maxDpsEpsCheck(monName, extraInputs=None):
     modifiers = getDefaultModifiers()
-    modifiers['Level'] = 20
+    modifiers['Level'] = 40
     modifiers['ResultSortOrder'] = 'ByMaxEps'
 
     if extraInputs != None:
@@ -922,7 +922,11 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
     rand_num = random.randint(1, 100)
 
     if modifiers['GMaxText'] == '-gmax':
-        imageDexNum = [obj for obj in pokemon if obj['Name'] == formatName(f'{monName}{modifiers["GMaxText"]}')][0]['DexNum']
+        imageMon = [obj for obj in pokemon if obj['Name'] == formatName(f'{monName}{modifiers["GMaxText"]}')]
+        if len(imageMon) > 0:
+            imageDexNum = imageMon[0]['DexNum']
+        else:
+            imageDexNum = mon['ImageDexNum']
     else:
         imageDexNum = mon['ImageDexNum']
     
@@ -1094,7 +1098,7 @@ async def determineExtraInputs(extraInputs):
 async def determineExtraMaxInputs(extraInputs):
     modifiers = getDefaultModifiers()
 
-    modifiers['Level'] = 20
+    modifiers['Level'] = 40
     modifiers['ResultSortOrder'] = 'ByMaxEps'
 
     errorText = ''
