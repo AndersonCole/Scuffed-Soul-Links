@@ -696,6 +696,8 @@ class MyClient(discord.Client):
                         await message.channel.send(embed)
                     else:
                         await message.channel.send(embed=embed)
+            else:
+                await message.channel.send('I don\'t know wtf you\'re trying to input!')
         #endregion
         
         #region Order 66

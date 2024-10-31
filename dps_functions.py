@@ -118,6 +118,8 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, MaxEffective1.6x``` MaxEffectiveness: Applies type effectivity damage bonuses to max moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
                                         '```$max check Charizard, DMax3``` DMax: Sets the level of a dynamax move\n' +
                                         '```$max check Charizard, GMax3``` GMax: Sets the level of a gigantamax move\n' +
+                                        '```$max check Charizard, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentagel\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
+                                        '```$max check Charizard, FastMoveCalc``` FastMoveCalc: Simulates the fast move dps and eps with no charged move usage\n' +
                                         '```$max check Charizard, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
                                         '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for dynamax calculations\nDefault check assumes Lv40, Hundo, calculates STAB, Assumes STAB on max moves, Neutral effectiveness, No Special Boosts, Sorted by Max Eps',
@@ -150,7 +152,8 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
                                         f'```{commandText}, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
                                         f'```{commandText}, BossKyogre``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
-                                        f'```{commandText}, Tier3``` Tier: Sets the tier of the battle. Set the tier to use CPM values\n\n' +
+                                        f'```{commandText}, Tier3``` Tier: Sets the tier of the battle. Also sets the CPM value\n' +
+                                        f'```{commandText}, NoCPM``` NoCPM: If the tier is set, ignores the CPM values\n\n' +
                                         f'```{commandText}, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
                                         f'```{commandText}, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will work for both raid and dynamax dps calculations',
@@ -861,6 +864,20 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
             else:
                 modifiers['FastSTABMultiplier'] = 1.0
 
+        newFastMove = await calcRoundedFastMoves(copiedFastMove)
+
+        if modifiers['SimFastAlone']:
+            fastDps, fastEps = await calcMaxFastAlone(calculated_attack, newFastMove, modifiers)
+
+            dpsResults.append({
+                'FastName': fastMove['Name'],
+                'FastDuration': newFastMove['Duration'],
+                'ChargedName': '',
+                'ChargedDuration': '',
+                'DPS': fastDps,
+                'MaxEPS': fastEps
+            })
+        
         for chargedMove in chargedMoves:
             copiedChargedMove = copy.deepcopy(chargedMove)
             copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], True)
@@ -875,7 +892,6 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
                 else:
                     modifiers['ChargedSTABMultiplier'] = 1.0
 
-            newFastMove = await calcRoundedFastMoves(copiedFastMove)
             newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
             newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, modifiers)
 
@@ -890,7 +906,7 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
                 'MaxEPS': maxEPS
             })
 
-    maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], calculated_attack, modifiers['BossDefence'], modifiers['MaxEffectiveness'], modifiers['MaxSTABMultiplier'], modifiers['ShadowMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['ExtraDpsValue'])
+    maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], calculated_attack, modifiers)
 
     if modifiers['ResultSortOrder'] == 'ByMaxEps':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['MaxEPS'], reverse=True)
@@ -968,9 +984,11 @@ def getDefaultModifiers():
         'WeatherMultiplier': 1.0,
         'MegaMultiplier': 1.0,
         'PartyPowerMultiplier': 1.0,
+        'PowerSpotMultiplier': 1.0,
 
         'BossAttack': 200,
         'BossDefence': 70,
+        'BossHealth': 15_000.0,
 
         'MaxEffectiveness': 1.0,
         'MaxSTABMultiplier': 1.2,
@@ -978,8 +996,9 @@ def getDefaultModifiers():
         'GMaxText': '',
         'MaxMoveText': 'Lv 2 DMax ',
 
-        'TierMultiplier': 50.0,
         'CpmMultiplier': 1.0,
+        'UseCpmMultiplier': True,
+        'SimFastAlone': False,
         'ApplyMaxOrb': True,
 
         'ApplyMoveChanges': True,
@@ -991,7 +1010,7 @@ def getDefaultModifiers():
 #Level, IVs, Shadow, FastEffective, ChargedEffective,
 #NoFastSTAB, NoChargedSTAB, ForceFastSTAB, ForceChargedSTAB,
 #FriendBoost, WeatherBoost, MegaBoost,
-#BossAtk, BossDef, Boss{name},
+#BossAtk, BossDef, Boss{name}, NoCPM
 #SortByFastMoves, SortByChargedMoves
 def determineExtraSharedInputs(extraInputs, modifiers):
     errorText = ''
@@ -1073,7 +1092,9 @@ def determineExtraSharedInputs(extraInputs, modifiers):
                 modifiers['BossAttack'] = bossMon['Attack']
                 modifiers['BossDefence'] = bossMon['Defence']
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid boss name!\n'
+                errorText += f'\'{input}\' wasn\'t understood as a valid boss name! Make sure it\'s registered!\n'
+        elif str(input).strip().lower() == 'nocpm':
+            modifiers['UseCpmMultiplier'] = False
         elif str(input).strip().lower() == 'sortbyfastmoves':
             modifiers['ResultSortOrder'] = 'ByFast'
         elif str(input).strip().lower() == 'sortbychargedmoves':
@@ -1105,19 +1126,25 @@ async def determineExtraInputs(extraInputs):
             try :
                 tier = int(input.strip()[4:])
                 if tier == 1:
+                    modifiers['BossHealth'] = 600.0
                     modifiers['CpmMultiplier'] = 0.5974
                 elif tier == 3:
+                    modifiers['BossHealth'] = 3600.0
                     modifiers['CpmMultiplier'] = 0.73
                 elif tier == 4:
+                    modifiers['BossHealth'] = 9000.0
                     modifiers['CpmMultiplier'] = 0.73
                 elif tier == 5:
+                    modifiers['BossHealth'] = 15_000.0
                     modifiers['CpmMultiplier'] = 0.79
                 elif tier == 6:
+                    modifiers['BossHealth'] = 20_000.0
                     modifiers['CpmMultiplier'] = 0.79
                 else:
                     raise Exception
             except:
                 if input.strip().lower()[4:] == 'mega':
+                    modifiers['BossHealth'] = 20_000.0
                     modifiers['CpmMultiplier'] = 0.79
                 else:
                     errorText += f'\'{input}\' wasn\'t understood as a valid raid battle tier!\n'
@@ -1131,16 +1158,17 @@ async def determineExtraInputs(extraInputs):
     if errorText != '':
         errorText += '\nCheck `$dps modifiers` to see all valid modifiers!'
     
-    modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['CpmMultiplier']
-    modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
+    if modifiers['UseCpmMultiplier']:
+        modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['CpmMultiplier']
+        modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
 
     return modifiers, errorText
 #endregion
 
 #region dynamax exclusive modifiers
-#MaxEffective, NoMaxSTAB,
+#MaxEffective, NoMaxSTAB, PowerSpotBoost{level}
 #Dmax{level}, GMax{level}, Tier{level}
-#NoMaxOrb, SortByDps
+#FastMoveCalc, NoMaxOrb, SortByDps
 async def determineExtraMaxInputs(extraInputs):
     modifiers = getDefaultModifiers()
 
@@ -1162,6 +1190,21 @@ async def determineExtraMaxInputs(extraInputs):
                 errorText += f'\'{input}\' wasn\'t understood as a valid max move effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
         elif str(input).strip().lower() == 'nomaxstab':
             modifiers['MaxSTABMultiplier'] = 1.0
+        elif str(input).strip().lower()[:14] == 'powerspotboost':
+            try :
+                level = int(input.strip()[14:])
+                if level == 1:
+                    modifiers['PowerSpotMultiplier'] = 1.1
+                elif level == 2:
+                    modifiers['PowerSpotMultiplier'] = 1.15
+                elif level == 3:
+                    modifiers['PowerSpotMultiplier'] = 1.188
+                elif level == 4:
+                    modifiers['PowerSpotMultiplier'] = 1.2
+                else:
+                    raise Exception
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid power spot level! The boost level should be the amount of icons you see!\n'
         elif str(input).strip().lower()[:4] == 'dmax':
             try :
                 tier = int(input.strip()[4:])
@@ -1201,16 +1244,16 @@ async def determineExtraMaxInputs(extraInputs):
             try :
                 tier = int(input.strip()[4:])
                 if tier == 1:
-                    modifiers['TierMultiplier'] = 8.5
+                    modifiers['BossHealth'] = 1700.0
                     modifiers['CpmMultiplier'] = 0.15
                 elif tier == 3:
-                    modifiers['TierMultiplier'] = 50.0
+                    modifiers['BossHealth'] = 10_000.0
                     modifiers['CpmMultiplier'] = 0.5
                 elif tier == 5:
-                    modifiers['TierMultiplier'] = 50.0
+                    modifiers['BossHealth'] = 60_000.0
                     modifiers['CpmMultiplier'] = 0.85
                 elif tier == 6:
-                    modifiers['TierMultiplier'] = 50.0
+                    modifiers['BossHealth'] = 60_000.0
                     modifiers['CpmMultiplier'] = 0.85
                 else:
                     raise Exception
@@ -1219,6 +1262,8 @@ async def determineExtraMaxInputs(extraInputs):
                     modifiers['CpmMultiplier'] = 0.85
                 else:
                     errorText += f'\'{input}\' wasn\'t understood as a valid dynamax battle tier!\n'
+        elif str(input).strip().lower() == 'fastmovecalc':
+            modifiers['SimFastAlone'] = True
         elif str(input).strip().lower() == 'nomaxorb':
             modifiers['ApplyMaxOrb'] = False
         elif str(input).strip().lower() == 'sortbydps':
@@ -1229,8 +1274,9 @@ async def determineExtraMaxInputs(extraInputs):
     if errorText != '':
         errorText += '\n\nCheck `$max modifiers` to see all valid modifiers!'
     
-    modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['CpmMultiplier']
-    modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
+    if modifiers['UseCpmMultiplier']:
+        modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['CpmMultiplier']
+        modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
 
     return modifiers, errorText
 #endregion
@@ -1240,11 +1286,11 @@ async def determineExtraMaxInputs(extraInputs):
 async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
     dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'])
 
-    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], modifiers['FastEffectiveness'], modifiers['FastSTABMultiplier'], modifiers['ShadowMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['ExtraDpsValue'])
+    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
     chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
-    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], modifiers['ChargedEffectiveness'], modifiers['ChargedSTABMultiplier'], modifiers['ShadowMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['PartyPowerMultiplier'], modifiers['ExtraDpsValue'])
+    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], modifiers)
     chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
     energyEfficiency = await calcEnergyEfficiency(fastDps, fastEps, chargedDps, chargedEps)
@@ -1260,11 +1306,11 @@ async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifi
 async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
     dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'])
 
-    fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers['BossDefence'], modifiers['FastEffectiveness'], modifiers['FastSTABMultiplier'], modifiers['ShadowMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['TierMultiplier'], modifiers['ExtraDpsValue'])
+    fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
     chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
-    chargedMaxEps = await calcChargedMaxEPS(chargedMove['Damage'], chargedMove['Duration'], attack, modifiers['BossDefence'], modifiers['ChargedEffectiveness'], modifiers['ChargedSTABMultiplier'], modifiers['ShadowMultiplier'], modifiers['FriendMultiplier'], modifiers['WeatherMultiplier'], modifiers['MegaMultiplier'], modifiers['TierMultiplier'], modifiers['ExtraDpsValue'])
+    chargedMaxEps = await calcChargedMaxEPS(chargedMove['Damage'], chargedMove['Duration'], attack, modifiers)
     chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
     energyEfficiency = await calcEnergyEfficiency(fastMaxEps, fastEps, chargedMaxEps, chargedEps)
@@ -1278,6 +1324,15 @@ async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers)
 
     return movesetMaxEps
 
+async def calcMaxFastAlone(attack, fastMove, modifiers):
+    fastMaxDps = await calcFastMaxDps(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
+    fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
+    
+    if modifiers['ApplyMaxOrb']:
+        fastMaxEps += getMaxOrbEps()
+
+    return fastMaxDps, fastMaxEps
+    
 async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsBoss):
     if chargedEnergyDelta == 100:
         chargedEnergy = chargedEnergyDelta + 0.5*(fastEnergy - 1) + chargedWindow*0.5*dpsBoss
@@ -1295,8 +1350,19 @@ async def calcSurvivalTime(dpsBoss, stamina):
     return survivalTime
 '''
 
-async def calcFastDPS(fastDamage, fastDuration, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE):
-    dmgFast = (fastDamage * EFFECTIVENESS * STAB_MULTIPLIER * SHADOW_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER * FRIEND_MULTIPLIER) + EXTRA_DPS_VALUE
+async def calcModifierValue(modifiers, moveType):
+    if moveType == 'Charged':
+        partyPower = modifiers['PartyPowerMultiplier']
+    else:
+        partyPower = 1.0
+    
+    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * modifiers['WeatherMultiplier'] * modifiers['MegaMultiplier'] * modifiers['PowerSpotMultiplier'] * partyPower
+
+    return modifierVal
+
+async def calcFastDPS(fastDamage, fastDuration, modifiers):
+    modifierVal = await calcModifierValue(modifiers, 'Fast')
+    dmgFast = (fastDamage * modifierVal) + modifiers['ExtraDpsValue']
     dpsFast = dmgFast/fastDuration
     return dpsFast
 
@@ -1304,8 +1370,9 @@ async def calcFastEPS(fastEnergy, fastDuration):
     epsFast = fastEnergy/fastDuration
     return epsFast
 
-async def calcChargedDPS(chargedDamage, chargedDuration, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, PARTY_POWER_MULTIPLIER, EXTRA_DPS_VALUE):
-    dmgCharged = (chargedDamage * EFFECTIVENESS * STAB_MULTIPLIER * SHADOW_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER * FRIEND_MULTIPLIER * PARTY_POWER_MULTIPLIER) + EXTRA_DPS_VALUE
+async def calcChargedDPS(chargedDamage, chargedDuration, modifiers):
+    modifierVal = await calcModifierValue(modifiers, 'Charged')
+    dmgCharged = (chargedDamage * modifierVal) + modifiers['ExtraDpsValue']
     dpsCharged = dmgCharged/chargedDuration
     return dpsCharged
 
@@ -1337,22 +1404,32 @@ async def calcFinalDPS(dpsMoveset, attack, defBoss):
     dpsFinal = dpsMoveset * (0.5*attack/defBoss)
     return dpsFinal
 
-async def calcFastMaxEPS(fastDamage, fastDuration, attack, bossDef, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, TIER_MULTIPLIER, EXTRA_DPS_VALUE):
-    dmgFast = (fastDamage * (attack/bossDef) * EFFECTIVENESS * STAB_MULTIPLIER * SHADOW_MULTIPLIER * FRIEND_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER) + EXTRA_DPS_VALUE
-    epsFast = max(math.floor(dmgFast/TIER_MULTIPLIER), 1)/fastDuration
+async def calcFastMaxDps(fastDamage, fastDuration, attack, modifiers):
+    modifierVal = await calcModifierValue(modifiers, 'Fast')
+    dmgFast = (0.5 * fastDamage * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue']
+    dpsFast = dmgFast/fastDuration
+    return dpsFast
+    
+async def calcFastMaxEPS(fastDamage, fastDuration, attack, modifiers):
+    modifierVal = await calcModifierValue(modifiers, 'Fast')
+    dmgFast = (0.5 * fastDamage * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue']
+    epsFast = max(math.floor(dmgFast/(modifiers['BossHealth'] * 0.005)), 1)/fastDuration
     return epsFast
 
-async def calcChargedMaxEPS(chargedDamage, chargedDuration, attack, bossDef, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, TIER_MULTIPLIER, EXTRA_DPS_VALUE):
-    dmgCharged = (chargedDamage * (attack/bossDef) * EFFECTIVENESS * STAB_MULTIPLIER * SHADOW_MULTIPLIER * FRIEND_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER) + EXTRA_DPS_VALUE
-    epsCharged = max(math.floor(dmgCharged/TIER_MULTIPLIER), 1)/chargedDuration
+async def calcChargedMaxEPS(chargedDamage, chargedDuration, attack, modifiers):
+    modifierVal = await calcModifierValue(modifiers, 'Charged')
+    dmgCharged = (0.5 * chargedDamage * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue']
+    epsCharged = max(math.floor(dmgCharged/(modifiers['BossHealth'] * 0.005)), 1)/chargedDuration
     return epsCharged
 
-async def calcMaxMoveDamage(movePower, attack, bossDef, EFFECTIVENESS, STAB_MULTIPLIER, SHADOW_MULTIPLIER, FRIEND_MULTIPLIER, WEATHER_MULTIPLIER, MEGA_MULTIPLIER, EXTRA_DPS_VALUE):
-    damage = math.floor((0.5 * movePower * (attack/bossDef) * EFFECTIVENESS * STAB_MULTIPLIER * SHADOW_MULTIPLIER * FRIEND_MULTIPLIER * WEATHER_MULTIPLIER * MEGA_MULTIPLIER) + EXTRA_DPS_VALUE)
-    return damage
+async def calcMaxMoveDamage(movePower, attack, modifiers):
+    modifierVal = await calcModifierValue(modifiers, 'Max')
+    dmgMax = math.floor((0.5 * movePower * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue'])
+    return dmgMax
 
+#gives 10 energy, but to dodge into it loses time, therefore 9 energy is a better approx
 def getMaxOrbEps():
-    return 10.0/15.0
+    return 9.0/15.0
 
 async def calcRoundedFastMoves(move):
     newDuration = round(move['Duration']*2)/2
