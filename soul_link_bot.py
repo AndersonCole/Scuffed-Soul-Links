@@ -529,8 +529,11 @@ class MyClient(discord.Client):
                 await message.channel.send(file=file, embed=embed)
             
             elif input == 'modifiers':
-                embed, file = await dpsModifiers()
-                await message.channel.send(file=file, embed=embed)
+                embeds = await dpsModifiers()
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
 
             elif input[0:8] == 'add-mon ':
                 if ',' in input:
@@ -670,8 +673,11 @@ class MyClient(discord.Client):
                 await message.channel.send(file=file, embed=embed)
             
             elif input == 'modifiers':
-                embed, file = await dynamaxModifiers()
-                await message.channel.send(file=file, embed=embed)
+                embeds = await dynamaxModifiers()
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
 
             elif input[0:6] == 'check ':
                 if ',' in input:
