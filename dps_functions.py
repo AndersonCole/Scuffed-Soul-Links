@@ -74,8 +74,11 @@ async def dpsModifiers():
 
     embed = discord.Embed(title='Shuckles PoGo Raid Specific Modifiers',
                             description='```$dps check Kartana, PartyPower1``` PartyPower: Applies the party power boost at the specified rate\n1 = Every charged move, 2 = Every other, 3 = Every third, etc\n' +
-                                        '```$dps check Kartana, SortByOldDps``` SortByOldDps: Orders the output by the old dps\n' +
-                                        '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n\n' +
+                                        '```$dps check Kartana, ShowMoveTimings``` ShowMoveTimings: Shows the timing difference when the moves got rounded to the nearest 0.5s\n' +
+                                        '```$dps check Kartana, ShowMoveChanges``` ShowMoveChanges: Adds a star beside the moves that were changed in the Oct 2024 re-balance\n' +
+                                        '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n' +
+                                        '```$dps check Kartana, ShowOldDps``` ShowOldDps: Additionally shows the dps as it was June 2024 and prior\n' +
+                                        '```$dps check Kartana, SortByOldDps``` SortByOldDps: Orders the output by the old dps\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for raid calculations\nDefault check assumes Lv50, Hundo, Not Shadow, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Dps',
                             color=3553598)
 
@@ -118,7 +121,7 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, MaxEffective1.6x``` MaxEffectiveness: Applies type effectivity damage bonuses to max moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
                                         '```$max check Charizard, DMax3``` DMax: Sets the level of a dynamax move\n' +
                                         '```$max check Charizard, GMax3``` GMax: Sets the level of a gigantamax move\n' +
-                                        '```$max check Charizard, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentagel\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
+                                        '```$max check Charizard, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentage\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
                                         '```$max check Charizard, FastMoveCalc``` FastMoveCalc: Simulates the fast move dps and eps with no charged move usage\n' +
                                         '```$max check Charizard, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
                                         '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n\n' +
@@ -210,16 +213,23 @@ def formatForDisplay(name):
     name = ' '.join(word.capitalize() for word in words)
     return name
 
-def displayDurationChange(oldDuration, newDuration):
-    durationDiff = newDuration - oldDuration
-    durationDiff = round(durationDiff, 1)
-    if durationDiff >= 0:
-        durationDiff = f'+{durationDiff}'
-    return f'({durationDiff}s)'
+def displayDurationChange(oldDuration, newDuration, showChanges):
+    if showChanges:
+        durationDiff = newDuration - oldDuration
+        durationDiff = round(durationDiff, 1)
+        if durationDiff >= 0:
+            durationDiff = f'+{durationDiff}'
+        return f'({durationDiff}s)'
+    return ''
 
 def roundDPS(dps):
     roundedDPS = round(dps, 2)
     return roundedDPS
+
+def displayOldDps(oldDps, showDps):
+    if showDps:
+        return f'{oldDps} -> '
+    return ''
 
 def moveChanged(moveName):
     for move in changedMoves:
@@ -686,7 +696,7 @@ async def dpsCheck(monName, extraInputs=None):
 
     for move in mon['Moves']:
         changedIndicator = ''
-        if modifiers['ApplyMoveChanges']:
+        if modifiers['ShowMoveChanges']:
             if moveChanged(move['Name']):
                 changedIndicator = '★'
         if move['Type'] == 'Fast':
@@ -764,8 +774,8 @@ async def dpsCheck(monName, extraInputs=None):
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['ChargedName'])
 
     for result in sortedDpsResults:
-        moveNameOutput += f'{formatForDisplay(result["FastName"])}{displayDurationChange(result["FastDuration"], result["NewFastDuration"])} | {formatForDisplay(result["ChargedName"])}{displayDurationChange(result["ChargedDuration"], result["NewChargedDuration"])}\n'
-        moveDPSOutput += f'{roundDPS(result["OldDPS"])} -> {roundDPS(result["NewDPS"])}\n'
+        moveNameOutput += f'{formatForDisplay(result["FastName"])}{displayDurationChange(result["FastDuration"], result["NewFastDuration"], modifiers["ShowMoveTimings"])} | {formatForDisplay(result["ChargedName"])}{displayDurationChange(result["ChargedDuration"], result["NewChargedDuration"], modifiers["ShowMoveTimings"])}\n'
+        moveDPSOutput += f'{displayOldDps(roundDPS(result["OldDPS"]), modifiers["ShowOldDps"])}{roundDPS(result["NewDPS"])}\n'
 
     if len(moveNameOutput) > 1024:
         return f'You exceeded the character limit by {len(moveNameOutput) - 1024} characters! Get rid of some moves!'
@@ -774,7 +784,12 @@ async def dpsCheck(monName, extraInputs=None):
                     value=moveNameOutput,
                     inline=True)
     
-    embed.add_field(name='Old -> New',
+    if modifiers['ShowOldDps']:
+        dpsFieldName = 'Old -> New'
+    else:
+        dpsFieldName = 'Dps'
+
+    embed.add_field(name=dpsFieldName,
                     value=moveDPSOutput,
                     inline=True)
 
@@ -1001,8 +1016,11 @@ def getDefaultModifiers():
         'SimFastAlone': False,
         'ApplyMaxOrb': True,
 
+        'ShowMoveTimings': False,
+        'ShowMoveChanges': False,
         'ApplyMoveChanges': True,
 
+        'ShowOldDps': False,
         'ResultSortOrder': 'ByNewDps'
     }
 
@@ -1107,7 +1125,7 @@ def determineExtraSharedInputs(extraInputs, modifiers):
 
 #region raid exclusive modifiers
 #Party Power, Tier
-#SortByOldDps, NoMoveChanges
+#SortByOldDps, ShowMoveChanges, NoMoveChanges
 async def determineExtraInputs(extraInputs):
     modifiers = getDefaultModifiers()
 
@@ -1148,12 +1166,24 @@ async def determineExtraInputs(extraInputs):
                     modifiers['CpmMultiplier'] = 0.79
                 else:
                     errorText += f'\'{input}\' wasn\'t understood as a valid raid battle tier!\n'
-        elif str(input).strip().lower() == 'sortbyolddps':
-            modifiers['ResultSortOrder'] = 'ByOldDps'
+        elif str(input).strip().lower() == 'showmovetimings':
+            modifiers['ShowMoveTimings'] = True
+        elif str(input).strip().lower() == 'showmovechanges':
+            modifiers['ShowMoveChanges'] = True
         elif str(input).strip().lower() == 'nomovechanges':
             modifiers['ApplyMoveChanges'] = False
+        elif str(input).strip().lower() == 'showolddps':
+            modifiers['ShowOldDps'] = True
+        elif str(input).strip().lower() == 'sortbyolddps':
+            modifiers['ResultSortOrder'] = 'ByOldDps'
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
+
+    if not modifiers['ApplyMoveChanges'] and modifiers['ShowMoveChanges']:
+        errorText += 'You have to apply the move changes to be able to see the changes!\n'
+
+    if not modifiers['ShowOldDps'] and modifiers['ResultSortOrder'] == 'ByOldDps':
+        errorText += 'You have to add ShowOldDps to be able to sort by it!\n'
 
     if errorText != '':
         errorText += '\nCheck `$dps modifiers` to see all valid modifiers!'
