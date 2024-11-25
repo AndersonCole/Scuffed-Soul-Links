@@ -650,7 +650,7 @@ class MyClient(discord.Client):
                 await message.channel.send(embed)
 
             elif input[0:7] == 'symbol ':
-                embed = await getDPSSymbol(float(input[7:]))
+                embed = await getDPSSymbol(input[7:])
 
                 await message.channel.send(embed)
 

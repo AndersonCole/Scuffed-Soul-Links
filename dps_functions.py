@@ -1632,7 +1632,12 @@ async def readDPSNotes(user, userInput):
 
 #if i need more later '鬼' '獣'
 async def getDPSSymbol(dps):
-    if dps > 70:
+    try:
+        dps = float(dps)
+    except:
+        return f'\'{dps}\' isn\'t a valid number, try again!'
+    
+    if dps > 69:
         return '神'
     elif dps > 64:
         return '帝'
