@@ -1289,6 +1289,7 @@ async def determineExtraMaxInputs(extraInputs):
                     raise Exception
             except:
                 if input.strip().lower()[4:] == 'gmax':
+                    modifiers['BossHealth'] = 90_000.0
                     modifiers['CpmMultiplier'] = 0.85
                 else:
                     errorText += f'\'{input}\' wasn\'t understood as a valid dynamax battle tier!\n'
@@ -1629,28 +1630,25 @@ async def readDPSNotes(user, userInput):
         return '<@341722760852013066> ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
 #endregion
 
+#if i need more later '鬼' '獣'
 async def getDPSSymbol(dps):
-    if dps > 79:
+    if dps > 70:
         return '神'
-    elif dps > 74:
-        return '帝'
-    elif dps > 69:
-        return '王'
     elif dps > 64:
-        return '死'
+        return '帝'
     elif dps > 59:
-        return 'ゴ'
+        return '王'
     elif dps > 54:
-        return '鬼'
+        return '死'
     elif dps > 49:
-        return '獣'
+        return 'ゴ'
     elif dps > 44:
         return '龍'
     elif dps > 39:
         return '滅'
     elif dps > 34:
         return '攻'
-    elif dps > 29:
+    elif dps > 30:
         return 'ド'
     return '∅'
 
