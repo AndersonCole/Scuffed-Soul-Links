@@ -252,6 +252,9 @@ def getChangedMoveStats(moveName, oldPower, oldEnergy, applyChanges):
     return power, energy
 
 def getOriginalFromNickname(mon):
+    with open('text_files/soul_links/pokemon.txt', 'r') as file:
+        pokemon = json.loads(file.read())
+        
     mon = formatName(mon)
     try:
         dexNum = [obj for obj in pokemon if obj['Name'] == mon and obj['Nickname']][0]['DexNum']
