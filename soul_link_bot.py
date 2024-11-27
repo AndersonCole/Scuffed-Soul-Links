@@ -360,14 +360,16 @@ class MyClient(discord.Client):
                     await message.channel.send(embed=embed)
 
             elif input[0:13] == 'add-nickname ':
-                user_inputs = re.split(r'[\s-.]+', input[13:])
-                dex_num = user_inputs[-1]
-                user_inputs.pop(-1)
-                nickname = '-'.join(word.lower() for word in user_inputs)
+                if ',' in input:
+                    user_inputs = re.split(r'[,]+', input[13:])
+                    if len(user_inputs) == 2:
+                        response = await addNickname(user_inputs[0], user_inputs[1])
 
-                response = await addNickname(nickname, dex_num)
-
-                await message.channel.send(response)
+                        await message.channel.send(response)
+                    else:
+                        await message.channel.send('Invalid input! Check `$sl help`')
+                else:
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
 
             elif input[0:9] == 'nicknames':
 

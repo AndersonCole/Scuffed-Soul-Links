@@ -122,7 +122,8 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, DMax3``` DMax: Sets the level of a dynamax move\n' +
                                         '```$max check Charizard, GMax3``` GMax: Sets the level of a gigantamax move\n' +
                                         '```$max check Charizard, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentage\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
-                                        '```$max check Charizard, FastMoveCalc``` FastMoveCalc: Simulates the fast move dps and eps with no charged move usage\n' +
+                                        '```$max check Charizard, MushroomBoost``` MushroomBoost: Adds the 2x max mushroom damage multiplier\n' +
+                                        '```$max check Charizard, NoFastMoveCalc``` NoFastMoveCalc: Turns off the fast move only calcs\n' +
                                         '```$max check Charizard, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
                                         '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for dynamax calculations\nDefault check assumes Lv40, Hundo, calculates STAB, Assumes STAB on max moves, Neutral effectiveness, No Special Boosts, Sorted by Max Eps',
@@ -249,6 +250,14 @@ def getChangedMoveStats(moveName, oldPower, oldEnergy, applyChanges):
                     energy = move['NewEnergy']
                 break
     return power, energy
+
+def getOriginalFromNickname(mon):
+    mon = formatName(mon)
+    try:
+        dexNum = [obj for obj in pokemon if obj['Name'] == mon and obj['Nickname']][0]['DexNum']
+        return [obj for obj in pokemon if obj['DexNum'] == dexNum][0]['Name']
+    except:
+        return None
 
 #endregion
 
@@ -666,7 +675,13 @@ async def dpsCheck(monName, extraInputs=None):
             return errorText
     
     if not checkDuplicateMon(monName):
-        return 'That pokemon is not registered!'
+        baseMonName = getOriginalFromNickname(monName)
+        if baseMonName is not None:
+            monName = baseMonName
+            if not checkDuplicateMon(monName):
+                return 'That pokemon is not registered!'
+        else:
+            return 'That pokemon is not registered!'
     
     monTypes = []
 
@@ -814,8 +829,14 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
         if errorText != '':
             return errorText
 
-    if not checkDuplicateMon(f'{monName}'):
-        return 'That pokemon is not registered!'
+    if not checkDuplicateMon(monName):
+        baseMonName = getOriginalFromNickname(monName)
+        if baseMonName is not None:
+            monName = baseMonName
+            if not checkDuplicateMon(monName):
+                return 'That pokemon is not registered!'
+        else:
+            return 'That pokemon is not registered!'
     
     monTypes = []
 
@@ -1000,6 +1021,7 @@ def getDefaultModifiers():
         'MegaMultiplier': 1.0,
         'PartyPowerMultiplier': 1.0,
         'PowerSpotMultiplier': 1.0,
+        'MushroomMultiplier': 1.0,
 
         'BossAttack': 200,
         'BossDefence': 70,
@@ -1013,7 +1035,7 @@ def getDefaultModifiers():
 
         'CpmMultiplier': 1.0,
         'UseCpmMultiplier': True,
-        'SimFastAlone': False,
+        'SimFastAlone': True,
         'ApplyMaxOrb': True,
 
         'ShowMoveTimings': False,
@@ -1056,21 +1078,21 @@ def determineExtraSharedInputs(extraInputs, modifiers):
                 if input.strip()[-1:] != 'x':
                     raise Exception
                 val = float(input.strip()[13:-1])
-                if 0.1 > val or val > 4.0:
+                if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['FastEffectiveness'] = val
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
+                errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif str(input).strip().lower()[:16] == 'chargedeffective':
             try:
                 if input.strip()[-1:] != 'x':
                     raise Exception
                 val = float(input.strip()[16:-1])
-                if 0.1 > val or val > 4.0:
+                if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['ChargedEffectiveness'] = val
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
+                errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif str(input).strip().lower() == 'nofaststab':
             modifiers['ForceNoFastSTAB'] = True
         elif str(input).strip().lower() == 'nochargedstab':
@@ -1141,7 +1163,7 @@ async def determineExtraInputs(extraInputs):
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid party power value! Keep it between 1 and 5!\n'
         elif str(input).strip().lower()[:4] == 'tier':
-            try :
+            try:
                 tier = int(input.strip()[4:])
                 if tier == 1:
                     modifiers['BossHealth'] = 600.0
@@ -1198,7 +1220,8 @@ async def determineExtraInputs(extraInputs):
 #region dynamax exclusive modifiers
 #MaxEffective, NoMaxSTAB, PowerSpotBoost{level}
 #Dmax{level}, GMax{level}, Tier{level}
-#FastMoveCalc, NoMaxOrb, SortByDps
+#MushroomBoost
+#NoFastMoveCalc, NoMaxOrb, SortByDps
 async def determineExtraMaxInputs(extraInputs):
     modifiers = getDefaultModifiers()
 
@@ -1213,15 +1236,15 @@ async def determineExtraMaxInputs(extraInputs):
                 if input.strip()[-1:] != 'x':
                     raise Exception
                 val = float(input.strip()[12:-1])
-                if 0.1 > val or val > 4.0:
+                if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['MaxEffectiveness'] = val
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid max move effectiveness value! Keep it between 0.1 and 4! And don\'t forget the x at the end!\n'
+                errorText += f'\'{input}\' wasn\'t understood as a valid max move effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif str(input).strip().lower() == 'nomaxstab':
             modifiers['MaxSTABMultiplier'] = 1.0
         elif str(input).strip().lower()[:14] == 'powerspotboost':
-            try :
+            try:
                 level = int(input.strip()[14:])
                 if level == 1:
                     modifiers['PowerSpotMultiplier'] = 1.1
@@ -1235,8 +1258,10 @@ async def determineExtraMaxInputs(extraInputs):
                     raise Exception
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid power spot level! The boost level should be the amount of icons you see!\n'
+        elif str(input).strip().lower() == 'mushroomboost':
+            modifiers['MushroomMultiplier'] = 2.0
         elif str(input).strip().lower()[:4] == 'dmax':
-            try :
+            try:
                 tier = int(input.strip()[4:])
                 if tier == 1:
                     modifiers['MaxMovePower'] = 250
@@ -1252,7 +1277,7 @@ async def determineExtraMaxInputs(extraInputs):
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid dynamax move level!\n'
         elif str(input).strip().lower()[:4] == 'gmax':
-            try :
+            try:
                 tier = int(input.strip()[4:])
                 if tier == 1:
                     modifiers['MaxMovePower'] = 350
@@ -1293,8 +1318,8 @@ async def determineExtraMaxInputs(extraInputs):
                     modifiers['CpmMultiplier'] = 0.85
                 else:
                     errorText += f'\'{input}\' wasn\'t understood as a valid dynamax battle tier!\n'
-        elif str(input).strip().lower() == 'fastmovecalc':
-            modifiers['SimFastAlone'] = True
+        elif str(input).strip().lower() == 'nofastmovecalc':
+            modifiers['SimFastAlone'] = False
         elif str(input).strip().lower() == 'nomaxorb':
             modifiers['ApplyMaxOrb'] = False
         elif str(input).strip().lower() == 'sortbydps':
@@ -1387,7 +1412,7 @@ async def calcModifierValue(modifiers, moveType):
     else:
         partyPower = 1.0
     
-    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * modifiers['WeatherMultiplier'] * modifiers['MegaMultiplier'] * modifiers['PowerSpotMultiplier'] * partyPower
+    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * modifiers['WeatherMultiplier'] * modifiers['MegaMultiplier'] * modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * partyPower
 
     return modifierVal
 

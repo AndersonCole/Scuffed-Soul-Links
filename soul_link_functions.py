@@ -57,7 +57,7 @@ async def help():
                                       '```$sl run-info``` Prints out all relevant stats for the currently selected run\n\n' +
                                       '```$sl dex Bulbasaur``` Shows data on selected pokemon\n' +
                                       '```$sl moves Bulbasaur 24``` Shows the four moves the mon has at a specific level\n' +
-                                      '```$sl add-nickname Ttar 248``` Adds nicknames to link to pokedex numbers. Don\'t add nicknames for mons with forms\n' +
+                                      '```$sl add-nickname Ttar, Tyranitar``` Adds nicknames to link to original names\n' +
                                       '```$sl nicknames``` Prints out all nicknames\n' +
                                       '```$sl catch Bulbasaur 5``` Caclulates the catch rate for the selected gen given the pokemon and level\n' +
                                       '```$sl rare-candies``` Shuckle explains how to aquire rare candies using PKHex\n\n' +
@@ -85,6 +85,12 @@ def getDexNum(mon):
 def getMon(dex_num):
     try:
         return [obj for obj in pokemon if obj['DexNum'] == dex_num][0]
+    except:
+        return None
+
+def getMonFromName(originalName):
+    try:
+        return [obj for obj in pokemon if obj['Name'] == originalName][0]
     except:
         return None
 
@@ -1723,11 +1729,12 @@ async def calculateCatchRate(mon, level, version_group):
 
 #region nicknames
 #region $sl add-nickname command
-async def addNickname(nickname, dex_num):
-    mon = getMon(int(dex_num))
+async def addNickname(nickname, originalName):
+    originalName = re.sub(r'\s', '-', str(originalName).lower().strip())
+    mon = getMonFromName(originalName)
 
     if mon is None:
-        return "Dex Number is not valid!"
+        return f'\'{originalName}\' is not a valid mon!'
 
     pokemon.append({
         'Name': nickname,
@@ -1739,6 +1746,9 @@ async def addNickname(nickname, dex_num):
 
     with open('text_files/soul_links/pokemon.txt', 'w') as file:
         file.write(json.dumps(pokemon))
+
+    with open('text_files/soul_links/pokemon.txt', 'r') as file:
+        pokemon = json.loads(file.read())
 
     return f'Nickname \'{nickname}\' successfully added for {mon["Name"]}'
 
