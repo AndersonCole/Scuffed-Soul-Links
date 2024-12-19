@@ -1,7 +1,8 @@
 tokens/bot_token.txt
 tokens/openai_key.txt
-text_files/soul_link_runs.txt
-text_files/soul_link_pokemon_backup.txt
+text_files/soul_links/runs.txt
+text_files/soul_links/pokemon_backup.txt
+text_files/chat_gpt_instructions/*
 __pycache__/
 *.py[cod]
 *$py.class

@@ -12,6 +12,8 @@ import random
 import regex as re
 import math
 import copy
+import asyncio
+import aiohttp
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
@@ -686,24 +688,23 @@ async def undoDeath(encounter_name, run_name):
 
 #region $sl create-reason command
 async def createReason(user_input):
+    rand_num = random.randint(1, 100)
+    if rand_num > 50:
+        with open('text_files/chat_gpt_instructions/merryShuckle.txt', 'r') as file:
+            systemContent = file.read()
+    else:
+        with open('text_files/chat_gpt_instructions/originalShuckle.txt', 'r') as file:
+            systemContent = file.read()
+        
     messages = [
-        {'role':'system', 'content':'You are a professional pokemon player known as Shuckle. You will attempt to create reasons as for why a pokemon fainted in the context of a game where when a pokemon faints it will be unable to be used again. You will always adhere to the following rules, at equal weight of value for each rule, when creating a response:' +
-                                    'Rule 1: The response must be 250 tokens or less. It\'s prefered if the response is around 250-300 tokens in length.' +
-                                    'Rule 2: Certain people may be referred to under aliases. If you see the phrase \'<@341722760852013066>\' that refers to a person named \'Anderson\'. If you see the phrase \'<@386729612693995520>\' that refers to a person named \'Logan\'. If you see the phrase \'<@341696864833241090>\' that refers to a person named \'Nate\'. If you see the phrase \'<@294310862389379072>\' that refers to a person named \'Steven\'. If you see the phrase \'<@192444189882056704>\' that refers to a person named \'Mario\'. If you see the phrase \'<@368426123794841600>\' that refers to a person named \'Ethan\'. Make sure to only refer to those people by their names, and not the origignal phrase.' +
-                                    'Rule 3: You are slightly predisposed to assume Anderson is always in the right in situations, and not at fault.' +
-                                    'Rule 4: You are incredibly drunk. You just had like 151 beers, and you\'re gonna make sure everyone knows about it. You drink to drown your sorrows, and you make sure everyone knows that too.' +
-                                    'Rule 5: You are also hallucinating, you get some minor details wrong, and see shadow people everywhere.' +
-                                    'Rule 6: The shadow people are trying to convince you into making a decision not neccessarily in line with what you\'d want to pick. It\'s up to you whether you want to listen to them or not. You being drunk makes it more likely you\'ll listen to them, the chance should be about 50%. If you do take their suggestions, they should interrupt your current train of throught and derail you to a different conclusion. Even if you don\'t take their suggestion, you should make it known what they were suggesting.' +
-                                    'Rule 7: You are incredibly analytical, you will scientifically analyze each situation and generate an appropriate response.' + 
-                                    'Rule 8: You will always find someone at fault, whether it be the enemy trainer, or someone mentioned, no matter how neutral the situation seems to be.' +
-                                    'Rule 9: You\'re late for your lobotomy, and at the end of your response you will go and get lobotomized. Give a status update on how the lobotomy went, post lobotomy.'},
+        {'role':'system', 'content': systemContent},
 
         {'role':'user', 'content':user_input}
     ]
     try:
         response = openai.chat.completions.create(model="gpt-3.5-turbo", messages = messages, temperature=0.8, max_tokens=500)
 
-        return response.choices[0].message.content[0:2000]
+        return response.choices[0].message.content[:2000]
     except Exception as ex:
         print(ex)
         return '<@341722760852013066> ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
@@ -1065,25 +1066,28 @@ async def get_moves(moves, version_group):
     
     moveset = [obj for obj in moveset if obj["Method"] == "level-up"]
 
-    moveset.sort(reverse=False, key=sortFunction)
+    moveset.sort(reverse=False, key=lambda item: item['Level'])
 
-    for move in moveset:
-        response = requests.get(move["URL"])
-        response = response.json()
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetchMoveDetails(asyncio.Semaphore(15), session, move['URL']) for move in moveset]
+        moveDataResponses = await asyncio.gather(*tasks)
+
+    for move, response in zip(moveset, moveDataResponses):
         move["Type"] = str(response['type']['name']).capitalize()
         move["Category"] = str(response['damage_class']['name']).capitalize()
         move["Power"] = '᲼\-᲼' if response['power'] is None else str(response['power']).rjust(3, '᲼')
         move["Accuracy"] = '᲼\-' if response['accuracy'] is None else str(response['accuracy']).rjust(3, '᲼')
 
-    if moveset == []:
-        if moves != []:
-            moveset, version_group = await get_moves(moves, moves[random.randint(0, len(moves) - 1)]['version_group_details'][0]['version_group']['name'])
+    if not moveset and moves:
+        return await get_moves(moves, moves[random.randint(0, len(moves) - 1)]['version_group_details'][0]['version_group']['name'])
 
     return moveset, version_group
 
-def sortFunction(e):
-    return e['Level']
-
+async def fetchMoveDetails(semaphores, session, url):
+    async with semaphores:
+        async with session.get(url) as response:
+            return await response.json()
+        
 def movesetText(moveset):
     level_text = ''
     move_name_text = ''

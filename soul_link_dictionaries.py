@@ -158,24 +158,3 @@ for game in games:
                 encounter_count += 1
     print(f'{game["Name"]} has {encounter_count} encounters')
 '''
-
-'''
-gameProgression = ''
-
-for game in games:
-    for game_name in game['Games']:
-        order = 0
-        if len(game['Progression']) > 0:
-            for stage in game['Progression']:
-                for encounter in stage['Encounters']:
-                    gameProgression += f'INSERT INTO routes (game_id, route_name, progression_order)\n'
-                    gameProgression += f'VALUES ((SELECT game_id FROM games WHERE LOWER(game_name) = \'{game_name.lower()}\'), \'{encounter}\', {order})\n'
-                    order += 1
-                gameProgression += f'INSERT INTO battles (game_id, battle_name, battle_location, highest_level, image_link, progression_order)\n'
-                gameProgression += f'VALUES ((SELECT game_id FROM games WHERE LOWER(game_name) = \'{game_name.lower()}\'), \'{stage["Battle-Name"]}\', \'\', {stage["Level-Cap"]} \'\', {order})\n\n'
-                order += 1
-            gameProgression += '\n\n'
-
-with open('capstone.txt', 'w') as file:
-    file.write(gameProgression)
-'''
