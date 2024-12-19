@@ -1734,6 +1734,7 @@ async def calculateCatchRate(mon, level, version_group):
 #region nicknames
 #region $sl add-nickname command
 async def addNickname(nickname, originalName):
+    global pokemon
     originalName = re.sub(r'\s', '-', str(originalName).lower().strip())
     mon = getMonFromName(originalName)
 
@@ -1741,7 +1742,7 @@ async def addNickname(nickname, originalName):
         return f'\'{originalName}\' is not a valid mon!'
 
     pokemon.append({
-        'Name': nickname,
+        'Name': re.sub(r'\s', '-', str(nickname).lower().strip()),
         'DexNum': mon['DexNum'],
         'Nickname': True,
         'Evolves-Into': mon['Evolves-Into'],
