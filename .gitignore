@@ -3,6 +3,7 @@ tokens/openai_key.txt
 text_files/soul_links/runs.txt
 text_files/soul_links/pokemon_backup.txt
 text_files/chat_gpt_instructions/*
+text_files/minecraft_server/*
 __pycache__/
 *.py[cod]
 *$py.class

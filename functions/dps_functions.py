@@ -13,7 +13,7 @@ import requests
 import regex as re
 import math
 import copy
-from soul_link_dictionaries import types
+from functions.soul_link_dictionaries import types
 
 with open("tokens/openai_key.txt") as file:
     openai.api_key = file.read()

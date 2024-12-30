@@ -18,7 +18,7 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 from io import BytesIO
-from soul_link_dictionaries import types, categories, gens, games
+from functions.soul_link_dictionaries import types, categories, gens, games
 
 with open('text_files/soul_links/pokemon.txt', 'r') as file:
     pokemon = json.loads(file.read())
