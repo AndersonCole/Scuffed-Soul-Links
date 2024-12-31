@@ -9,7 +9,7 @@ import json
 import random
 import regex as re
 import time
-import threading
+import asyncio
 import socket
 import subprocess
 import math
@@ -331,11 +331,11 @@ async def mcStart():
 async def mcBeginStop():
     await mcSay(f'The server will shutdown in one minute, prepare yourself!')
 
-    stopThread = threading.Thread(target=mcStop)
+    stopThread = asyncio.create_task(mcStop)
     stopThread.start()
 
 async def mcStop():
-    time.sleep(60)
+    await asyncio.sleep(60)
 
     await rcon(
         f'stop',
@@ -345,11 +345,11 @@ async def mcStop():
 async def mcRestart():
     await mcBeginStop()
 
-    startThread = threading.Thread(target=mcWaitStart)
+    startThread = asyncio.create_task(mcWaitStart)
     startThread.start()
 
 async def mcWaitStart():
-    time.sleep(90)
+    await asyncio.sleep(90)
 
     response = await mcStart()
 

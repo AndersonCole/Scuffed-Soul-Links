@@ -733,8 +733,10 @@ class DiscordClient(discord.Client):
             elif input == 'info':
                 if serverOnline():
                     embed, file = await mcInfo()
-
-                    await message.channel.send(file=file, embed=embed)
+                    if(type(embed) == type('')):
+                        await message.channel.send(embed)
+                    else:
+                        await message.channel.send(file=file, embed=embed)
                 else:
                     await message.channel.send('The server\'s offline!')
 
