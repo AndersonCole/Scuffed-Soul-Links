@@ -13,9 +13,7 @@ from functions.dps_functions import *
 from functions.mc_server_functions import *
 import Paginator
 
-## MYClient Class Definition
-
-class MyClient(discord.Client):
+class DiscordClient(discord.Client):
     """Class to represent the Client (bot user)"""
 
     def __init__(self):
@@ -707,21 +705,106 @@ class MyClient(discord.Client):
         elif message.content[0:4] == '$mc ':
             rand_num = random.randint(1, 100)
             if rand_num == 69:
-                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+                await message.add_reaction('<:AmberShinyShuckle:1323169482964996160>')
             else: 
-                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+                await message.add_reaction('<:AmberShuckle:1323169451033759745>')
 
-            input = message.content[5:]
+            input = message.content[4:]
 
             if input == 'help':
-                await message.channel.send('Under Construction... No help yet!')
-                #embed, file = await mcHelp()
-                #await message.channel.send(file=file, embed=embed)
+                embed, file = await mcHelp()
+                await message.channel.send(file=file, embed=embed)
+
+            elif input == 'setup':
+                embeds = await mcSetup()
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
+
+            elif input == 'save':
+                if serverOnline():
+                    await mcSave(message.author.mention)
+
+                    await message.channel.send('Sent a server save request!')
+                else:
+                    await message.channel.send('The server\'s offline!')
+
+            elif input == 'info':
+                if serverOnline():
+                    embed, file = await mcInfo()
+
+                    await message.channel.send(file=file, embed=embed)
+                else:
+                    await message.channel.send('The server\'s offline!')
+
+            elif input == 'locate help':
+                embed, file = await mcLocateHelp()
+                await message.channel.send(file=file, embed=embed)
+
+            elif input[0:7] == 'locate ':
+                if serverOnline:
+                    if ',' in input:
+                        user_inputs = re.split(r'[,]+', input[7:].strip())
+                        if len(user_inputs) >= 2:
+                            embed, file = await mcLocate(message.author.mention, user_inputs)
+                            if(type(embed) == type('')):
+                                await message.channel.send(embed)
+                            else:
+                                await message.channel.send(embed=embed, file=file)
+                        else:
+                            await message.channel.send('I don\'t know wtf you\'re trying to input!')
+                    else:
+                        embed, file = await mcLocate(message.author.mention, [input[7:].strip()])
+                        if(type(embed) == type('')):
+                            await message.channel.send(embed)
+                        else:
+                            await message.channel.send(embed=embed, file=file)
+                else:
+                    await message.channel.send('The server\'s offline!')
 
             elif input[0:4] == 'say ':
-                embed = await mcSay()
+                if serverOnline:
+                    await mcSay(input[4:], message.author.mention)
                 
-                await message.channel.send(embed)
+                    await message.channel.send('Sent the server a message!')
+                else:
+                    await message.channel.send('The server\'s offline!')
+            
+            elif input == 'start':
+                if message.author.mention[2:-1] == '341722760852013066':
+                    if not serverOnline:
+                        await message.channel.send('Attempting to start server...')
+
+                        response = await mcStart()
+
+                        await message.channel.send(response)
+                    else:
+                        await message.channel.send('The server is already online!')
+                else:
+                    await message.channel.send('Get outta here, @<341722760852013066> only!')
+
+            elif input == 'stop':
+                if message.author.mention[2:-1] == '341722760852013066':
+                    if serverOnline:
+                        await message.channel.send('Stopping the server in a minute!')
+
+                        await mcBeginStop()
+                    else:
+                        await message.channel.send('The server\'s already offline!')
+                else:
+                    await message.channel.send('Get outta here, @<341722760852013066> only!')
+
+            elif input == 'restart':
+                if message.author.mention[2:-1] == '341722760852013066':
+                    if serverOnline:
+                        await message.channel.send('Beginning restart process! Try connecting in like 2 minutes!')
+
+                        await mcRestart()
+                    else:
+                        await message.channel.send('The server\'s offline! Just use `$mc start` instead!')
+                else:
+                    await message.channel.send('Get outta here, @<341722760852013066> only!')
             
             else:
                 await message.channel.send('I don\'t know wtf you\'re trying to input!')
@@ -758,7 +841,7 @@ class MyClient(discord.Client):
             else: 
                 await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
 
-            if message.author.mention[2:-1] == "341722760852013066":
+            if message.author.mention[2:-1] == '341722760852013066':
                 await message.channel.send('And it shall be done, as it was in the beginning, as it has always been\nPeace shall descend graciously upon the land, and all will be mended')
 
                 guild = message.guild
@@ -782,7 +865,7 @@ most_recent_version_group = 'scarlet-violet'
 run_name = ''
 
 ## Set up and log in
-client = MyClient()
+client = DiscordClient()
 with open("tokens/bot_token.txt") as file:
     token = file.read()
 client.run(token)

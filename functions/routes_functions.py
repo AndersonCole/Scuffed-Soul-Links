@@ -25,7 +25,7 @@ async def checkStrongestSoldier(user_id, guild):
     return False
 
 async def routesHelp():
-    file = discord.File('images/zygarde_cell.png', filename='zygarde_cell.png')
+    file = discord.File('images/routes/zygarde_cell.png', filename='zygarde_cell.png')
 
     embed = discord.Embed(title=f'Routes Strongest Soldier\'s Commands',
                           description='```$routes add Best Route, 501, 0``` Creates a new route from the name, distance and times walked given\n' +
@@ -121,7 +121,7 @@ async def walkRoute(route_name, distance, direction, cell_count, user):
 
 #region printouts
 async def listRoutes(user):
-    file = discord.File('images/zygarde_cell.png', filename='zygarde_cell.png')
+    file = discord.File('images/routes/zygarde_cell.png', filename='zygarde_cell.png')
 
     users_routes = [obj for obj in routes if obj['User'] == user]
 
@@ -146,7 +146,7 @@ async def listRoutes(user):
     return embed, file
 
 async def printoutDay(user):
-    file = discord.File('images/zygarde_cell.png', filename='zygarde_cell.png')
+    file = discord.File('images/routes/zygarde_cell.png', filename='zygarde_cell.png')
 
     todays_routes = [obj for obj in walkedRoutes if obj['Date'] == datetime.now().date().strftime("%Y-%m-%d") and obj['User'] == user]
 
