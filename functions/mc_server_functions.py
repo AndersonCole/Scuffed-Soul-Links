@@ -8,7 +8,6 @@ import discord
 import json
 import random
 import regex as re
-import time
 import asyncio
 import socket
 import subprocess
@@ -46,8 +45,7 @@ async def mcHelp():
                                         '```$mc info``` Gives server info such as players online and time of day.\n' +
                                         '```$mc say Hello!``` Writes a message in the server chat.\n' +
                                         '```$mc locate help``` Check for more info on the locate command, modifiers return!\n' +
-                                        '```$mc save``` The server has autosaving, but you can do this too.\n' +
-                                        '\n\n' +
+                                        '```$mc save``` The server has autosaving, but you can do this too.\n\n\n' +
                                         '**Admin Only:**\n' +
                                         '```$mc start``` Starts the server\n' +
                                         '```$mc stop``` Stops the server\n' +
@@ -99,7 +97,7 @@ async def mcSetup():
 #region rcon server info commands
 async def serverOnline():
     try:
-        with socket.create_connection((serverIp, serverPort), timeout=5):
+        with socket.create_connection((serverIp, serverPort), timeout=3):
             return True
     except:
         return False
@@ -144,7 +142,7 @@ async def mcInfo():
         host=rconIp, port=rconPort, passwd=rconPassword
     )
 
-    daytime = int(daytime)
+    daytime = int(re.search(r'\d+$', daytime.strip()).group())
 
     if daytime >= 23000:
         timeText = 'Sunrise'
@@ -187,15 +185,15 @@ async def mcInfo():
                 host=rconIp, port=rconPort, passwd=rconPassword
             )
 
-            if ':' in dimension:
-                dimensionData = re.split(':', dimension)[1]
-                playerDimensionText += f'{getDimensionName(dimensionData.strip()[1:-1])}'
+            if '"' in dimension:
+                dimensionData = re.split('"', dimension)[1]
+                playerDimensionText += f'{getDimensionName(dimensionData.strip()[1:-1])}\n'
             else:
                 return f'Couldn\'t get data on {player}!', file
             
             if ':' in coordinates:
                 coordinateData = re.split(':', coordinates)[1]
-                playerCoordinateText += f'{formatPlayerCoordinates(coordinateData.strip()[1:-1])}'
+                playerCoordinateText += f'{formatPlayerCoordinates(coordinateData.strip()[1:-1])}\n'
             else:
                 return f'Couldn\'t get data on {player}!', file
 
@@ -321,7 +319,9 @@ async def mcLocate(author, inputs):
 
 async def mcStart():
     try:
-        subprocess.run('C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server\\start.bat', check=True, shell=True)
+        working_directory = 'C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server'
+
+        subprocess.Popen('start.bat', cwd=working_directory, creationflags=subprocess.CREATE_NEW_CONSOLE)
         return 'Server starting up!'
     except FileNotFoundError:
         return 'Server start.bat file not found! Check to make sure the path is correct!'
@@ -331,8 +331,7 @@ async def mcStart():
 async def mcBeginStop():
     await mcSay(f'The server will shutdown in one minute, prepare yourself!')
 
-    stopThread = asyncio.create_task(mcStop)
-    stopThread.start()
+    asyncio.create_task(mcStop())
 
 async def mcStop():
     await asyncio.sleep(60)
@@ -345,8 +344,7 @@ async def mcStop():
 async def mcRestart():
     await mcBeginStop()
 
-    startThread = asyncio.create_task(mcWaitStart)
-    startThread.start()
+    asyncio.create_task(mcWaitStart())
 
 async def mcWaitStart():
     await asyncio.sleep(90)

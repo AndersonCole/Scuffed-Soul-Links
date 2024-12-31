@@ -723,15 +723,15 @@ class DiscordClient(discord.Client):
                     await Paginator.Simple().start(message.channel, pages=embeds)
 
             elif input == 'save':
-                if serverOnline():
-                    await mcSave(message.author.nick)
+                if await serverOnline():
+                    await mcSave(message.author.name)
 
                     await message.channel.send('Sent a server save request!')
                 else:
                     await message.channel.send('The server\'s offline!')
 
             elif input == 'info':
-                if serverOnline():
+                if await serverOnline():
                     embed, file = await mcInfo()
                     if(type(embed) == type('')):
                         await message.channel.send(embed)
@@ -745,22 +745,22 @@ class DiscordClient(discord.Client):
                 await message.channel.send(file=file, embed=embed)
 
             elif input[0:7] == 'locate ':
-                if serverOnline:
+                if await serverOnline():
                     if ',' in input:
                         user_inputs = re.split(r'[,]+', input[7:].strip())
                         if len(user_inputs) >= 2:
-                            response = await mcLocate(message.author.nick, user_inputs)
+                            response = await mcLocate(message.author.name, user_inputs)
                             await message.channel.send(response)
                         else:
                             await message.channel.send('I don\'t know wtf you\'re trying to input!')
                     else:
-                        response = await mcLocate(message.author.nick, [input[7:].strip()])
+                        response = await mcLocate(message.author.name, [input[7:].strip()])
                         await message.channel.send(response)
                 else:
                     await message.channel.send('The server\'s offline!')
 
             elif input[0:4] == 'say ':
-                if serverOnline:
+                if await serverOnline():
                     await mcSay(input[4:], message.author.mention)
                 
                     await message.channel.send('Sent the server a message!')
@@ -769,7 +769,7 @@ class DiscordClient(discord.Client):
             
             elif input == 'start':
                 if message.author.mention[2:-1] == '341722760852013066':
-                    if not serverOnline:
+                    if not await serverOnline():
                         await message.channel.send('Attempting to start server...')
 
                         response = await mcStart()
@@ -782,7 +782,7 @@ class DiscordClient(discord.Client):
 
             elif input == 'stop':
                 if message.author.mention[2:-1] == '341722760852013066':
-                    if serverOnline:
+                    if await serverOnline():
                         await message.channel.send('Stopping the server in a minute!')
 
                         await mcBeginStop()
@@ -793,7 +793,7 @@ class DiscordClient(discord.Client):
 
             elif input == 'restart':
                 if message.author.mention[2:-1] == '341722760852013066':
-                    if serverOnline:
+                    if await serverOnline():
                         await message.channel.send('Beginning restart process! Try connecting in like 2 minutes!')
 
                         await mcRestart()
