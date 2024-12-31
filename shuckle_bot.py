@@ -724,7 +724,7 @@ class DiscordClient(discord.Client):
 
             elif input == 'save':
                 if serverOnline():
-                    await mcSave(message.author.mention)
+                    await mcSave(message.author.nick)
 
                     await message.channel.send('Sent a server save request!')
                 else:
@@ -747,19 +747,13 @@ class DiscordClient(discord.Client):
                     if ',' in input:
                         user_inputs = re.split(r'[,]+', input[7:].strip())
                         if len(user_inputs) >= 2:
-                            embed, file = await mcLocate(message.author.mention, user_inputs)
-                            if(type(embed) == type('')):
-                                await message.channel.send(embed)
-                            else:
-                                await message.channel.send(embed=embed, file=file)
+                            response = await mcLocate(message.author.nick, user_inputs)
+                            await message.channel.send(response)
                         else:
                             await message.channel.send('I don\'t know wtf you\'re trying to input!')
                     else:
-                        embed, file = await mcLocate(message.author.mention, [input[7:].strip()])
-                        if(type(embed) == type('')):
-                            await message.channel.send(embed)
-                        else:
-                            await message.channel.send(embed=embed, file=file)
+                        response = await mcLocate(message.author.nick, [input[7:].strip()])
+                        await message.channel.send(response)
                 else:
                     await message.channel.send('The server\'s offline!')
 

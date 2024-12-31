@@ -4,10 +4,6 @@ Contains the functions relating to the Minecraft Server
 Cole Anderson, Dec 2024
 """
 
-#execute in minecraft:overworld positioned 0 0 0 run locatebiome minecraft:plains
-
-#execute in minecraft:overworld as @p run data get entity @s Pos
-
 import discord
 import json
 import random
@@ -16,6 +12,7 @@ import time
 import threading
 import socket
 import subprocess
+import math
 from rcon.source import rcon
 
 with open('text_files/minecraft_server/serverIp.txt', 'r') as file:
@@ -34,9 +31,9 @@ with open('text_files/minecraft_server/rconPassword.txt', 'r') as file:
     rconPassword = file.read()
 
 dimensions = [
-    {'Name': 'overworld', 'CmdName': 'minecraft:overworld'}, 
-    {'Name': 'nether', 'CmdName': 'minecraft:the_nether'}, 
-    {'Name': 'end', 'CmdName': 'minecraft:the_end'}
+    {'Name': 'Overworld', 'CmdName': 'minecraft:overworld'}, 
+    {'Name': 'Nether', 'CmdName': 'minecraft:the_nether'}, 
+    {'Name': 'End', 'CmdName': 'minecraft:the_end'}
 ]
 
 #region help and setup commands
@@ -44,7 +41,7 @@ async def mcHelp():
     file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
     shinyFile = discord.File('images/minecraft/amber_shiny_shuckle.png', filename='amber_shiny_shuckle.png')
 
-    embed = discord.Embed(title='Shuckles Fossil Server Commands',
+    embed = discord.Embed(title='Shuckles Fossils Server Commands',
                             description='```$mc setup``` Gives info on required and recommended mods.\n' +
                                         '```$mc info``` Gives server info such as players online and time of day.\n' +
                                         '```$mc say Hello!``` Writes a message in the server chat.\n' +
@@ -69,7 +66,7 @@ async def mcLocateHelp():
     file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
     shinyFile = discord.File('images/minecraft/amber_shiny_shuckle.png', filename='amber_shiny_shuckle.png')
 
-    embed = discord.Embed(title='Shuckles Fossil Locate Command',
+    embed = discord.Embed(title='Shuckles Fossils Server Locate Command',
                             description='Locate searches for the closest biome or structure to 0 0 0 in the overworld by default\n' +
                                         'You MUST specify the mod name if it\'s not a vanilla biome/structure! Examples are below:\n' +
                                         '```$mc locate plains``` Locates the nearest `minecraft:plains` biome from 0 0\n' +
@@ -107,14 +104,121 @@ async def serverOnline():
     except:
         return False
 
-async def mcInfo():
-    return 'Embed'
-
-def getDimensionId(dimension):
+def getDimensionName(dimension):
     try:
-        return [obj for obj in dimensions if obj['Name'] == dimension][0]['CmdName']
+        return [obj for obj in dimensions if obj['CmdName'] == dimension][0]['Name']
     except:
         return None
+    
+def formatPlayerCoordinates(coordinates):
+    if ',' in coordinates:
+        splitCoords = re.split(',', coordinates)
+        splitCoords = [int(math.floor(float(obj.strip()[:-1]))) for obj in splitCoords]
+
+        return f'{splitCoords[0]} {splitCoords[1]} {splitCoords[2]}'
+    else:
+        return None
+
+
+async def mcInfo():
+    file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
+    shinyFile = discord.File('images/minecraft/amber_shiny_shuckle.png', filename='amber_shiny_shuckle.png')
+
+    playersOnline = await rcon(
+        f'list',
+        host=rconIp, port=rconPort, passwd=rconPassword
+    )
+
+    playersText = playersOnline.split(':')[1]
+
+    if len(playersText) > 1:
+        if ',' in playersText:
+            players = playersText.split(',')
+        else:
+            players = [playersText]
+    else:
+        players = []
+
+    daytime = await rcon(
+        f'time query daytime',
+        host=rconIp, port=rconPort, passwd=rconPassword
+    )
+
+    daytime = int(daytime)
+
+    if daytime >= 23000:
+        timeText = 'Sunrise'
+    elif daytime >= 21000:
+        timeText = 'Late Night'
+    elif daytime >= 17000:
+        timeText = 'Night'
+    elif daytime >= 13000:
+        timeText = 'Early Night'
+    elif daytime >= 12000:
+        timeText = 'Sunset'
+    elif daytime >= 9000:
+        timeText = 'Afternoon'
+    elif daytime >= 5000:
+        timeText = 'Midday'
+    elif daytime >= 1000:
+        timeText = 'Morning'
+    else:
+        timeText = 'Sunrise'
+
+    embed = discord.Embed(title=f'Fossil Server Info',
+                          description=f'Players Online: {len(players)}\nCurrent Overworld Time: **{timeText}**',
+                          color=14914576)
+    
+    if len(players) > 0:
+        playerNameText = ''
+        playerDimensionText = ''
+        playerCoordinateText = ''
+
+        for player in players:
+            playerNameText += f'{player.strip()}\n'
+
+            dimension = await rcon(
+                f'execute as {player.strip()} run data get entity @s Dimension',
+                host=rconIp, port=rconPort, passwd=rconPassword
+            )
+
+            coordinates = await rcon(
+                f'execute as {player.strip()} run data get entity @s Pos',
+                host=rconIp, port=rconPort, passwd=rconPassword
+            )
+
+            if ':' in dimension:
+                dimensionData = re.split(':', dimension)[1]
+                playerDimensionText += f'{getDimensionName(dimensionData.strip()[1:-1])}'
+            else:
+                return f'Couldn\'t get data on {player}!', file
+            
+            if ':' in coordinates:
+                coordinateData = re.split(':', coordinates)[1]
+                playerCoordinateText += f'{formatPlayerCoordinates(coordinateData.strip()[1:-1])}'
+            else:
+                return f'Couldn\'t get data on {player}!', file
+
+        embed.add_field(name='Players',
+                    value=playerNameText,
+                    inline=True)
+        
+        embed.add_field(name='Dimension',
+                    value=playerDimensionText,
+                    inline=True)
+        
+        embed.add_field(name='Location',
+                    value=playerCoordinateText,
+                    inline=True)
+
+
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url='attachment://amber_shiny_shuckle.png')
+        return embed, shinyFile
+    else:
+        embed.set_thumbnail(url='attachment://amber_shuckle.png')
+        return embed, file
     
 async def mcSay(message, author='Shuckle'):
     authorColour = 'dark_green'
@@ -191,7 +295,7 @@ def getLocateModifiers(inputs):
 
 
 async def mcLocate(author, inputs):
-    modifiers, errorText = await getLocateModifiers(inputs)
+    modifiers, errorText = getLocateModifiers(inputs)
     if errorText != '':
         return errorText
     
@@ -200,9 +304,16 @@ async def mcLocate(author, inputs):
         host=rconIp, port=rconPort, passwd=rconPassword
     )
 
-    print(response)
+    if response[:9] == 'Could not':
+        return f'Could not find a {modifiers["Target"]} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["Coordinates"]}!'
+    else:
+        targetCoords = (re.search(r'\[([^\]]+)\]', response)).group(1).split(',')
 
-    await mcSay(f'{author} found a {modifiers["Target"]}')
+        message = f'{author} found a {modifiers["Target"]} in the {getDimensionName(modifiers["Dimension"])} at {targetCoords[0].strip()} {targetCoords[1].strip()} {targetCoords[2].strip()}'
+        
+        await mcSay(message)
+
+        return message
 
 #endregion
 
