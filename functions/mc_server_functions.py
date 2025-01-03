@@ -12,6 +12,7 @@ import asyncio
 import socket
 import subprocess
 import math
+import copy
 from rcon.source import rcon
 
 with open('text_files/minecraft_server/serverIp.txt', 'r') as file:
@@ -28,6 +29,12 @@ with open('text_files/minecraft_server/rconPort.txt', 'r') as file:
 
 with open('text_files/minecraft_server/rconPassword.txt', 'r') as file:
     rconPassword = file.read()
+
+with open('text_files/minecraft_server/googleDriveLink.txt', 'r') as file:
+    googleDriveLink = file.read()
+
+with open('text_files/minecraft_server/modInfo.txt', 'r') as file:
+    serverMods = json.loads(file.read())
 
 dimensions = [
     {'Name': 'Overworld', 'CmdName': 'minecraft:overworld'}, 
@@ -90,7 +97,66 @@ async def mcLocateHelp():
         return embed, file
 
 async def mcSetup():
-    return ['embeds! file sharing! yay!']
+    embeds = []
+
+    rand_num = random.randint(1, 100)
+
+    serverOn = await serverOnline()
+
+    embed = discord.Embed(title='Fossils Server Mods Info and Setup',
+                            description=f'Server Ip: **{serverIp}**\n' +
+                                        f'World Seed: **923372312397535711**\n' +
+                                        f'Server Status: {"Online" if serverOn else "Offline"}\n\n'
+                                        f'The server is run on Minecraft 1.18.2 using Fabric.\n' +
+                                        f'Download Fabric here: https://fabricmc.net/use/installer/ \n\n'
+                                        f'Modpack Downloads: {googleDriveLink} \n\n'
+                                        f'Check the other embed pages for info on what mods are actually included.\n' + 
+                                        f'If you don\'t care, download Fabric, then grab the recommended.zip from the Google Drive and throw it in your mods folder.\n\n' +
+                                        f'Make sure to edit your installation in the Minecraft Launcher! Set the `-Xmx` field to something like 8Gb like so `-Xmx8G` to allow Minecraft to use more RAM!',
+                            color=14914576)
+    
+    if rand_num == 69:
+        embed.set_thumbnail(url='https://i.imgur.com/Np0NjY2.png')
+    else:
+        embed.set_thumbnail(url='https://i.imgur.com/oC02eDj.png')
+
+    embeds.append(copy.deepcopy(embed))
+
+    embed.title = 'Table of Contents'
+    embed.description=('Required mods are marked with a ★\n' +
+                       'Recommended mods are marked with a ☆\n\n' +
+                       '**Mods**: Pages 3-21 \n' +
+                       '**Datapacks**: Pages 22-26 \n' +
+                       '**Resource Packs**: Pages 27-29')
+    
+    embeds.append(copy.deepcopy(embed))
+
+    
+    for mod in serverMods:
+        embed.title = f'{"★ " if mod["Required"] == "Req" else ("☆ " if mod["Required"] == "Rec" else "")}{mod["Name"]} {mod["Type"]}'
+        embed.description = f'{mod["Content"]}'
+        embed.set_author(name=f'{mod["Type"]} Page Link', url=mod['Link'])
+        embed.set_footer(text=f'More info can be found at the {mod["Type"]}\'s page')
+        embed.set_thumbnail(url=mod["ImageLink"])
+
+        embeds.append(copy.deepcopy(embed))
+
+    embed = discord.Embed(title='Resource Pack Order',
+                            description='Resource packs should stay zipped inside of the resource packs folder\n\n' +
+                                        'Assuming you\'re using the recommended mod pack,\n' +
+                                        'I find it works best to have the Travelers Backpack at the top(ignore the incompatability warning), ' +
+                                        'with Vanilla Tweaks right under, then the two included continuity resource packs under that.\n\n' +
+                                        'Everything should work as intended like this.',
+                            color=14914576)
+    
+    if rand_num == 69:
+        embed.set_thumbnail(url='https://i.imgur.com/Np0NjY2.png')
+    else:
+        embed.set_thumbnail(url='https://i.imgur.com/oC02eDj.png')
+
+    embeds.append(embed)
+
+    return embeds
 
 #endregion
 
@@ -127,7 +193,7 @@ async def mcInfo():
         host=rconIp, port=rconPort, passwd=rconPassword
     )
 
-    playersText = playersOnline.split(':')[1]
+    playersText = playersOnline.split(':')[1].strip()
 
     if len(playersText) > 1:
         if ',' in playersText:
@@ -163,7 +229,7 @@ async def mcInfo():
     else:
         timeText = 'Sunrise'
 
-    embed = discord.Embed(title=f'Fossil Server Info',
+    embed = discord.Embed(title=f'Fossils Server Info',
                           description=f'Players Online: {len(players)}\nCurrent Overworld Time: **{timeText}**',
                           color=14914576)
     
@@ -321,7 +387,7 @@ async def mcStart():
     try:
         working_directory = 'C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server'
 
-        subprocess.Popen('start.bat', cwd=working_directory, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        subprocess.Popen('C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server\\start.bat', cwd=working_directory, creationflags=subprocess.CREATE_NEW_CONSOLE)
         return 'Server starting up!'
     except FileNotFoundError:
         return 'Server start.bat file not found! Check to make sure the path is correct!'
@@ -349,8 +415,6 @@ async def mcRestart():
 async def mcWaitStart():
     await asyncio.sleep(90)
 
-    response = await mcStart()
-
-    print(response)
+    await mcStart()
 
 #endregion

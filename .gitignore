@@ -3,7 +3,12 @@ tokens/openai_key.txt
 text_files/soul_links/runs.txt
 text_files/soul_links/pokemon_backup.txt
 text_files/chat_gpt_instructions/*
-text_files/minecraft_server/*
+text_files/minecraft_server/rconIp.txt
+text_files/minecraft_server/rconPassword.txt
+text_files/minecraft_server/rconPort.txt
+text_files/minecraft_server/serverIp.txt
+text_files/minecraft_server/serverPort.txt
+text_files/minecraft_server/googleDriveLink.txt
 __pycache__/
 *.py[cod]
 *$py.class

@@ -48,6 +48,7 @@ class DiscordClient(discord.Client):
                                             '```$routes help``` Shows all the routes commands\n' +
                                             '```$dps help``` Shows all the PoGo dps commands\n' +
                                             '```$max help``` Shows all the PoGo dynamax commands\n' +
+                                            '```$mc help``` Shows all minecraft server commands\n' +
                                             '```$format help``` Shows how to call the mimikyu format command\n' +
                                             '```$pvp``` Brings up the pvp rank reqs image',
                                 color=3553598)
@@ -717,10 +718,8 @@ class DiscordClient(discord.Client):
 
             elif input == 'setup':
                 embeds = await mcSetup()
-                if(type(embeds) == type('')):
-                    await message.channel.send(embeds)
-                else:
-                    await Paginator.Simple().start(message.channel, pages=embeds)
+
+                await Paginator.Simple().start(message.channel, pages=embeds)
 
             elif input == 'save':
                 if await serverOnline():
@@ -778,7 +777,7 @@ class DiscordClient(discord.Client):
                     else:
                         await message.channel.send('The server is already online!')
                 else:
-                    await message.channel.send('Get outta here, @<341722760852013066> only!')
+                    await message.channel.send('Get outta here, Anderson only!')
 
             elif input == 'stop':
                 if message.author.mention[2:-1] == '341722760852013066':
@@ -789,7 +788,7 @@ class DiscordClient(discord.Client):
                     else:
                         await message.channel.send('The server\'s already offline!')
                 else:
-                    await message.channel.send('Get outta here, @<341722760852013066> only!')
+                    await message.channel.send('Get outta here, Anderson only!')
 
             elif input == 'restart':
                 if message.author.mention[2:-1] == '341722760852013066':
@@ -800,7 +799,7 @@ class DiscordClient(discord.Client):
                     else:
                         await message.channel.send('The server\'s offline! Just use `$mc start` instead!')
                 else:
-                    await message.channel.send('Get outta here, @<341722760852013066> only!')
+                    await message.channel.send('Get outta here, Anderson only!')
             
             else:
                 await message.channel.send('I don\'t know wtf you\'re trying to input!')
