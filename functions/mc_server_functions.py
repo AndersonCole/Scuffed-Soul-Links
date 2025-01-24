@@ -122,12 +122,16 @@ async def mcSetup():
 
     embeds.append(copy.deepcopy(embed))
 
+    modCount = len([obj for obj in serverMods if obj['Type'] == 'Mod'])
+    datapackCount = len([obj for obj in serverMods if obj['Type'] == 'Datapack'])
+    resourcepackCount = len([obj for obj in serverMods if obj['Type'] == 'Resource Pack'])
+
     embed.title = 'Table of Contents'
-    embed.description=('Required mods are marked with a ★\n' +
-                       'Recommended mods are marked with a ☆\n\n' +
-                       '**Mods**: Pages 3-21 \n' +
-                       '**Datapacks**: Pages 22-26 \n' +
-                       '**Resource Packs**: Pages 27-29')
+    embed.description=(f'Required mods are marked with a ★\n' +
+                       f'Recommended mods are marked with a ☆\n\n' +
+                       f'**Mods**: Pages 3-{modCount+2} \n' +
+                       f'**Datapacks**: Pages {modCount+3}-{modCount+datapackCount+2} \n' +
+                       f'**Resource Packs**: Pages {modCount+datapackCount+3}-{modCount+datapackCount+resourcepackCount+3}')
     
     embeds.append(copy.deepcopy(embed))
 

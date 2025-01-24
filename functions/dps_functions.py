@@ -1308,8 +1308,8 @@ async def determineExtraMaxInputs(extraInputs):
                     modifiers['BossHealth'] = 10_000.0
                     modifiers['CpmMultiplier'] = 0.5
                 elif tier == 5:
-                    modifiers['BossHealth'] = 60_000.0
-                    modifiers['CpmMultiplier'] = 0.85
+                    modifiers['BossHealth'] = 17_500.0
+                    modifiers['CpmMultiplier'] = 0.699
                 elif tier == 6:
                     modifiers['BossHealth'] = 60_000.0
                     modifiers['CpmMultiplier'] = 0.85
