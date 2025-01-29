@@ -749,7 +749,7 @@ class DiscordClient(discord.Client):
                         user_inputs = re.split(r'[,]+', input[7:].strip())
                         if len(user_inputs) >= 2:
                             response = await mcLocate(message.author.name, user_inputs)
-                            if(type(embed) == type('')):
+                            if(type(response) == type('')):
                                 await message.channel.send(response)
                             else:
                                 await Paginator.Simple().start(message.channel, pages=response)
@@ -757,7 +757,7 @@ class DiscordClient(discord.Client):
                             await message.channel.send('I don\'t know wtf you\'re trying to input!')
                     else:
                         response = await mcLocate(message.author.name, [input[7:].strip()])
-                        if(type(embed) == type('')):
+                        if(type(response) == type('')):
                             await message.channel.send(response)
                         else:
                             await Paginator.Simple().start(message.channel, pages=response)

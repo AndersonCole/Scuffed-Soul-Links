@@ -46,7 +46,7 @@ dimensions = [
     {'Name': 'Overworld', 'CmdName': 'minecraft:overworld'}, 
     {'Name': 'Nether', 'CmdName': 'minecraft:the_nether'}, 
     {'Name': 'End', 'CmdName': 'minecraft:the_end'},
-    {'Name': 'Anu', 'CmdName': 'fossil:anu_lair'}
+    {'Name': 'Anu\'s Lair', 'CmdName': 'fossil:anu_lair'}
 ]
 
 #region help and setup commands
@@ -265,7 +265,7 @@ async def mcInfo():
 
             if '"' in dimension:
                 dimensionData = re.split('"', dimension)[1]
-                playerDimensionText += f'{getDimensionName(dimensionData.strip()[1:-1])}\n'
+                playerDimensionText += f'{getDimensionName(dimensionData.strip())}\n'
             else:
                 return f'Couldn\'t get data on {player}!', file
             
@@ -376,10 +376,10 @@ async def mcLocate(author, inputs):
         return errorText
     
     if 'moai' in modifiers['Target']:
-        return await moaiLocations()
+        return await unlootedMoais()
     
     if 'hell_boat' in modifiers['Target']:
-        return await boatLocations()
+        return await unlootedBoats()
 
     response = await rcon(
         f'execute in {modifiers["Dimension"]} positioned {modifiers["Coordinates"]} run locate{modifiers["SearchFor"]} {modifiers["Target"]}',
@@ -397,7 +397,7 @@ async def mcLocate(author, inputs):
 
         return message
 
-async def moaiLocations():
+async def unlootedMoais():
     embeds = []
 
     embed = discord.Embed(title=f'Unlooted Moai\'s',
@@ -431,10 +431,10 @@ async def moaiLocations():
 
     return embeds
 
-async def boatLocations():
+async def unlootedBoats():
     embeds = []
 
-    embed = discord.Embed(title=f'Unlooted Hell Boats\'s',
+    embed = discord.Embed(title=f'Unlooted Hell Boats',
                             description='Copy paste the line of text to mark it as looted',
                             color=14914576)
     
@@ -482,7 +482,7 @@ async def saveStructureData():
         boatLocations = json.loads(file.read())
 
 async def mcLoot(structure, location):
-    coord_pattern = re.compile(r"\{x: (-?\d+) y: (-?\d+) z: (-?\d+)\}")
+    coord_pattern = re.compile(r"x: (-?\d+) y: (-?\d+) z: (-?\d+)")
     match = coord_pattern.search(location)
 
     if match:
