@@ -749,18 +749,33 @@ class DiscordClient(discord.Client):
                         user_inputs = re.split(r'[,]+', input[7:].strip())
                         if len(user_inputs) >= 2:
                             response = await mcLocate(message.author.name, user_inputs)
-                            await message.channel.send(response)
+                            if(type(embed) == type('')):
+                                await message.channel.send(response)
+                            else:
+                                await Paginator.Simple().start(message.channel, pages=response)
                         else:
                             await message.channel.send('I don\'t know wtf you\'re trying to input!')
                     else:
                         response = await mcLocate(message.author.name, [input[7:].strip()])
-                        await message.channel.send(response)
+                        if(type(embed) == type('')):
+                            await message.channel.send(response)
+                        else:
+                            await Paginator.Simple().start(message.channel, pages=response)
                 else:
                     await message.channel.send('The server\'s offline!')
 
+            elif input[0:5] == 'loot ':
+                if ',' in input:
+                    user_inputs = re.split(r'[,]+', input[5:].strip())
+                    if len(user_inputs) == 2:
+                        response = await mcLoot(user_inputs[0].lower().strip(), user_inputs[1].lower().strip())
+                        await message.channel.send(response)
+                    else:
+                        await message.channel.send('I don\'t know wtf you\'re trying to input!')
+
             elif input[0:4] == 'say ':
                 if await serverOnline():
-                    await mcSay(input[4:], message.author.mention)
+                    await mcSay(input[4:], message.author.name)
                 
                     await message.channel.send('Sent the server a message!')
                 else:

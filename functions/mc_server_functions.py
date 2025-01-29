@@ -36,10 +36,17 @@ with open('text_files/minecraft_server/googleDriveLink.txt', 'r') as file:
 with open('text_files/minecraft_server/modInfo.txt', 'r') as file:
     serverMods = json.loads(file.read())
 
+with open('text_files/minecraft_server/moai.txt', 'r') as file:
+    moaiLocations = json.loads(file.read())
+
+with open('text_files/minecraft_server/boats.txt', 'r') as file:
+    boatLocations = json.loads(file.read())
+
 dimensions = [
     {'Name': 'Overworld', 'CmdName': 'minecraft:overworld'}, 
     {'Name': 'Nether', 'CmdName': 'minecraft:the_nether'}, 
-    {'Name': 'End', 'CmdName': 'minecraft:the_end'}
+    {'Name': 'End', 'CmdName': 'minecraft:the_end'},
+    {'Name': 'Anu', 'CmdName': 'fossil:anu_lair'}
 ]
 
 #region help and setup commands
@@ -52,6 +59,7 @@ async def mcHelp():
                                         '```$mc info``` Gives server info such as players online and time of day.\n' +
                                         '```$mc say Hello!``` Writes a message in the server chat.\n' +
                                         '```$mc locate help``` Check for more info on the locate command, modifiers return!\n' +
+                                        '```$mc loot boat, X: 100 Y: 30 Z: 100``` Marks a structure as looted. Valid options are `moai` and `boat`\n' +
                                         '```$mc save``` The server has autosaving, but you can do this too.\n\n\n' +
                                         '**Admin Only:**\n' +
                                         '```$mc start``` Starts the server\n' +
@@ -367,6 +375,12 @@ async def mcLocate(author, inputs):
     if errorText != '':
         return errorText
     
+    if 'moai' in modifiers['Target']:
+        return await moaiLocations()
+    
+    if 'hell_boat' in modifiers['Target']:
+        return await boatLocations()
+
     response = await rcon(
         f'execute in {modifiers["Dimension"]} positioned {modifiers["Coordinates"]} run locate{modifiers["SearchFor"]} {modifiers["Target"]}',
         host=rconIp, port=rconPort, passwd=rconPassword
@@ -382,6 +396,116 @@ async def mcLocate(author, inputs):
         await mcSay(message)
 
         return message
+
+async def moaiLocations():
+    embeds = []
+
+    embed = discord.Embed(title=f'Unlooted Moai\'s',
+                            description='Copy paste the line of text to mark it as looted',
+                            color=14914576)
+    
+    locationText = ''
+
+    pageCount = 15
+    for moai in moaiLocations:
+        if moai['Looted'] is False:
+            if pageCount > 0:
+                locationText += f'X: {moai["X"]} Y: {moai["Y"]} Z: {moai["Z"]}\n'
+                pageCount -= 1
+            else:
+                embed.add_field(name='Location',
+                                value=locationText,
+                                inline=True)
+
+                embeds.append(copy.deepcopy(embed))
+
+                embed.clear_fields()
+                locationText = ''
+                pageCount = 15
+
+    embed.add_field(name='Location',
+                        value=locationText,
+                        inline=True)
+    
+    embeds.append(embed)
+
+    return embeds
+
+async def boatLocations():
+    embeds = []
+
+    embed = discord.Embed(title=f'Unlooted Hell Boats\'s',
+                            description='Copy paste the line of text to mark it as looted',
+                            color=14914576)
+    
+    locationText = ''
+
+    pageCount = 15
+    for boat in boatLocations:
+        if boat['Looted'] is False:
+            if pageCount > 0:
+                locationText += f'X: {boat["X"]} Y: {boat["Y"]} Z: {boat["Z"]}\n'
+                pageCount -= 1
+            else:
+                embed.add_field(name='Location',
+                                value=locationText,
+                                inline=True)
+
+                embeds.append(copy.deepcopy(embed))
+
+                embed.clear_fields()
+                locationText = ''
+                pageCount = 15
+
+    embed.add_field(name='Location',
+                        value=locationText,
+                        inline=True)
+    
+    embeds.append(embed)
+
+    return embeds
+
+async def saveStructureData():
+    global moaiLocations
+    global boatLocations
+
+    with open('text_files/minecraft_server/moai.txt', 'w') as file:
+        file.write(json.dumps(moaiLocations))
+
+    with open('text_files/minecraft_server/moai.txt', 'r') as file:
+        moaiLocations = json.loads(file.read())
+
+    with open('text_files/minecraft_server/boats.txt', 'w') as file:
+        file.write(json.dumps(boatLocations))
+
+    with open('text_files/minecraft_server/boats.txt', 'r') as file:
+        boatLocations = json.loads(file.read())
+
+async def mcLoot(structure, location):
+    coord_pattern = re.compile(r"\{x: (-?\d+) y: (-?\d+) z: (-?\d+)\}")
+    match = coord_pattern.search(location)
+
+    if match:
+        x, y, z = map(int, match.groups())
+    else:
+        return 'Coordinates are formatted wrong! Just copy paste them from the list of unlooted structures!'
+    
+    if structure == 'moai':
+        try:
+            [obj for obj in moaiLocations if obj['X'] == x and obj['Y'] == y and obj['Z'] == z][0]['Looted'] = True
+        except:
+            return 'Coordinates didn\'t lead to a valid Moai location!'
+    elif structure == 'boat':
+        try:
+            [obj for obj in boatLocations if obj['X'] == x and obj['Y'] == y and obj['Z'] == z][0]['Looted'] = True
+        except:
+            return 'Coordinates didn\'t lead to a valid Hell Boat!'
+    else:
+        return f'I don\'t know what a \'{structure}\' is!'
+
+    await saveStructureData()
+
+    return 'Structure marked as looted!'
 
 #endregion
 
