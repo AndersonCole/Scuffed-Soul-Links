@@ -782,7 +782,7 @@ class DiscordClient(discord.Client):
                     await message.channel.send('The server\'s offline!')
             
             elif input == 'start':
-                if message.author.mention[2:-1] == '341722760852013066':
+                if message.author.mention[2:-1] == '341722760852013066' or message.author.mention[2:-1] == '341696864833241090':
                     if not await serverOnline():
                         await message.channel.send('Attempting to start server...')
 

@@ -14,6 +14,7 @@ import subprocess
 import math
 import copy
 from rcon.source import rcon
+import requests
 
 with open('text_files/minecraft_server/serverIp.txt', 'r') as file:
     serverIp = file.read()
@@ -91,7 +92,8 @@ async def mcLocateHelp():
                                         'As usual, all the modifiers can be applied in any order\n\n' +
                                         'For Vanilla Biomes, check: https://minecraft.wiki/w/Biome#Biome_IDs \n' +
                                         'For Vanilla Structures, check: https://minecraft.wiki/w/Structure#Data_values \n'
-                                        'For BYG Biomes, check: https://oh-the-biomes-youll-go.fandom.com/wiki/Category:Biomes \n' +
+                                        'For Fossils, check: https://fossilsarcheology.wiki.gg/wiki/Fossils_and_Archeology_Wiki \n'
+                                        'For Biomes You\'ll Go, check: https://docs.google.com/spreadsheets/d/10dvK3h40V1CqCo-doVsI-Cnkxag5ac3nwyS95c-TPSE/edit?gid=0#gid=0 \n' +
                                         'Modded wikis may not be as good as the Vanilla wiki, so just go in game and try out /locate and /locatebiome and take a look at the options in a singleplayer world.\n' +
                                         'Everything should be case insensitive, and it will replace any spaces with underscores.',
                             color=14914576)
@@ -104,10 +106,27 @@ async def mcLocateHelp():
         embed.set_thumbnail(url='attachment://amber_shuckle.png')
         return embed, file
 
+async def checkIp():
+    try:
+        externalIp = requests.get('http://api.ipify.org', timeout=5).content.decode('utf8')
+
+        global serverIp
+
+        with open('text_files/minecraft_server/serverIp.txt', 'w') as file:
+            file.write(externalIp)
+
+        with open('text_files/minecraft_server/serverIp.txt', 'r') as file:
+            serverIp = file.read()
+    except:
+        print('Failed to get Ip!')
+        return
+
 async def mcSetup():
     embeds = []
 
     rand_num = random.randint(1, 100)
+
+    await checkIp()
 
     serverOn = await serverOnline()
 
@@ -156,8 +175,8 @@ async def mcSetup():
     embed = discord.Embed(title='Resource Pack Order',
                             description='Resource packs should stay zipped inside of the resource packs folder\n\n' +
                                         'Assuming you\'re using the recommended mod pack,\n' +
-                                        'I find it works best to have the Travelers Backpack at the top(ignore the incompatability warning), ' +
-                                        'with Vanilla Tweaks right under, then the two included continuity resource packs under that.\n\n' +
+                                        'I find it works best to have the Travelers Backpack Dark Mode at the top(ignore the incompatability warning), ' +
+                                        'with FA Dark Mode right under, then the Waxed Backport Copper pack, then Vanilla Tweaks, then the two included continuity resource packs under that.\n\n' +
                                         'Everything should work as intended like this.',
                             color=14914576)
     
@@ -195,6 +214,11 @@ def formatPlayerCoordinates(coordinates):
     else:
         return None
 
+def getSearchTargetType(searchFor):
+    if searchFor == 'biome':
+        return 'Biome'
+    else:
+        return 'Structure'
 
 async def mcInfo():
     file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
@@ -322,6 +346,7 @@ async def mcSave(author):
 
     await mcSay(f'{author} initialized a manual server save! If it causes lag blame them!')
 
+#add grid modifier to search in a grid around initial checked location
 def getLocateModifiers(inputs):
     modifiers = {
         'Dimension': 'minecraft:overworld',
@@ -340,11 +365,11 @@ def getLocateModifiers(inputs):
             modifiers['Dimension'] = 'minecraft:the_nether'
         elif str(input).strip().lower() == 'end':
             modifiers['Dimension'] = 'minecraft:the_end'
-
+    
         elif str(input).strip().lower() == 'biome':
             modifiers['SearchFor'] = 'biome'
         elif str(input).strip().lower() == 'structure':
-            modifiers['SearchFor'] = ' structure'
+            modifiers['SearchFor'] = ''
 
         elif bool(re.match(r'^-?\d+(\.\d+)?\s+-?\d+(\.\d+)?$', str(input).strip())):
             coords = re.split(r'[\s]+', input.strip())
@@ -387,7 +412,7 @@ async def mcLocate(author, inputs):
     )
 
     if response[:9] == 'Could not':
-        return f'Could not find a {modifiers["Target"]} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["Coordinates"]}!'
+        return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["Coordinates"]}!'
     else:
         targetCoords = (re.search(r'\[([^\]]+)\]', response)).group(1).split(',')
 
@@ -495,7 +520,7 @@ async def mcLoot(structure, location):
             [obj for obj in moaiLocations if obj['X'] == x and obj['Y'] == y and obj['Z'] == z][0]['Looted'] = True
         except:
             return 'Coordinates didn\'t lead to a valid Moai location!'
-    elif structure == 'boat':
+    elif 'boat' in structure:
         try:
             [obj for obj in boatLocations if obj['X'] == x and obj['Y'] == y and obj['Z'] == z][0]['Looted'] = True
         except:
