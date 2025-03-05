@@ -13,7 +13,7 @@ import socket
 import subprocess
 import math
 import copy
-from rcon.source import rcon
+from rcon.source import rcon, Client
 import requests
 
 with open('text_files/minecraft_server/serverIp.txt', 'r') as file:
@@ -88,7 +88,9 @@ async def mcLocateHelp():
                                         '```$mc locate structure, #village``` Locates the nearest `#minecraft:village` from 0 0\n' +
                                         '```$mc locate structure, fortress, nether``` Locates the nearest `minecraft:fortress` in the nether from 0 0\n' +
                                         '```$mc locate byg:imparius_grove, end``` Locates the nearest `byg:imparius_grove` modded biome in the end from 0 0\n' +
-                                        '```$mc locate forest, 1500 -1500``` Locates the nearest `minecraft:forest` in the overworld from X:1500 Z:-1500\n\n' +
+                                        '```$mc locate forest, 1500 -1500``` Locates the nearest `minecraft:forest` in the overworld from X:1500 Z:-1500\n' +
+                                        '```$mc locate plains, GridSearch``` Does 4 seperate checks for a `minecraft:plains` 100 blocks in each direction around 0 0\n' +
+                                        '```$mc locate forest, GridSearch, GridRange500``` Does 4 seperate checks for a `minecraft:forest` 500 blocks in each direction around 0 0\n\n' +
                                         'As usual, all the modifiers can be applied in any order\n\n' +
                                         'For Vanilla Biomes, check: https://minecraft.wiki/w/Biome#Biome_IDs \n' +
                                         'For Vanilla Structures, check: https://minecraft.wiki/w/Structure#Data_values \n'
@@ -119,7 +121,6 @@ async def checkIp():
             serverIp = file.read()
     except:
         print('Failed to get Ip!')
-        return
 
 async def mcSetup():
     embeds = []
@@ -214,6 +215,37 @@ def formatPlayerCoordinates(coordinates):
     else:
         return None
 
+def getPlayers(playersOnline):
+    playersText = playersOnline.split(':')[1].strip()
+
+    if len(playersText) > 1:
+        if ',' in playersText:
+            return playersText.split(',').strip()
+        else:
+            return [playersText.strip()]
+    else:
+        return []
+
+def getTimeText(daytime):
+    if daytime >= 23000:
+        return 'Sunrise'
+    elif daytime >= 21000:
+        return 'Late Night'
+    elif daytime >= 17000:
+        return 'Night'
+    elif daytime >= 13000:
+        return 'Early Night'
+    elif daytime >= 12000:
+        return 'Sunset'
+    elif daytime >= 9000:
+        return 'Afternoon'
+    elif daytime >= 5000:
+        return 'Midday'
+    elif daytime >= 1000:
+        return 'Morning'
+    else:
+        return 'Sunrise'
+
 def getSearchTargetType(searchFor):
     if searchFor == 'biome':
         return 'Biome'
@@ -224,81 +256,44 @@ async def mcInfo():
     file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
     shinyFile = discord.File('images/minecraft/amber_shiny_shuckle.png', filename='amber_shiny_shuckle.png')
 
-    playersOnline = await rcon(
-        f'list',
-        host=rconIp, port=rconPort, passwd=rconPassword
-    )
+    async with Client(host=rconIp, port=rconPort, passwd=rconPassword) as rconClient:
+        daytime = await rconClient('time query daytime')
 
-    playersText = playersOnline.split(':')[1].strip()
+        timeText = getTimeText(int(re.search(r'\d+$', daytime.strip()).group()))
 
-    if len(playersText) > 1:
-        if ',' in playersText:
-            players = playersText.split(',')
-        else:
-            players = [playersText]
-    else:
-        players = []
+        playersOnline = await rconClient('list')
 
-    daytime = await rcon(
-        f'time query daytime',
-        host=rconIp, port=rconPort, passwd=rconPassword
-    )
+        players = getPlayers(playersOnline)
 
-    daytime = int(re.search(r'\d+$', daytime.strip()).group())
+        if len(players) > 0:
+            playerNameText = ''
+            playerDimensionText = ''
+            playerCoordinateText = ''
 
-    if daytime >= 23000:
-        timeText = 'Sunrise'
-    elif daytime >= 21000:
-        timeText = 'Late Night'
-    elif daytime >= 17000:
-        timeText = 'Night'
-    elif daytime >= 13000:
-        timeText = 'Early Night'
-    elif daytime >= 12000:
-        timeText = 'Sunset'
-    elif daytime >= 9000:
-        timeText = 'Afternoon'
-    elif daytime >= 5000:
-        timeText = 'Midday'
-    elif daytime >= 1000:
-        timeText = 'Morning'
-    else:
-        timeText = 'Sunrise'
+            for player in players:
+                playerNameText += f'{player}\n'
+
+                dimension = await rconClient(f'execute as {player} run data get entity @s Dimension')
+
+                coordinates = await rconClient(f'execute as {player} run data get entity @s Pos')
+
+                if '"' in dimension:
+                    dimensionData = re.split('"', dimension)[1]
+                    playerDimensionText += f'{getDimensionName(dimensionData.strip())}\n'
+                else:
+                    return f'Couldn\'t get data on {player}!', file
+                
+                if ':' in coordinates:
+                    coordinateData = re.split(':', coordinates)[1]
+                    playerCoordinateText += f'{formatPlayerCoordinates(coordinateData.strip()[1:-1])}\n'
+                else:
+                    return f'Couldn\'t get data on {player}!', file
 
     embed = discord.Embed(title=f'Fossils Server Info',
                           description=f'Players Online: {len(players)}\nCurrent Overworld Time: **{timeText}**',
                           color=14914576)
-    
+
     if len(players) > 0:
-        playerNameText = ''
-        playerDimensionText = ''
-        playerCoordinateText = ''
-
-        for player in players:
-            playerNameText += f'{player.strip()}\n'
-
-            dimension = await rcon(
-                f'execute as {player.strip()} run data get entity @s Dimension',
-                host=rconIp, port=rconPort, passwd=rconPassword
-            )
-
-            coordinates = await rcon(
-                f'execute as {player.strip()} run data get entity @s Pos',
-                host=rconIp, port=rconPort, passwd=rconPassword
-            )
-
-            if '"' in dimension:
-                dimensionData = re.split('"', dimension)[1]
-                playerDimensionText += f'{getDimensionName(dimensionData.strip())}\n'
-            else:
-                return f'Couldn\'t get data on {player}!', file
-            
-            if ':' in coordinates:
-                coordinateData = re.split(':', coordinates)[1]
-                playerCoordinateText += f'{formatPlayerCoordinates(coordinateData.strip()[1:-1])}\n'
-            else:
-                return f'Couldn\'t get data on {player}!', file
-
         embed.add_field(name='Players',
                     value=playerNameText,
                     inline=True)
@@ -346,11 +341,14 @@ async def mcSave(author):
 
     await mcSay(f'{author} initialized a manual server save! If it causes lag blame them!')
 
-#add grid modifier to search in a grid around initial checked location
 def getLocateModifiers(inputs):
     modifiers = {
         'Dimension': 'minecraft:overworld',
-        'Coordinates': '0 0 0',
+        'XCoordinate': 0,
+        'ZCoordinate': 0,
+
+        'GridSearch': False,
+        'GridRange': 100,
 
         'SearchFor': 'biome',
         'Target': ''
@@ -371,11 +369,23 @@ def getLocateModifiers(inputs):
         elif str(input).strip().lower() == 'structure':
             modifiers['SearchFor'] = ''
 
+        elif str(input).strip().lower() == 'gridsearch':
+            modifiers['GridSearch'] = True
+        elif str(input).strip().lower()[:10] == 'gridrange ':
+            try:
+                val = int(input.strip()[10:])
+                if 0 > val or val > 1000:
+                    raise Exception
+                modifiers['GridRange'] = val
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid grid search range value! Keep it between 0 and 1000!\n'
+            
         elif bool(re.match(r'^-?\d+(\.\d+)?\s+-?\d+(\.\d+)?$', str(input).strip())):
             coords = re.split(r'[\s]+', input.strip())
             if len(coords) == 2:
                 try:
-                    modifiers['Coordinates'] = f'{int(coords[0])} 0 {int(coords[1])}'
+                    modifiers['XCoordinate'] = int(coords[0])
+                    modifiers['ZCoordinate'] = int(coords[1])
                 except:
                     errorText += f'\'{input}\' was not understood as valid coordinates!\n'
             else:
@@ -392,8 +402,16 @@ def getLocateModifiers(inputs):
             else:
                 modifiers['Target'] = re.sub(r'\s', '_', input)
 
+    if not modifiers['GridSearch'] and modifiers['GridRange'] != 100:
+        errorText += 'You have to add GridSearch to be able to change the search range!\n'
+
     return modifiers, errorText
 
+def checkForUniqueCoords(uniqueCoords, coords, gridRange):
+    for uniqueCoord in uniqueCoords:
+        if (abs(coords[0] - uniqueCoord[0]) <= gridRange / 2 and abs(coords[2] - uniqueCoord[2]) <= gridRange / 2):
+            return False
+    return True
 
 async def mcLocate(author, inputs):
     modifiers, errorText = getLocateModifiers(inputs)
@@ -406,21 +424,44 @@ async def mcLocate(author, inputs):
     if 'hell_boat' in modifiers['Target']:
         return await unlootedBoats()
 
-    response = await rcon(
-        f'execute in {modifiers["Dimension"]} positioned {modifiers["Coordinates"]} run locate{modifiers["SearchFor"]} {modifiers["Target"]}',
-        host=rconIp, port=rconPort, passwd=rconPassword
-    )
+    if modifiers['GridSearch']:
+        targetCoords = []
+        async with Client(host=rconIp, port=rconPort, passwd=rconPassword) as rconClient:
+            for xOffset in [-modifiers['GridRange'], modifiers['GridRange']]:
+                for zOffset in [-modifiers['GridRange'], modifiers['GridRange']]:
+                    response = await rconClient(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"] + xOffset} 0 {modifiers["ZCoordinate"] + zOffset} run locate{modifiers["SearchFor"]} {modifiers["Target"]}')
+                    
+                    if response[:9] == 'Could not':
+                        return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
+                    responseCoords = re.search(r'\[([^\]]+)\]', response)
+                    x, y, z = map(int, responseCoords.group(1).split(','))
+                    targetCoords.append([x, y, z])
 
-    if response[:9] == 'Could not':
-        return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["Coordinates"]}!'
+        uniqueCoords = []
+        for coords in targetCoords:
+            if checkForUniqueCoords(uniqueCoords, coords, modifiers['GridRange']):
+                uniqueCoords.append(coords)
+
+        message = f'{author} found {len(uniqueCoords)} {modifiers["Target"]} in the {getDimensionName(modifiers["Dimension"])} using a {modifiers["GridRange"]} range grid at:\n'
+        for coords in uniqueCoords:
+            message += f'{coords[0]} {coords[1]} {coords[2]}\n'
+        
     else:
+        response = await rcon(
+            f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"]} 0 {modifiers["ZCoordinate"]} run locate{modifiers["SearchFor"]} {modifiers["Target"]}',
+            host=rconIp, port=rconPort, passwd=rconPassword
+        )
+
+        if response[:9] == 'Could not':
+            return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
+
         targetCoords = (re.search(r'\[([^\]]+)\]', response)).group(1).split(',')
 
         message = f'{author} found a {modifiers["Target"]} in the {getDimensionName(modifiers["Dimension"])} at {targetCoords[0].strip()} {targetCoords[1].strip()} {targetCoords[2].strip()}'
         
-        await mcSay(message)
+    await mcSay(message.strip())
 
-        return message
+    return message.strip()
 
 async def unlootedMoais():
     embeds = []

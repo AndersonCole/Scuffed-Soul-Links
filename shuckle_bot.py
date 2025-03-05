@@ -775,7 +775,7 @@ class DiscordClient(discord.Client):
 
             elif input[0:4] == 'say ':
                 if await serverOnline():
-                    await mcSay(input[4:], message.author.name)
+                    await mcSay(input[4:], message.author.name.capitalize())
                 
                     await message.channel.send('Sent the server a message!')
                 else:
