@@ -13,7 +13,7 @@ import socket
 import subprocess
 import math
 import copy
-from rcon.source import rcon, Client
+from mcrcon import MCRcon
 import requests
 
 with open('text_files/minecraft_server/serverIp.txt', 'r') as file:
@@ -256,12 +256,12 @@ async def mcInfo():
     file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
     shinyFile = discord.File('images/minecraft/amber_shiny_shuckle.png', filename='amber_shiny_shuckle.png')
 
-    async with Client(host=rconIp, port=rconPort, passwd=rconPassword) as rconClient:
-        daytime = await rconClient('time query daytime')
+    with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
+        daytime = rcon.command('time query daytime')
 
         timeText = getTimeText(int(re.search(r'\d+$', daytime.strip()).group()))
 
-        playersOnline = await rconClient('list')
+        playersOnline = rcon.command('list')
 
         players = getPlayers(playersOnline)
 
@@ -273,9 +273,9 @@ async def mcInfo():
             for player in players:
                 playerNameText += f'{player}\n'
 
-                dimension = await rconClient(f'execute as {player} run data get entity @s Dimension')
+                dimension = rcon.command(f'execute as {player} run data get entity @s Dimension')
 
-                coordinates = await rconClient(f'execute as {player} run data get entity @s Pos')
+                coordinates = rcon.command(f'execute as {player} run data get entity @s Pos')
 
                 if '"' in dimension:
                     dimensionData = re.split('"', dimension)[1]
@@ -328,16 +328,12 @@ async def mcSay(message, author='Shuckle'):
         ]
     })
 
-    await rcon(
-        f'tellraw @a {shuckleMessage}',
-        host=rconIp, port=rconPort, passwd=rconPassword
-    )
+    with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
+        rcon.command(f'tellraw @a {shuckleMessage}')
 
 async def mcSave(author):
-    await rcon(
-        f'save-all',
-        host=rconIp, port=rconPort, passwd=rconPassword
-    )
+    with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
+        rcon.command('save-all')
 
     await mcSay(f'{author} initialized a manual server save! If it causes lag blame them!')
 
@@ -371,9 +367,9 @@ def getLocateModifiers(inputs):
 
         elif str(input).strip().lower() == 'gridsearch':
             modifiers['GridSearch'] = True
-        elif str(input).strip().lower()[:10] == 'gridrange ':
+        elif str(input).strip().lower()[:9] == 'gridrange':
             try:
-                val = int(input.strip()[10:])
+                val = int(input.strip()[9:])
                 if 0 > val or val > 1000:
                     raise Exception
                 modifiers['GridRange'] = val
@@ -409,7 +405,7 @@ def getLocateModifiers(inputs):
 
 def checkForUniqueCoords(uniqueCoords, coords, gridRange):
     for uniqueCoord in uniqueCoords:
-        if (abs(coords[0] - uniqueCoord[0]) <= gridRange / 2 and abs(coords[2] - uniqueCoord[2]) <= gridRange / 2):
+        if (abs(coords[0] - uniqueCoord[0]) <= gridRange and abs(coords[2] - uniqueCoord[2]) <= gridRange):
             return False
     return True
 
@@ -426,16 +422,15 @@ async def mcLocate(author, inputs):
 
     if modifiers['GridSearch']:
         targetCoords = []
-        async with Client(host=rconIp, port=rconPort, passwd=rconPassword) as rconClient:
+        with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
             for xOffset in [-modifiers['GridRange'], modifiers['GridRange']]:
                 for zOffset in [-modifiers['GridRange'], modifiers['GridRange']]:
-                    response = await rconClient(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"] + xOffset} 0 {modifiers["ZCoordinate"] + zOffset} run locate{modifiers["SearchFor"]} {modifiers["Target"]}')
+                    response = rcon.command(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"] + xOffset} 0 {modifiers["ZCoordinate"] + zOffset} run locate{modifiers["SearchFor"]} {modifiers["Target"]}')
                     
                     if response[:9] == 'Could not':
                         return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
-                    responseCoords = re.search(r'\[([^\]]+)\]', response)
-                    x, y, z = map(int, responseCoords.group(1).split(','))
-                    targetCoords.append([x, y, z])
+                    responseCoords = re.search(r'\[([^\]]+)\]', response).group(1).split(',')
+                    targetCoords.append([int(responseCoords[0].strip()), responseCoords[1].strip(), int(responseCoords[2].strip())])
 
         uniqueCoords = []
         for coords in targetCoords:
@@ -457,7 +452,7 @@ async def mcLocate(author, inputs):
 
         targetCoords = (re.search(r'\[([^\]]+)\]', response)).group(1).split(',')
 
-        message = f'{author} found a {modifiers["Target"]} in the {getDimensionName(modifiers["Dimension"])} at {targetCoords[0].strip()} {targetCoords[1].strip()} {targetCoords[2].strip()}'
+        message = f'{author} found a {modifiers["Target"]} in the {getDimensionName(modifiers["Dimension"])} at {targetCoords[0].strip()} {targetCoords[2].strip()}'
         
     await mcSay(message.strip())
 
@@ -596,10 +591,8 @@ async def mcBeginStop():
 async def mcStop():
     await asyncio.sleep(60)
 
-    await rcon(
-        f'stop',
-        host=rconIp, port=rconPort, passwd=rconPassword
-    )
+    with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
+        rcon.command('stop')
 
 async def mcRestart():
     await mcBeginStop()
