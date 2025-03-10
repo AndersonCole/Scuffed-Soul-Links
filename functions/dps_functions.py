@@ -65,6 +65,58 @@ async def dpsHelp():
         embed.set_thumbnail(url='attachment://swole_shuckle.png')
         return embed, file
 
+async def dynamaxHelp():
+    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
+    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
+
+    embed = discord.Embed(title=f'Shuckles PoGo Dynamax Commands',
+                            description='```$max check Charizard``` Calcs the dps and max eps for the moveset for the mon\n' +
+                                        '```$max modifiers``` Lists out all the available modifers\n\n' +
+                                        'The max commands use all the data added in the Raid DPS side of Shuckle.',
+                            color=3553598)
+
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
+        return embed, shinyFile
+    else:
+        embed.set_thumbnail(url='attachment://swole_shuckle.png')
+        return embed, file
+    
+async def getSharedModifiers(commandText):
+    embed = discord.Embed(title='Shuckles PoGo Shared Modifiers',
+                            description=f'```{commandText}, Shadow, 51``` Any modifier can be applied in any order, as shown\n\n' +
+                                        f'```{commandText}, 51``` Level: Calcs DPS at the specified level\n' +
+                                        f'```{commandText}, 14/15/15``` IVs: Calcs from the given IVs\nAlways assume stats are listed in Attack/Defence/HP order\n\n' +
+                                        f'```{commandText}, NoFastSTAB``` NoFastSTAB: Removes STAB from all the mons fast attack\n' +
+                                        f'```{commandText}, NoChargedSTAB``` NoChargedSTAB: Removes STAB from all the mons charged attack\n' +
+                                        f'```{commandText}, ForceFastSTAB``` ForceFastSTAB: Forces STAB on all the mons fast attacks\n' +
+                                        f'```{commandText}, ForceChargedSTAB``` ForceChargedSTAB: Forces STAB on all the mons charged attacks\n' +
+                                        f'```{commandText}, FastEffective1.6x``` FastEffectiveness: Applies type effectivity damage bonuses to fast moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
+                                        f'```{commandText}, ChargedEffective1.6x``` ChargedEffectiveness: Applies type effectivity damage bonuses to charged moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n\n' +
+                                        f'```{commandText}, NoEnergyPenalty``` NoEnergyPenalty: Removes the penalty to 100 energy moves, which required them overcharge slightly\n' +
+                                        f'```{commandText}, Shadow``` Shadow: Gives the mon a 1.2x atk boost and def nerf\n' +
+                                        f'```{commandText}, FriendBoost``` FriendBoost: Adds a 1.1x boost to all attacks\n' +
+                                        f'```{commandText}, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to all attacks\n' +
+                                        f'```{commandText}, MegaBoost``` MegaBoost: Adds a 1.3x boost to all attacks\n\n' +
+                                        f'```{commandText}, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
+                                        f'```{commandText}, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
+                                        f'```{commandText}, BossKyogre``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
+                                        f'```{commandText}, Tier3``` Tier: Sets the tier of the battle. Also sets the CPM value\n' +
+                                        f'```{commandText}, NoCPM``` NoCPM: If the tier is set, ignores the CPM values\n\n' +
+                                        f'```{commandText}, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
+                                        f'```{commandText}, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
+                                        'Everything should be case insensitive\nThese modifiers will work for both raid and dynamax dps calculations',
+                            color=3553598)
+
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        embed.set_thumbnail(url='https://i.imgur.com/vwke1vY.png')
+    else: 
+        embed.set_thumbnail(url='https://i.imgur.com/N4RHrVQ.png')
+
+    return embed, rand_num
+
 async def dpsModifiers():
     sharedEmbed, rand_num = await getSharedModifiers('$dps check Kartana')
 
@@ -90,24 +142,6 @@ async def dpsModifiers():
     embeds.append(embed)
 
     return embeds
-
-async def dynamaxHelp():
-    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
-    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
-
-    embed = discord.Embed(title=f'Shuckles PoGo Dynamax Commands',
-                            description='```$max check Charizard``` Calcs the dps and max eps for the moveset for the mon\n' +
-                                        '```$max modifiers``` Lists out all the available modifers\n\n' +
-                                        'The max commands use all the data added in the Raid DPS side of Shuckle.',
-                            color=3553598)
-
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
-        return embed, shinyFile
-    else:
-        embed.set_thumbnail(url='attachment://swole_shuckle.png')
-        return embed, file
 
 async def dynamaxModifiers():
     sharedEmbed, rand_num = await getSharedModifiers('$max check Charizard')
@@ -137,39 +171,6 @@ async def dynamaxModifiers():
     embeds.append(embed)
 
     return embeds
-    
-async def getSharedModifiers(commandText):
-    embed = discord.Embed(title='Shuckles PoGo Shared Modifiers',
-                            description=f'```{commandText}, Shadow, 51``` Any modifier can be applied in any order, as shown\n\n' +
-                                        f'```{commandText}, 51``` Level: Calcs DPS at the specified level\n' +
-                                        f'```{commandText}, 14/15/15``` IVs: Calcs from the given IVs\nAlways assume stats are listed in Attack/Defence/HP order\n\n' +
-                                        f'```{commandText}, NoFastSTAB``` NoFastSTAB: Removes STAB from all the mons fast attack\n' +
-                                        f'```{commandText}, NoChargedSTAB``` NoChargedSTAB: Removes STAB from all the mons charged attack\n' +
-                                        f'```{commandText}, ForceFastSTAB``` ForceFastSTAB: Forces STAB on all the mons fast attacks\n' +
-                                        f'```{commandText}, ForceChargedSTAB``` ForceChargedSTAB: Forces STAB on all the mons charged attacks\n' +
-                                        f'```{commandText}, FastEffective1.6x``` FastEffectiveness: Applies type effectivity damage bonuses to fast moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
-                                        f'```{commandText}, ChargedEffective1.6x``` ChargedEffectiveness: Applies type effectivity damage bonuses to charged moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n\n' +
-                                        f'```{commandText}, Shadow``` Shadow: Gives the mon a 1.2x atk boost and def nerf\n' +
-                                        f'```{commandText}, FriendBoost``` FriendBoost: Adds a 1.1x boost to all attacks\n' +
-                                        f'```{commandText}, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to all attacks\n' +
-                                        f'```{commandText}, MegaBoost``` MegaBoost: Adds a 1.3x boost to all attacks\n\n' +
-                                        f'```{commandText}, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
-                                        f'```{commandText}, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
-                                        f'```{commandText}, BossKyogre``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
-                                        f'```{commandText}, Tier3``` Tier: Sets the tier of the battle. Also sets the CPM value\n' +
-                                        f'```{commandText}, NoCPM``` NoCPM: If the tier is set, ignores the CPM values\n\n' +
-                                        f'```{commandText}, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
-                                        f'```{commandText}, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
-                                        'Everything should be case insensitive\nThese modifiers will work for both raid and dynamax dps calculations',
-                            color=3553598)
-
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url='https://i.imgur.com/vwke1vY.png')
-    else: 
-        embed.set_thumbnail(url='https://i.imgur.com/N4RHrVQ.png')
-
-    return embed, rand_num
 
 #region parsing funcs
 def formatName(mon_name):
@@ -1015,6 +1016,7 @@ def getDefaultModifiers():
         'ForceNoChargedSTAB': False,
         'ForceChargedSTAB': False,
         'ChargedSTABMultiplier': 1.0,
+        'ApplyEnergyPenalty': True,
 
         'ShadowMultiplier': 1.0,
         'ShadowText': '',
@@ -1050,7 +1052,7 @@ def getDefaultModifiers():
     }
 
 #region shared basic modifiers
-#Level, IVs, Shadow, FastEffective, ChargedEffective,
+#Level, IVs, Shadow, FastEffective, ChargedEffective, NoEnergyPenalty
 #NoFastSTAB, NoChargedSTAB, ForceFastSTAB, ForceChargedSTAB,
 #FriendBoost, WeatherBoost, MegaBoost,
 #BossAtk, BossDef, Boss{name}, NoCPM
@@ -1104,6 +1106,8 @@ def determineExtraSharedInputs(extraInputs, modifiers):
             modifiers['ForceFastSTAB'] = True
         elif str(input).strip().lower() == 'forcechargedstab':
             modifiers['ForceChargedSTAB'] = True
+        elif str(input).strip().lower() == 'noenergypenalty':
+            modifiers['ApplyEnergyPenalty'] = False
         elif str(input).strip().lower() == 'friendboost':
             modifiers['FriendMultiplier'] = 1.1
         elif str(input).strip().lower() == 'weatherboost':
@@ -1348,7 +1352,7 @@ async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifi
     fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
-    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
+    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss, modifiers['ApplyEnergyPenalty'])
     chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], modifiers)
     chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
@@ -1368,7 +1372,7 @@ async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers)
     fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
-    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss)
+    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss, modifiers['ApplyEnergyPenalty'])
     chargedMaxEps = await calcChargedMaxEPS(chargedMove['Damage'], chargedMove['Duration'], attack, modifiers)
     chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
@@ -1392,8 +1396,8 @@ async def calcMaxFastAlone(attack, fastMove, modifiers):
 
     return fastMaxDps, fastMaxEps
     
-async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsBoss):
-    if chargedEnergyDelta == 100:
+async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsBoss, applyEnergyPenalty):
+    if chargedEnergyDelta == 100 and applyEnergyPenalty:
         chargedEnergy = chargedEnergyDelta + 0.5*(fastEnergy - 1) + chargedWindow*0.5*dpsBoss
     else:
         chargedEnergy = chargedEnergyDelta
