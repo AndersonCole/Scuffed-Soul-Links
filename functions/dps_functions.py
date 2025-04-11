@@ -13,7 +13,8 @@ import requests
 import regex as re
 import math
 import copy
-from functions.soul_link_dictionaries import types
+from text_files.soul_links.soul_link_dictionaries import types
+from text_files.dps.dps_dictionaries import defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
 
 with open("tokens/openai_key.txt") as file:
     openai.api_key = file.read()
@@ -98,7 +99,9 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, Shadow``` Shadow: Gives the mon a 1.2x atk boost and def nerf\n' +
                                         f'```{commandText}, FriendBoost``` FriendBoost: Adds a 1.1x boost to all attacks\n' +
                                         f'```{commandText}, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to all attacks\n' +
-                                        f'```{commandText}, MegaBoost``` MegaBoost: Adds a 1.3x boost to all attacks\n\n' +
+                                        f'```{commandText}, MegaBoost``` MegaBoost: Adds a 1.3x boost to all attacks\n' +
+                                        f'```{commandText}, BehemothBlade``` BehemothBlade: Adds a 1.2x boost to all attacks\n' +
+                                        f'```{commandText}, BehemothBash``` BehemothBash: Adds a 1.2x boost to your defence\n\n' +
                                         f'```{commandText}, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
                                         f'```{commandText}, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
                                         f'```{commandText}, BossKyogre``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
@@ -674,7 +677,7 @@ async def dpsCheck(monName, extraInputs=None):
     modifiers = getDefaultModifiers()
 
     if extraInputs != None:
-        modifiers, errorText = await determineExtraInputs(extraInputs)
+        modifiers, errorText = await determineExtraInputs([str(i).strip().lower() for i in extraInputs])
         if errorText != '':
             return errorText
     
@@ -822,14 +825,14 @@ async def dpsCheck(monName, extraInputs=None):
     return embed
 #endregion
 
-#region dynamaxmax dps eps calcs
+#region dynamax dps eps calcs
 async def maxDpsEpsCheck(monName, extraInputs=None):
     modifiers = getDefaultModifiers()
     modifiers['Level'] = 40
     modifiers['ResultSortOrder'] = 'ByMaxEps'
 
     if extraInputs != None:
-        modifiers, errorText = await determineExtraMaxInputs(extraInputs)
+        modifiers, errorText = await determineExtraMaxInputs([str(i).strip().lower() for i in extraInputs])
         if errorText != '':
             return errorText
 
@@ -997,64 +1000,13 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
 
 #region modifiers
 def getDefaultModifiers():
-    return {
-        'EnemyDpsScaling': 4.0,
-        'ExtraDpsValue': 0.5,
-
-        'Level': 50,
-        'AttackIv': 15,
-        'DefenceIv': 15,
-        'StaminaIv': 15,
-
-        'FastEffectiveness': 1.0,
-        'ChargedEffectiveness': 1.0,
-
-        'ForceNoFastSTAB': False,
-        'ForceFastSTAB': False,
-        'FastSTABMultiplier': 1.0,
-
-        'ForceNoChargedSTAB': False,
-        'ForceChargedSTAB': False,
-        'ChargedSTABMultiplier': 1.0,
-        'ApplyEnergyPenalty': True,
-
-        'ShadowMultiplier': 1.0,
-        'ShadowText': '',
-        
-        'FriendMultiplier': 1.0,
-        'WeatherMultiplier': 1.0,
-        'MegaMultiplier': 1.0,
-        'PartyPowerMultiplier': 1.0,
-        'PowerSpotMultiplier': 1.0,
-        'MushroomMultiplier': 1.0,
-
-        'BossAttack': 200,
-        'BossDefence': 70,
-        'BossHealth': 15_000.0,
-
-        'MaxEffectiveness': 1.0,
-        'MaxSTABMultiplier': 1.2,
-        'MaxMovePower': 300,
-        'GMaxText': '',
-        'MaxMoveText': 'Lv 2 DMax ',
-
-        'CpmMultiplier': 1.0,
-        'UseCpmMultiplier': True,
-        'SimFastAlone': True,
-        'ApplyMaxOrb': True,
-
-        'ShowMoveTimings': False,
-        'ShowMoveChanges': False,
-        'ApplyMoveChanges': True,
-
-        'ShowOldDps': False,
-        'ResultSortOrder': 'ByNewDps'
-    }
+    return copy.deepcopy(defaultModifiers)
 
 #region shared basic modifiers
 #Level, IVs, Shadow, FastEffective, ChargedEffective, NoEnergyPenalty
 #NoFastSTAB, NoChargedSTAB, ForceFastSTAB, ForceChargedSTAB,
 #FriendBoost, WeatherBoost, MegaBoost,
+#BehemothBlade, BehemothBash
 #BossAtk, BossDef, Boss{name}, NoCPM
 #SortByFastMoves, SortByChargedMoves
 def determineExtraSharedInputs(extraInputs, modifiers):
@@ -1062,10 +1014,10 @@ def determineExtraSharedInputs(extraInputs, modifiers):
     systemSpecificInputs = []
 
     for input in extraInputs:
-        if input.strip().isdigit():
-            modifiers['Level'] = int(input)
-        elif '/' in str(input).strip():
-            ivs = re.split(r'[/]+', input.strip())
+        if re.fullmatch(r'\d+(\.5|\.0)?', input):
+            modifiers['Level'] = float(input)
+        elif '/' in input:
+            ivs = re.split(r'[/]+', input)
             try:
                 for iv in ivs:
                     if 0 > int(iv) or int(iv) > 15:
@@ -1075,64 +1027,68 @@ def determineExtraSharedInputs(extraInputs, modifiers):
                 modifiers['StaminaIv'] = int(ivs[2])
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!\n'
-        elif str(input).strip().lower() == 'shadow':
-            modifiers['ShadowMultiplier'] = 1.2
+        elif input == 'shadow':
+            modifiers['ShadowMultiplier'] = activeModifiers.get('ShadowMultiplier')
             modifiers['ShadowText'] = ' Shadow'
-        elif str(input).strip().lower()[:13] == 'fasteffective':
+        elif input.startswith('fasteffective'):
             try:
-                if input.strip()[-1:] != 'x':
+                if input[-1:] != 'x':
                     raise Exception
-                val = float(input.strip()[13:-1])
+                val = float(input[13:-1])
                 if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['FastEffectiveness'] = val
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
-        elif str(input).strip().lower()[:16] == 'chargedeffective':
+        elif input.startswith('chargedeffective'):
             try:
-                if input.strip()[-1:] != 'x':
+                if input[-1:] != 'x':
                     raise Exception
-                val = float(input.strip()[16:-1])
+                val = float(input[16:-1])
                 if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['ChargedEffectiveness'] = val
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
-        elif str(input).strip().lower() == 'nofaststab':
+        elif input == 'nofaststab':
             modifiers['ForceNoFastSTAB'] = True
-        elif str(input).strip().lower() == 'nochargedstab':
+        elif input == 'nochargedstab':
             modifiers['ForceNoChargedSTAB'] = True
-        elif str(input).strip().lower() == 'forcefaststab':
+        elif input == 'forcefaststab':
             modifiers['ForceFastSTAB'] = True
-        elif str(input).strip().lower() == 'forcechargedstab':
+        elif input == 'forcechargedstab':
             modifiers['ForceChargedSTAB'] = True
-        elif str(input).strip().lower() == 'noenergypenalty':
+        elif input == 'noenergypenalty':
             modifiers['ApplyEnergyPenalty'] = False
-        elif str(input).strip().lower() == 'friendboost':
-            modifiers['FriendMultiplier'] = 1.1
-        elif str(input).strip().lower() == 'weatherboost':
-            modifiers['WeatherMultiplier'] = 1.2
-        elif str(input).strip().lower() == 'megaboost':
-            modifiers['MegaMultiplier'] = 1.3
-        elif str(input).strip().lower()[:7] == 'bossatk':
+        elif input == 'friendboost':
+            modifiers['FriendMultiplier'] = activeModifiers.get('FriendMultiplier')
+        elif input == 'weatherboost':
+            modifiers['WeatherMultiplier'] = activeModifiers.get('WeatherMultiplier')
+        elif input == 'megaboost':
+            modifiers['MegaMultiplier'] = activeModifiers.get('MegaMultiplier')
+        elif input == 'behemothblade':
+            modifiers['ZacianMultiplier'] = activeModifiers.get('ZacianMultiplier')
+        elif input == 'behemothbash':
+            modifiers['ZamazentaMultiplier'] = activeModifiers.get('ZamazentaMultiplier')
+        elif input.startswith('bossatk'):
             try:
-                atkVal = int(input.strip()[7:])
+                atkVal = int(input[7:])
                 if 1 > atkVal or atkVal > 1000:
                     raise Exception
                 modifiers['BossAttack'] = atkVal
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss attack value! Keep it between 1 and 1000!\n'
-        elif str(input).strip().lower()[:7] == 'bossdef':
+        elif input.startswith('bossdef'):
             try:
-                defVal = int(input.strip()[7:])
+                defVal = int(input[7:])
                 if 1 > defVal or defVal > 1000:
                     raise Exception
                 modifiers['BossDefence'] = defVal
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!\n'
-        elif str(input).strip().lower()[:4] == 'boss':
+        elif input.startswith('boss'):
             try:
-                bossMon = input.strip().lower()[4:]
+                bossMon = input[4:]
                 if not checkDuplicateMon(bossMon):
                     raise Exception
                 bossMon = [obj for obj in loadedMons if obj['Name'] == formatName(bossMon)][0]
@@ -1140,11 +1096,11 @@ def determineExtraSharedInputs(extraInputs, modifiers):
                 modifiers['BossDefence'] = bossMon['Defence']
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss name! Make sure it\'s registered!\n'
-        elif str(input).strip().lower() == 'nocpm':
+        elif input == 'nocpm':
             modifiers['UseCpmMultiplier'] = False
-        elif str(input).strip().lower() == 'sortbyfastmoves':
+        elif input == 'sortbyfastmoves':
             modifiers['ResultSortOrder'] = 'ByFast'
-        elif str(input).strip().lower() == 'sortbychargedmoves':
+        elif input == 'sortbychargedmoves':
             modifiers['ResultSortOrder'] = 'ByCharged'
         else:
             systemSpecificInputs.append(input)
@@ -1161,49 +1117,29 @@ async def determineExtraInputs(extraInputs):
     raidInputs, modifiers, errorText = determineExtraSharedInputs(extraInputs, modifiers)
 
     for input in raidInputs:
-        if str(input).strip().lower()[:10] == 'partypower':
+        if input.startswith('partypower'):
             try:
-                multiplier = int(input.strip()[10:])
+                multiplier = int(input[10:])
                 if multiplier < 1 or multiplier > 5:
                     raise Exception
                 modifiers['PartyPowerMultiplier'] = 1.0 + (1.0/float(multiplier))
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid party power value! Keep it between 1 and 5!\n'
-        elif str(input).strip().lower()[:4] == 'tier':
-            try:
-                tier = int(input.strip()[4:])
-                if tier == 1:
-                    modifiers['BossHealth'] = 600.0
-                    modifiers['CpmMultiplier'] = 0.5974
-                elif tier == 3:
-                    modifiers['BossHealth'] = 3600.0
-                    modifiers['CpmMultiplier'] = 0.73
-                elif tier == 4:
-                    modifiers['BossHealth'] = 9000.0
-                    modifiers['CpmMultiplier'] = 0.73
-                elif tier == 5:
-                    modifiers['BossHealth'] = 15_000.0
-                    modifiers['CpmMultiplier'] = 0.79
-                elif tier == 6:
-                    modifiers['BossHealth'] = 20_000.0
-                    modifiers['CpmMultiplier'] = 0.79
-                else:
-                    raise Exception
-            except:
-                if input.strip().lower()[4:] == 'mega':
-                    modifiers['BossHealth'] = 20_000.0
-                    modifiers['CpmMultiplier'] = 0.79
-                else:
-                    errorText += f'\'{input}\' wasn\'t understood as a valid raid battle tier!\n'
-        elif str(input).strip().lower() == 'showmovetimings':
+        elif input.startswith('tier'):
+            modifiers['BossHealth'] = battleTierStats.get(input[4:], {}).get('raids', {}).get('bossHealth', None)
+            modifiers['CpmMultiplier'] = battleTierStats.get(input[4:], {}).get('raids', {}).get('cpmMultiplier', None)
+
+            if modifiers['BossHealth'] is None or modifiers['CpmMultiplier'] is None:
+                errorText += f'\'{input}\' wasn\'t understood as a valid raid battle tier!\n'
+        elif input == 'showmovetimings':
             modifiers['ShowMoveTimings'] = True
-        elif str(input).strip().lower() == 'showmovechanges':
+        elif input == 'showmovechanges':
             modifiers['ShowMoveChanges'] = True
-        elif str(input).strip().lower() == 'nomovechanges':
+        elif input == 'nomovechanges':
             modifiers['ApplyMoveChanges'] = False
-        elif str(input).strip().lower() == 'showolddps':
+        elif input == 'showolddps':
             modifiers['ShowOldDps'] = True
-        elif str(input).strip().lower() == 'sortbyolddps':
+        elif input == 'sortbyolddps':
             modifiers['ResultSortOrder'] = 'ByOldDps'
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
@@ -1217,7 +1153,7 @@ async def determineExtraInputs(extraInputs):
     if errorText != '':
         errorText += '\nCheck `$dps modifiers` to see all valid modifiers!'
     
-    if modifiers['UseCpmMultiplier']:
+    if modifiers['UseCpmMultiplier'] and modifiers['CpmMultiplier'] is not None:
         modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['CpmMultiplier']
         modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
 
@@ -1238,98 +1174,45 @@ async def determineExtraMaxInputs(extraInputs):
     dynamaxInputs, modifiers, errorText = determineExtraSharedInputs(extraInputs, modifiers)
 
     for input in dynamaxInputs:
-        if str(input).strip().lower()[:12] == 'maxeffective':
+        if input.startswith('maxeffective'):
             try:
-                if input.strip()[-1:] != 'x':
+                if input[-1:] != 'x':
                     raise Exception
-                val = float(input.strip()[12:-1])
+                val = float(input[12:-1])
                 if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['MaxEffectiveness'] = val
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid max move effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
-        elif str(input).strip().lower() == 'nomaxstab':
+        elif input == 'nomaxstab':
             modifiers['MaxSTABMultiplier'] = 1.0
-        elif str(input).strip().lower()[:14] == 'powerspotboost':
-            try:
-                level = int(input.strip()[14:])
-                if level == 1:
-                    modifiers['PowerSpotMultiplier'] = 1.1
-                elif level == 2:
-                    modifiers['PowerSpotMultiplier'] = 1.15
-                elif level == 3:
-                    modifiers['PowerSpotMultiplier'] = 1.188
-                elif level == 4:
-                    modifiers['PowerSpotMultiplier'] = 1.2
-                else:
-                    raise Exception
-            except:
+        elif input.startswith('powerspotboost'):
+            modifiers['PowerSpotMultiplier'] = activeModifiers.get('PowerSpotMultiplier', {}).get(input[14:], None)
+
+            if modifiers['PowerSpotMultiplier'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid power spot level! The boost level should be the amount of icons you see!\n'
-        elif str(input).strip().lower() == 'mushroomboost':
-            modifiers['MushroomMultiplier'] = 2.0
-        elif str(input).strip().lower()[:4] == 'dmax':
-            try:
-                tier = int(input.strip()[4:])
-                if tier == 1:
-                    modifiers['MaxMovePower'] = 250
-                    modifiers['MaxMoveText'] = 'Lv 1 DMax '
-                elif tier == 2:
-                    modifiers['MaxMovePower'] = 300
-                    modifiers['MaxMoveText'] = 'Lv 2 DMax '
-                elif tier == 3:
-                    modifiers['MaxMovePower'] = 350
-                    modifiers['MaxMoveText'] = 'Lv 3 DMax '
-                else:
-                    raise Exception
-            except:
+        elif input == 'mushroomboost':
+            modifiers['MushroomMultiplier'] = activeModifiers.get('MushroomMultiplier')
+        elif input.startswith('dmax') or input.startswith('gmax'):
+            modifiers['MaxMovePower'] = activeModifiers.get('MaxMovePower', {}).get(input[:4], {}).get(input[4:], None)
+            modifiers['MaxMoveText'] = f'Lv {input[4:]} {input[0].upper()}Max '
+            
+            if input.startswith('gmax'):
+                modifiers['GMaxText'] = ' Gmax'
+
+            if modifiers['MaxMovePower'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid dynamax move level!\n'
-        elif str(input).strip().lower()[:4] == 'gmax':
-            try:
-                tier = int(input.strip()[4:])
-                if tier == 1:
-                    modifiers['MaxMovePower'] = 350
-                    modifiers['GMaxText'] = ' Gmax'
-                    modifiers['MaxMoveText'] = 'Lv 1 GMax '
-                elif tier == 2:
-                    modifiers['MaxMovePower'] = 400
-                    modifiers['GMaxText'] = ' Gmax'
-                    modifiers['MaxMoveText'] = 'Lv 2 GMax '
-                elif tier == 3:
-                    modifiers['MaxMovePower'] = 450
-                    modifiers['GMaxText'] = ' Gmax'
-                    modifiers['MaxMoveText'] = 'Lv 3 GMax '
-                else:
-                    raise Exception
-            except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid dynamax move level!\n'
-        elif str(input).strip().lower()[:4] == 'tier':
-            try :
-                tier = int(input.strip()[4:])
-                if tier == 1:
-                    modifiers['BossHealth'] = 1700.0
-                    modifiers['CpmMultiplier'] = 0.15
-                elif tier == 3:
-                    modifiers['BossHealth'] = 10_000.0
-                    modifiers['CpmMultiplier'] = 0.5
-                elif tier == 5:
-                    modifiers['BossHealth'] = 17_500.0
-                    modifiers['CpmMultiplier'] = 0.699
-                elif tier == 6:
-                    modifiers['BossHealth'] = 60_000.0
-                    modifiers['CpmMultiplier'] = 0.85
-                else:
-                    raise Exception
-            except:
-                if input.strip().lower()[4:] == 'gmax':
-                    modifiers['BossHealth'] = 90_000.0
-                    modifiers['CpmMultiplier'] = 0.85
-                else:
-                    errorText += f'\'{input}\' wasn\'t understood as a valid dynamax battle tier!\n'
-        elif str(input).strip().lower() == 'nofastmovecalc':
+        elif input.startswith('tier'):
+            modifiers['BossHealth'] = battleTierStats.get(input[4:], {}).get('dmax', {}).get('bossHealth', None)
+            modifiers['CpmMultiplier'] = battleTierStats.get(input[4:], {}).get('dmax', {}).get('cpmMultiplier', None)
+
+            if modifiers['BossHealth'] is None or modifiers['CpmMultiplier'] is None:
+                errorText += f'\'{input}\' wasn\'t understood as a valid dynamax battle tier!\n'
+        elif input == 'nofastmovecalc':
             modifiers['SimFastAlone'] = False
-        elif str(input).strip().lower() == 'nomaxorb':
+        elif input == 'nomaxorb':
             modifiers['ApplyMaxOrb'] = False
-        elif str(input).strip().lower() == 'sortbydps':
+        elif input == 'sortbydps':
             modifiers['ResultSortOrder'] = 'ByDps'
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
@@ -1337,7 +1220,7 @@ async def determineExtraMaxInputs(extraInputs):
     if errorText != '':
         errorText += '\n\nCheck `$max modifiers` to see all valid modifiers!'
     
-    if modifiers['UseCpmMultiplier']:
+    if modifiers['UseCpmMultiplier'] and modifiers['CpmMultiplier'] is not None:
         modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['CpmMultiplier']
         modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
 
@@ -1347,7 +1230,7 @@ async def determineExtraMaxInputs(extraInputs):
 
 #region math calculations
 async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
-    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'])
+    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
 
     fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
@@ -1367,7 +1250,7 @@ async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifi
     return finalDps
 
 async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
-    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'])
+    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
 
     fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
@@ -1403,8 +1286,8 @@ async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsB
         chargedEnergy = chargedEnergyDelta
     return int(chargedEnergy)
     
-async def calcBossDPS(dpsScaling, bossAttack, defence, SHADOW_MULTIPLIER):
-    dpsBoss = dpsScaling*bossAttack/(defence * (2.0 - SHADOW_MULTIPLIER))
+async def calcBossDPS(dpsScaling, bossAttack, defence, SHADOW_MULTIPLIER, ZAMA_BOOST):
+    dpsBoss = dpsScaling*bossAttack/(defence * ZAMA_BOOST * (2.0 - SHADOW_MULTIPLIER))
     return dpsBoss
 
 '''
@@ -1419,7 +1302,7 @@ async def calcModifierValue(modifiers, moveType):
     else:
         partyPower = 1.0
     
-    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * modifiers['WeatherMultiplier'] * modifiers['MegaMultiplier'] * modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * partyPower
+    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * modifiers['WeatherMultiplier'] * modifiers['MegaMultiplier'] * modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * modifiers['ZacianMultiplier'] * partyPower
 
     return modifierVal
 
@@ -1519,51 +1402,7 @@ async def calcRoundedChargedMoves(move):
     return newMove
 
 async def getCPMultiplier(level):
-    match level:
-        case 5:
-            return 0.29024988
-        case 8:
-            return 0.3752356
-        case 10:
-            return 0.4225
-        case 13:
-            return 0.48168495
-        case 15:
-            return 0.51739395
-        case 20:
-            return 0.5974
-        case 25:
-            return 0.667934
-        case 30:
-            return 0.7317
-        case 35:
-            return 0.76156384
-        case 40:
-            return 0.7903
-        case 41:
-            return 0.79530001
-        case 42:
-            return 0.8003
-        case 43:
-            return 0.8053
-        case 44:
-            return 0.81029999
-        case 45:
-            return 0.81529999
-        case 46:
-            return 0.82029999
-        case 47:
-            return 0.82529999
-        case 48:
-            return 	0.83029999
-        case 49:
-            return 	0.83529999
-        case 50:
-            return 0.84029999
-        case 51:
-            return 0.84529999
-        case _:
-            return 0
+    return cpMultipliers.get(level, 0)
 #endregion
 #endregion
 

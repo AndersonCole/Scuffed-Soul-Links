@@ -129,6 +129,7 @@ games = [
     {'Name': 'legends-arceus', 'Games': ['Legends Arceus'], 'Colour': [15132131], 'Link-Emoji': ['<:_:1193409887955337286>'], 'Mascot': [493], 'Progression': []},
     {'Name': 'scarlet-violet', 'Games': ['Scarlet', 'Violet'], 'Colour': [14419990, 8465547], 'Link-Emoji': ['<:_:1193409945010450442>', '<:_:1193409983946170479>'], 'Mascot': [1007, 1008], 'Progression': []}
 ]
+
 #Structure for Pokemon, generated from generate_pokemon_file.py
 '''
 pokemon = [
