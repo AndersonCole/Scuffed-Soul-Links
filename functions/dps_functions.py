@@ -737,7 +737,7 @@ async def dpsCheck(monName, extraInputs=None):
     moveDPSOutput = ''
     dpsResults = []
 
-    embed = discord.Embed(title=f'DPS Calculations for{modifiers["ShadowText"]} {formatForDisplay(mon["Name"])} at Lv {modifiers["Level"]}',
+    embed = discord.Embed(title=f'DPS Calculations for{modifiers["ShadowText"]} {formatForDisplay(mon["Name"])} at Lv {modifiers["Level"].rstrip("0").rstrip(".")}',
                           description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["AttackIv"]}/{modifiers["DefenceIv"]}/{modifiers["StaminaIv"]}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
                           color=embedColour)
 
@@ -889,7 +889,7 @@ async def maxDpsEpsCheck(monName, extraInputs=None):
     moveEpsOutput = ''
     dpsResults = []
 
-    embed = discord.Embed(title=f'Max DPS Calculations for{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatForDisplay(mon["Name"])} at Lv {modifiers["Level"]}',
+    embed = discord.Embed(title=f'Max DPS Calculations for{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatForDisplay(mon["Name"])} at Lv {modifiers["Level"].rstrip("0").rstrip(".")}',
                           description='',
                           color=embedColour)
 
