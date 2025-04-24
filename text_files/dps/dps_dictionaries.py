@@ -2,7 +2,7 @@ defaultModifiers = {
     'EnemyDpsScaling': 4.0,
     'ExtraDpsValue': 0.5,
 
-    'Level': 50,
+    'Level': 50.0,
     'AttackIv': 15,
     'DefenceIv': 15,
     'StaminaIv': 15,

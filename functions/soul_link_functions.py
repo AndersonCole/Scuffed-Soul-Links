@@ -1768,7 +1768,7 @@ async def seeNicknames():
     
     for mon in nicknames:
         original_names += f'{[obj for obj in pokemon if obj["DexNum"] == mon["DexNum"]][0]["Name"]}\n'
-        nick_names += f'{mon["Name"]}'
+        nick_names += f'{mon["Name"]}\n'
     
     embed = discord.Embed(title='Scuffed Soul Links Nicknames', 
                           color=3553598)

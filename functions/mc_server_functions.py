@@ -132,7 +132,7 @@ async def mcSetup():
     serverOn = await serverOnline()
 
     embed = discord.Embed(title='Fossils Server Mods Info and Setup',
-                            description=f'Server Ip: **{serverIp}**\n' +
+                            description=f'Server Ip: **{serverIp}:{serverPort}**\n' +
                                         f'World Seed: **923372312397535711**\n' +
                                         f'Server Status: {"Online" if serverOn else "Offline"}\n\n'
                                         f'The server is run on Minecraft 1.18.2 using Fabric.\n' +
@@ -220,7 +220,7 @@ def getPlayers(playersOnline):
 
     if len(playersText) > 1:
         if ',' in playersText:
-            return playersText.split(',').strip()
+            return [player.strip() for player in playersText.split(',')]
         else:
             return [playersText.strip()]
     else:
@@ -442,15 +442,13 @@ async def mcLocate(author, inputs):
             message += f'{coords[0]} {coords[1]} {coords[2]}\n'
         
     else:
-        response = await rcon(
-            f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"]} 0 {modifiers["ZCoordinate"]} run locate{modifiers["SearchFor"]} {modifiers["Target"]}',
-            host=rconIp, port=rconPort, passwd=rconPassword
-        )
+        with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
+            response = rcon.command(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"]} 0 {modifiers["ZCoordinate"]} run locate{modifiers["SearchFor"]} {modifiers["Target"]}')
 
-        if response[:9] == 'Could not':
-            return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
+            if response[:9] == 'Could not':
+                return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
 
-        targetCoords = (re.search(r'\[([^\]]+)\]', response)).group(1).split(',')
+            targetCoords = (re.search(r'\[([^\]]+)\]', response)).group(1).split(',')
 
         message = f'{author} found a {modifiers["Target"]} in the {getDimensionName(modifiers["Dimension"])} at {targetCoords[0].strip()} {targetCoords[2].strip()}'
         
