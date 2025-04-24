@@ -622,19 +622,23 @@ class DiscordClient(discord.Client):
                 if ',' in input:
                     user_inputs = re.split(r'[,]+', input[6:])
                     if len(user_inputs) >= 2:
-                        embed = await dpsCheck(user_inputs[0].strip(), user_inputs[1:])
+                        embed, file = await dpsCheck(user_inputs[0].strip(), 'raids', user_inputs[1:])
                         if(type(embed) == type('')):
                             await message.channel.send(embed)
-                        else:
+                        elif file is None:
                             await message.channel.send(embed=embed)
+                        else:
+                            await message.channel.send(embed=embed, file=file)
                     else:
                         await message.channel.send('I don\'t know wtf you\'re trying to input!')
                 else:
-                    embed = await dpsCheck(input[6:].strip())
+                    embed, file = await dpsCheck(input[6:].strip(), 'raids')
                     if(type(embed) == type('')):
                         await message.channel.send(embed)
-                    else:
+                    elif file is None:
                         await message.channel.send(embed=embed)
+                    else:
+                        await message.channel.send(embed=embed, file=file)
 
             elif input[0:9] == 'add-note ':
                 embed = await addDPSNote(input[9:])
@@ -685,19 +689,23 @@ class DiscordClient(discord.Client):
                 if ',' in input:
                     user_inputs = re.split(r'[,]+', input[6:])
                     if len(user_inputs) >= 2:
-                        embed = await maxDpsEpsCheck(user_inputs[0].strip(), user_inputs[1:])
+                        embed, file = await dpsCheck(user_inputs[0].strip(), 'dmax', user_inputs[1:])
                         if(type(embed) == type('')):
                             await message.channel.send(embed)
-                        else:
+                        elif file is None:
                             await message.channel.send(embed=embed)
+                        else:
+                            await message.channel.send(embed=embed, file=file)
                     else:
                         await message.channel.send('I don\'t know wtf you\'re trying to input!')
                 else:
-                    embed = await maxDpsEpsCheck(input[6:].strip())
+                    embed, file = await dpsCheck(input[6:].strip(), 'dmax')
                     if(type(embed) == type('')):
                         await message.channel.send(embed)
-                    else:
+                    elif file is None:
                         await message.channel.send(embed=embed)
+                    else:
+                        await message.channel.send(embed=embed, file=file)
             else:
                 await message.channel.send('I don\'t know wtf you\'re trying to input!')
         #endregion

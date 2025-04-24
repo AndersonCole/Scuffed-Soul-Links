@@ -13,6 +13,8 @@ import requests
 import regex as re
 import math
 import copy
+from PIL import Image, ImageDraw
+from io import BytesIO
 from text_files.soul_links.soul_link_dictionaries import types
 from text_files.dps.dps_dictionaries import defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
 
@@ -158,11 +160,16 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, MaxEffective1.6x``` MaxEffectiveness: Applies type effectivity damage bonuses to max moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
                                         '```$max check Charizard, DMax3``` DMax: Sets the level of a dynamax move\n' +
                                         '```$max check Charizard, GMax3``` GMax: Sets the level of a gigantamax move\n' +
+                                        '```$max check Charizard, ShowCycleDps``` ShowCycleDps: Averages your dps between the charging and max phases\n' +
+                                        '```$max check Charizard, CycleSwapToBlastoise``` CycleSwapTo: Averages the dps between a charging mon and max move mon\n' +
+                                        '```$max check Charizard, CycleSwapLevel50``` CycleSwapLevel: Sets the level of the max move swap mon\n' +
+                                        '```$max check Charizard, CycleSwapIvs15/15/15``` CycleSwapIvs: Sets the ivs of the max move swap mon\n' +
                                         '```$max check Charizard, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentage\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
                                         '```$max check Charizard, MushroomBoost``` MushroomBoost: Adds the 2x max mushroom damage multiplier\n' +
                                         '```$max check Charizard, NoFastMoveCalc``` NoFastMoveCalc: Turns off the fast move only calcs\n' +
                                         '```$max check Charizard, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
-                                        '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n\n' +
+                                        '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n' +
+                                        '```$max check Charizard, SortByCycleTime``` SortByCycleTime: Orders the output by the cycle time\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for dynamax calculations\nDefault check assumes Lv40, Hundo, calculates STAB, Assumes STAB on max moves, Neutral effectiveness, No Special Boosts, Sorted by Max Eps',
                             color=3553598)
 
@@ -672,23 +679,22 @@ async def deleteDPSMon(monName):
 #endregion
 
 #region dps calculations
-#region raid dps check
-async def dpsCheck(monName, extraInputs=None):
-    modifiers = getDefaultModifiers()
+async def dpsCheck(monName, battleSystem, extraInputs=None):
+    modifiers = getDefaultModifiers(battleSystem)
 
     if extraInputs != None:
-        modifiers, errorText = await determineExtraInputs([str(i).strip().lower() for i in extraInputs])
+        modifiers, errorText = await determineModifierValues([str(i).strip().lower() for i in extraInputs], battleSystem)
         if errorText != '':
-            return errorText
+            return errorText, None
     
     if not checkDuplicateMon(monName):
         baseMonName = getOriginalFromNickname(monName)
         if baseMonName is not None:
             monName = baseMonName
             if not checkDuplicateMon(monName):
-                return 'That pokemon is not registered!'
+                return 'That pokemon is not registered!', None
         else:
-            return 'That pokemon is not registered!'
+            return 'That pokemon is not registered!', None
     
     monTypes = []
 
@@ -704,15 +710,10 @@ async def dpsCheck(monName, extraInputs=None):
         monTypes.append('???')
         embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
 
-    cpMultiplier = await getCPMultiplier(modifiers['Level'])
-    if cpMultiplier == 0:
-        return 'Level must be between 40-51, or a multiple of 5!'
-    calculated_attack = (mon['Attack'] + modifiers['AttackIv'])*cpMultiplier
-    calculated_defence = (mon['Defence'] + modifiers['DefenceIv'])*cpMultiplier
-    calculated_stamina = (mon['Stamina'] + modifiers['StaminaIv'])*cpMultiplier
+    calculated_stats = getCalculatedStats(mon, modifiers)
 
     fastMoves = []
-    chargedMoves= []
+    chargedMoves = []
     fastMovesText = ''
     chargedMovesText = ''
 
@@ -729,78 +730,147 @@ async def dpsCheck(monName, extraInputs=None):
             chargedMovesText += f'{formatForDisplay(move["Name"])}{changedIndicator}, '
 
     if len(fastMoves) == 0:
-        return 'This pokemon doesn\'t have any fast moves registered to it!'
+        return 'This pokemon doesn\'t have any fast moves registered to it!', None
     if len(chargedMoves) == 0:
-        return 'This pokemon doesn\'t have any charged moves registered to it!'
+        return 'This pokemon doesn\'t have any charged moves registered to it!', None
     
     moveNameOutput = ''
-    moveDPSOutput = ''
+    moveDpsOutput = ''
+    moveEpsOutput = ''
+    moveTtdOutput = ''
     dpsResults = []
 
-    embed = discord.Embed(title=f'DPS Calculations for{modifiers["ShadowText"]} {formatForDisplay(mon["Name"])} at Lv {str(modifiers["Level"]).rstrip("0").rstrip(".")}',
-                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["AttackIv"]}/{modifiers["DefenceIv"]}/{modifiers["StaminaIv"]}\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}',
+    embed = discord.Embed(title=getEmbedTitle(mon, modifiers, battleSystem),
+                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["Ivs"]["Attack"]}/{modifiers["Ivs"]["Defence"]}/{modifiers["Ivs"]["Stamina"]}',
                           color=embedColour)
+    
+    if battleSystem == 'dmax':
+        maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], calculated_stats[0], modifiers)
 
     for fastMove in fastMoves:
         copiedFastMove = copy.deepcopy(fastMove)
         copiedFastMove['Damage'], copiedFastMove['Energy'] = getChangedMoveStats(copiedFastMove['Name'], copiedFastMove['Damage'], copiedFastMove['Energy'], modifiers['ApplyMoveChanges'])
         
         if modifiers['ForceNoFastSTAB']:
-            modifiers['FastSTABMultiplier'] = 1.0
+            modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
         elif modifiers['ForceFastSTAB']:
-            modifiers['FastSTABMultiplier'] = 1.2
+            modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
         else:
             if fastMove['MoveType'] in monTypes:
-                modifiers['FastSTABMultiplier'] = 1.2
+                modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
             else:
-                modifiers['FastSTABMultiplier'] = 1.0
+                modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
+
+        newFastMove = await calcRoundedFastMoves(copiedFastMove)
+
+        if battleSystem == 'dmax' and modifiers['SimFastAlone']:
+            fastDps, fastEps = await calcMaxFastAlone(calculated_stats[0], newFastMove, modifiers)
+
+            if modifiers['ShowCycleDps']:
+                maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(fastDps, fastEps, maxMoveDamage, modifiers)
+
+                dpsResults.append({
+                    'FastName': fastMove['Name'],
+                    'ChargedName': '',
+                    'DPS': cycleDps,
+                    'TTD': timeToDmax
+                })
+            else:
+                dpsResults.append({
+                    'FastName': fastMove['Name'],
+                    'ChargedName': '',
+                    'DPS': fastDps,
+                    'MaxEPS': fastEps
+                })
 
         for chargedMove in chargedMoves:
             copiedChargedMove = copy.deepcopy(chargedMove)
             copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], modifiers['ApplyMoveChanges'])
 
             if modifiers['ForceNoChargedSTAB']:
-                modifiers['ChargedSTABMultiplier'] = 1.0
+                modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
             elif modifiers['ForceChargedSTAB']:
-                modifiers['ChargedSTABMultiplier'] = 1.2
+                modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
             else:
                 if chargedMove['MoveType'] in monTypes:
-                    modifiers['ChargedSTABMultiplier'] = 1.2
+                    modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
                 else:
-                    modifiers['ChargedSTABMultiplier'] = 1.0
+                    modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
 
-            oldDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, fastMove, chargedMove, modifiers)
-
-            newFastMove = await calcRoundedFastMoves(copiedFastMove)
             newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
-            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, modifiers)
+            
+            newDPS = await calcOverallDPS(calculated_stats[0], calculated_stats[1], calculated_stats[2], newFastMove, newChargedMove, modifiers)
 
-            dpsResults.append({
-                'FastName': fastMove['Name'],
-                'FastDuration': fastMove['Duration'],
-                'NewFastDuration': newFastMove['Duration'],
-                'ChargedName': chargedMove['Name'],
-                'ChargedDuration': chargedMove['Duration'],
-                'NewChargedDuration': newChargedMove['Duration'],
-                'OldDPS': oldDPS,
-                'NewDPS': newDPS
-            })
+            if battleSystem == 'raids':
+                oldDPS = await calcOverallDPS(calculated_stats[0], calculated_stats[1], calculated_stats[2], fastMove, chargedMove, modifiers)
 
+                dpsResults.append({
+                    'FastName': fastMove['Name'],
+                    'FastDuration': fastMove['Duration'],
+                    'NewFastDuration': newFastMove['Duration'],
+                    'ChargedName': chargedMove['Name'],
+                    'ChargedDuration': chargedMove['Duration'],
+                    'NewChargedDuration': newChargedMove['Duration'],
+                    'OldDPS': oldDPS,
+                    'NewDPS': newDPS
+                })
+
+            elif battleSystem == 'dmax':
+                maxEPS = await calcMaxEPS(calculated_stats[0], calculated_stats[1], calculated_stats[2], newFastMove, newChargedMove, modifiers)
+                
+                if modifiers['ShowCycleDps']:
+                    maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(newDPS, maxEPS, maxMoveDamage, modifiers)
+
+                    dpsResults.append({
+                        'FastName': fastMove['Name'],
+                        'ChargedName': chargedMove['Name'],
+                        'DPS': cycleDps,
+                        'TTD': timeToDmax
+                    })
+
+                else:
+                    dpsResults.append({
+                        'FastName': fastMove['Name'],
+                        'ChargedName': chargedMove['Name'],
+                        'DPS': newDPS,
+                        'MaxEPS': maxEPS
+                    })
+
+    #raids results sorting
     if modifiers['ResultSortOrder'] == 'ByNewDps':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['NewDPS'], reverse=True)
     elif modifiers['ResultSortOrder'] == 'ByOldDps':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['OldDPS'], reverse=True)
+
+    #dmax results sorting
+    elif modifiers['ResultSortOrder'] == 'ByMaxEps':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['MaxEPS'], reverse=True)
+    elif modifiers['ResultSortOrder'] == 'ByDps':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['DPS'], reverse=True)
+    #cycle dmax results sorting
+    elif modifiers['ResultSortOrder'] == 'ByCycleTime':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['TTD'])
+
+    #both systems results sorting
     elif modifiers['ResultSortOrder'] == 'ByFast':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['FastName'])
     elif modifiers['ResultSortOrder'] == 'ByCharged':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['ChargedName'])
 
     for result in sortedDpsResults:
-        moveNameOutput += f'{formatForDisplay(result["FastName"])}{displayDurationChange(result["FastDuration"], result["NewFastDuration"], modifiers["ShowMoveTimings"])} | {formatForDisplay(result["ChargedName"])}{displayDurationChange(result["ChargedDuration"], result["NewChargedDuration"], modifiers["ShowMoveTimings"])}\n'
-        moveDPSOutput += f'{displayOldDps(roundDPS(result["OldDPS"]), modifiers["ShowOldDps"])}{roundDPS(result["NewDPS"])}\n'
+        if battleSystem == 'raids':
+            moveNameOutput += f'{formatForDisplay(result["FastName"])}{displayDurationChange(result["FastDuration"], result["NewFastDuration"], modifiers["ShowMoveTimings"])} | {formatForDisplay(result["ChargedName"])}{displayDurationChange(result["ChargedDuration"], result["NewChargedDuration"], modifiers["ShowMoveTimings"])}\n'
+            moveDpsOutput += f'{displayOldDps(roundDPS(result["OldDPS"]), modifiers["ShowOldDps"])}{roundDPS(result["NewDPS"])}\n'
+        elif battleSystem == 'dmax':
+            moveNameOutput += f'{formatForDisplay(result["FastName"])} | {formatForDisplay(result["ChargedName"])}\n'
+            moveDpsOutput += f'{roundDPS(result["DPS"])}\n'
+            if modifiers['ShowCycleDps']:
+                moveTtdOutput += f'{roundDPS(result["TTD"])}s\n'
+            else:
+                moveEpsOutput += f'{roundDPS(result["MaxEPS"])}\n'
 
     if len(moveNameOutput) > 1024:
-        return f'You exceeded the character limit by {len(moveNameOutput) - 1024} characters! Get rid of some moves!'
+        return f'You exceeded the character limit by {len(moveNameOutput) - 1024} characters! Get rid of some moves!', None
 
     embed.add_field(name='Moveset',
                     value=moveNameOutput,
@@ -809,198 +879,160 @@ async def dpsCheck(monName, extraInputs=None):
     if modifiers['ShowOldDps']:
         dpsFieldName = 'Old -> New'
     else:
-        dpsFieldName = 'Dps'
+        dpsFieldName = 'DPS'
 
     embed.add_field(name=dpsFieldName,
-                    value=moveDPSOutput,
-                    inline=True)
-
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{mon["ImageDexNum"]}.png')
-    else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{mon["ImageDexNum"]}.png')
-
-
-    return embed
-#endregion
-
-#region dynamax dps eps calcs
-async def maxDpsEpsCheck(monName, extraInputs=None):
-    modifiers = getDefaultModifiers()
-    modifiers['Level'] = 40.0
-    modifiers['ResultSortOrder'] = 'ByMaxEps'
-
-    if extraInputs != None:
-        modifiers, errorText = await determineExtraMaxInputs([str(i).strip().lower() for i in extraInputs])
-        if errorText != '':
-            return errorText
-
-    if not checkDuplicateMon(monName):
-        baseMonName = getOriginalFromNickname(monName)
-        if baseMonName is not None:
-            monName = baseMonName
-            if not checkDuplicateMon(monName):
-                return 'That pokemon is not registered!'
-        else:
-            return 'That pokemon is not registered!'
-    
-    monTypes = []
-
-    mon = [obj for obj in loadedMons if obj['Name'] == formatName(monName)][0]
-    if mon['ImageDexNum'] >= 0:
-        monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{mon["ImageDexNum"]}')
-        monData = monData.json()
-        monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
-        if len(monData['types']) > 1:
-            monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
-        embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
-    else:
-        monTypes.append('???')
-        embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
-
-    cpMultiplier = await getCPMultiplier(modifiers['Level'])
-    if cpMultiplier == 0:
-        return 'Level must be between 40-51, or a multiple of 5!'
-    calculated_attack = (mon['Attack'] + modifiers['AttackIv'])*cpMultiplier
-    calculated_defence = (mon['Defence'] + modifiers['DefenceIv'])*cpMultiplier
-    calculated_stamina = (mon['Stamina'] + modifiers['StaminaIv'])*cpMultiplier
-
-    fastMoves = []
-    chargedMoves= []
-    fastMovesText = ''
-    chargedMovesText = ''
-
-    for move in mon['Moves']:
-        if move['Type'] == 'Fast':
-            fastMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
-            fastMovesText += f'{formatForDisplay(move["Name"])}, '
-        else:
-            chargedMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
-            chargedMovesText += f'{formatForDisplay(move["Name"])}, '
-
-    if len(fastMoves) == 0:
-        return 'This pokemon doesn\'t have any fast moves registered to it!'
-    if len(chargedMoves) == 0:
-        return 'This pokemon doesn\'t have any charged moves registered to it!'
-
-    moveNameOutput = ''
-    moveDpsOutput = ''
-    moveEpsOutput = ''
-    dpsResults = []
-
-    embed = discord.Embed(title=f'Max DPS Calculations for{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatForDisplay(mon["Name"])} at Lv {str(modifiers["Level"]).rstrip("0").rstrip(".")}',
-                          description='',
-                          color=embedColour)
-
-    for fastMove in fastMoves:
-        copiedFastMove = copy.deepcopy(fastMove)
-        copiedFastMove['Damage'], copiedFastMove['Energy'] = getChangedMoveStats(copiedFastMove['Name'], copiedFastMove['Damage'], copiedFastMove['Energy'], True)
-        
-        if modifiers['ForceNoFastSTAB']:
-            modifiers['FastSTABMultiplier'] = 1.0
-        elif modifiers['ForceFastSTAB']:
-            modifiers['FastSTABMultiplier'] = 1.2
-        else:
-            if fastMove['MoveType'] in monTypes:
-                modifiers['FastSTABMultiplier'] = 1.2
-            else:
-                modifiers['FastSTABMultiplier'] = 1.0
-
-        newFastMove = await calcRoundedFastMoves(copiedFastMove)
-
-        if modifiers['SimFastAlone']:
-            fastDps, fastEps = await calcMaxFastAlone(calculated_attack, newFastMove, modifiers)
-
-            dpsResults.append({
-                'FastName': fastMove['Name'],
-                'FastDuration': newFastMove['Duration'],
-                'ChargedName': '',
-                'ChargedDuration': '',
-                'DPS': fastDps,
-                'MaxEPS': fastEps
-            })
-        
-        for chargedMove in chargedMoves:
-            copiedChargedMove = copy.deepcopy(chargedMove)
-            copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], True)
-
-            if modifiers['ForceNoChargedSTAB']:
-                modifiers['ChargedSTABMultiplier'] = 1.0
-            elif modifiers['ForceChargedSTAB']:
-                modifiers['ChargedSTABMultiplier'] = 1.2
-            else:
-                if chargedMove['MoveType'] in monTypes:
-                    modifiers['ChargedSTABMultiplier'] = 1.2
-                else:
-                    modifiers['ChargedSTABMultiplier'] = 1.0
-
-            newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
-            newDPS = await calcOverallDPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, modifiers)
-
-            maxEPS = await calcMaxEPS(calculated_attack, calculated_defence, calculated_stamina, newFastMove, newChargedMove, modifiers)
-
-            dpsResults.append({
-                'FastName': fastMove['Name'],
-                'FastDuration': newFastMove['Duration'],
-                'ChargedName': chargedMove['Name'],
-                'ChargedDuration': newChargedMove['Duration'],
-                'DPS': newDPS,
-                'MaxEPS': maxEPS
-            })
-
-    maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], calculated_attack, modifiers)
-
-    if modifiers['ResultSortOrder'] == 'ByMaxEps':
-        sortedDpsResults = sorted(dpsResults, key=lambda x: x['MaxEPS'], reverse=True)
-    elif modifiers['ResultSortOrder'] == 'ByDps':
-        sortedDpsResults = sorted(dpsResults, key=lambda x: x['DPS'], reverse=True)
-    elif modifiers['ResultSortOrder'] == 'ByFast':
-        sortedDpsResults = sorted(dpsResults, key=lambda x: x['FastName'])
-    elif modifiers['ResultSortOrder'] == 'ByCharged':
-        sortedDpsResults = sorted(dpsResults, key=lambda x: x['ChargedName'])
-
-    for result in sortedDpsResults:
-        moveNameOutput += f'{formatForDisplay(result["FastName"])} | {formatForDisplay(result["ChargedName"])}\n'
-        moveDpsOutput += f'{roundDPS(result["DPS"])}\n'
-        moveEpsOutput += f'{roundDPS(result["MaxEPS"])}\n'
-
-    if len(moveNameOutput) > 1024:
-        return f'You exceeded the character limit by {len(moveNameOutput) - 1024} characters! Get rid of some moves!'
-
-    embed.description = f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["AttackIv"]}/{modifiers["DefenceIv"]}/{modifiers["StaminaIv"]}\n\n{modifiers["MaxMoveText"]} Move Damage: {roundDPS(maxMoveDamage)} dmg\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}'
-
-    embed.add_field(name='Moveset',
-                    value=moveNameOutput,
-                    inline=True)
-    
-    embed.add_field(name='DPS',
                     value=moveDpsOutput,
                     inline=True)
+
+    if battleSystem == 'dmax':
+
+        if modifiers['ShowCycleDps']:
+            if modifiers['CycleWillSwap']:
+                embed.description = (f'Attack: {mon["Attack"]} | Attack: {modifiers["CycleSwapMon"]["Attack"]}\n'
+                                    f'Defence: {mon["Defence"]} | Defence: {modifiers["CycleSwapMon"]["Defence"]}\n'
+                                    f'Stamina: {mon["Stamina"]} | Stamina: {modifiers["CycleSwapMon"]["Stamina"]}\n'
+                                    f'IVs: {modifiers["Ivs"]["Attack"]}/{modifiers["Ivs"]["Defence"]}/{modifiers["Ivs"]["Stamina"]} | '
+                                    f'IVs: {modifiers["CycleSwapMonIvs"]["Attack"]}/{modifiers["CycleSwapMonIvs"]["Defence"]}/{modifiers["CycleSwapMonIvs"]["Stamina"]}')
+            
+            embed.add_field(name='Time to Max',
+                            value=moveTtdOutput,
+                            inline=True)
+        else:
+            embed.add_field(name='Max EPS',
+                            value=moveEpsOutput,
+                            inline=True)
+        
+        embed.description += f'\n\n{modifiers["MaxMoveText"]} Move Damage: {roundDPS(maxMoveDamage)} dmg'
+
+    embed.description += f'\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}'
+
+    embedImg, embedImgFile = await getEmbedImage(mon, modifiers, embedColour)
+
+    embed.set_thumbnail(url=embedImg)
+
+    return embed, embedImgFile
+
+def getEmbedTitle(mon, modifiers, battleSystem):
+    titleStart = ''
+    gmaxText = modifiers['GMaxText']
+    chargerTxt = ''
+    cycleSwapText = ''
     
-    embed.add_field(name='Max EPS',
-                    value=moveEpsOutput,
-                    inline=True)
 
-    rand_num = random.randint(1, 100)
+    if battleSystem == 'dmax':
+        titleStart = 'Max '
+        if modifiers['ShowCycleDps']:
+            titleStart += 'Cycle '
 
-    imageMon = [obj for obj in pokemon if obj['Name'] == formatName(f'{monName}{modifiers["GMaxText"]}')]
+    lvlText = str(modifiers["Level"]).rstrip("0").rstrip(".")
+
+    if modifiers['CycleWillSwap']:
+        chargerTxt = '(Charging)'
+        gmaxText = ''
+        cycleSwapText = f' and{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatForDisplay(modifiers["CycleSwapMon"]["Name"])}(Max Move) at Lv {str(modifiers["CycleSwapMonLevel"]).rstrip("0").rstrip(".")}'
+
+    return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}'
+
+def getCalculatedStats(mon, modifiers):
+    calculated_stats = []
+    cpMultiplier = getCPMultiplier(modifiers['Level'])
+
+    calculated_stats.append((mon['Attack'] + modifiers['Ivs']['Attack'])*cpMultiplier)
+    calculated_stats.append((mon['Defence'] + modifiers['Ivs']['Defence'])*cpMultiplier)
+    calculated_stats.append((mon['Stamina'] + modifiers['Ivs']['Stamina'])*cpMultiplier)
+
+    return calculated_stats
+
+async def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
+    if modifiers['CycleWillSwap']:
+        swapMonAttack = (modifiers['CycleSwapMon']['Attack'] + 15)*getCPMultiplier(modifiers['CycleSwapMonLevel'])
+        maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], swapMonAttack, modifiers)
+
+    timeToDmax = calcTimeToMax(maxEPS)
+    totalCycleDps = calcEntireCycleDps(dps, timeToDmax, maxMoveDamage)
+
+    return maxMoveDamage, totalCycleDps, timeToDmax
+
+async def getEmbedImage(mon, modifiers, embedColour):
+    imageMon = [obj for obj in pokemon if obj['Name'] == formatName(f'{mon["Name"]}{modifiers["GMaxText"]}')]
     if len(imageMon) > 0:
         imageDexNum = imageMon[0]['DexNum']
     else:
         imageDexNum = mon['ImageDexNum']
-    
-    if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{imageDexNum}.png')
-    else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{imageDexNum}.png')
 
-    return embed
+    if modifiers['CycleWillSwap']:
+        imageCycleMon = [obj for obj in pokemon if obj['Name'] == formatName(f'{modifiers["CycleSwapMon"]["Name"]}{modifiers["GMaxText"]}')]
+        if len(imageCycleMon) > 0:
+            imageCycleDexNum = imageCycleMon[0]['DexNum']
+        else:
+            imageCycleDexNum = modifiers['CycleSwapMon']['ImageDexNum']
+
+        combinedMonImage = await createCombinedMonsImage(mon['ImageDexNum'], imageCycleDexNum, embedColour)
+
+        return f'attachment://maxCycle.png', combinedMonImage
+
+    rand_num = random.randint(1, 100)
+
+    if rand_num == 69:
+        return f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{imageDexNum}.png', None
+    
+    return f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{imageDexNum}.png', None
+
+async def openHttpImage(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        image_data = BytesIO(response.content)
+        return Image.open(image_data).convert('RGBA')
+    return Image.open(f'images/evo_helpers/missing_no.png').convert('RGBA')
+
+async def createCombinedMonsImage(chargingMonDex, maxMonDex, embedColour):
+    rand_num = random.randint(1, 100)
+    if rand_num == 69:
+        chargingMonImg = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{chargingMonDex}.png')
+        maxMonImg = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{maxMonDex}.png')
+    else:
+        chargingMonImg = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{chargingMonDex}.png')
+        maxMonImg = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{maxMonDex}.png')
+
+    width, height = chargingMonImg.size
+
+    combinedMons = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+
+    shiftAmountPx = 5
+    shiftedChargingMon = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    shiftedMaxMon = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+
+    shiftedChargingMon.paste(chargingMonImg, (-shiftAmountPx, shiftAmountPx))
+    shiftedMaxMon.paste(maxMonImg, (shiftAmountPx, -shiftAmountPx))
+
+    chargingMask = Image.new('L', (width, height), 0)
+    chargingDraw = ImageDraw.Draw(chargingMask)
+    chargingDraw.polygon([(0, height), (0, 0), (width, height)], fill=255)
+    maxMask = Image.new('L', (width, height), 0)
+    maxDraw = ImageDraw.Draw(maxMask)
+    maxDraw.polygon([(width, 0), (0, 0), (width, height)], fill=255)
+
+    combinedMons.paste(shiftedChargingMon, (0, 0), chargingMask)
+    combinedMons.paste(shiftedMaxMon, (0, 0), maxMask)
+
+    draw = ImageDraw.Draw(combinedMons)
+    draw.line([(0, 0), (width, height)], fill=((embedColour >> 16) & 0xFF, (embedColour >> 8) & 0xFF, embedColour & 0xFF, 255), width=2)
+
+    image_in_memory = BytesIO()
+    combinedMons.save(image_in_memory, format='PNG')
+
+    image_in_memory.seek(0)
+    return discord.File(image_in_memory, filename=f'maxCycle.png')
+
 #endregion
 
 #region modifiers
-def getDefaultModifiers():
-    return copy.deepcopy(defaultModifiers)
+def getDefaultModifiers(battleSystem):
+    modifiers = copy.deepcopy(defaultModifiers)
+    modifiers['Level'] = defaultModifiers.get('Level').get(battleSystem)
+    modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get(battleSystem)
+    return modifiers
 
 #region shared basic modifiers
 #Level, IVs, Shadow, FastEffective, ChargedEffective, NoEnergyPenalty
@@ -1009,22 +1041,30 @@ def getDefaultModifiers():
 #BehemothBlade, BehemothBash
 #BossAtk, BossDef, Boss{name}, NoCPM
 #SortByFastMoves, SortByChargedMoves
-def determineExtraSharedInputs(extraInputs, modifiers):
+async def determineModifierValues(extraInputs, battleSystem):
+    modifiers = getDefaultModifiers(battleSystem)
+
     errorText = ''
     systemSpecificInputs = []
 
     for input in extraInputs:
         if re.fullmatch(r'\d+(\.5|\.0)?', input):
-            modifiers['Level'] = float(input)
-        elif '/' in input:
+            try:
+                val = float(input)
+                if 1.0 > val or val > 51.0:
+                    raise Exception
+                modifiers['Level'] = float(input)
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid level! Keep it between 1 and 51!\n'
+        elif '/' in input and not input.startswith('cycle'):
             ivs = re.split(r'[/]+', input)
             try:
                 for iv in ivs:
                     if 0 > int(iv) or int(iv) > 15:
                         raise Exception
-                modifiers['AttackIv'] = int(ivs[0])
-                modifiers['DefenceIv'] = int(ivs[1])
-                modifiers['StaminaIv'] = int(ivs[2])
+                modifiers['Ivs']['Attack'] = int(ivs[0])
+                modifiers['Ivs']['Defence'] = int(ivs[1])
+                modifiers['Ivs']['Stamina'] = int(ivs[2])
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!\n'
         elif input == 'shadow':
@@ -1105,16 +1145,18 @@ def determineExtraSharedInputs(extraInputs, modifiers):
         else:
             systemSpecificInputs.append(input)
 
-    return systemSpecificInputs, modifiers, errorText
+    if battleSystem == 'raids':
+        modifiers, errorText = await determineRaidModifierValues(modifiers, systemSpecificInputs, errorText)
+    elif battleSystem == 'dmax':
+        modifiers, errorText = await determineMaxModifierValues(modifiers, systemSpecificInputs, errorText)
+
+    return modifiers, errorText
 #endregion
 
 #region raid exclusive modifiers
 #Party Power, Tier
 #SortByOldDps, ShowMoveChanges, NoMoveChanges
-async def determineExtraInputs(extraInputs):
-    modifiers = getDefaultModifiers()
-
-    raidInputs, modifiers, errorText = determineExtraSharedInputs(extraInputs, modifiers)
+async def determineRaidModifierValues(modifiers, raidInputs, errorText):
 
     for input in raidInputs:
         if input.startswith('partypower'):
@@ -1161,17 +1203,11 @@ async def determineExtraInputs(extraInputs):
 #endregion
 
 #region dynamax exclusive modifiers
-#MaxEffective, NoMaxSTAB, PowerSpotBoost{level}
+#MaxEffective, NoMaxSTAB, PowerSpotBoost{level}, MushroomBoost
 #Dmax{level}, GMax{level}, Tier{level}
-#MushroomBoost
-#NoFastMoveCalc, NoMaxOrb, SortByDps
-async def determineExtraMaxInputs(extraInputs):
-    modifiers = getDefaultModifiers()
-
-    modifiers['Level'] = 40
-    modifiers['ResultSortOrder'] = 'ByMaxEps'
-    
-    dynamaxInputs, modifiers, errorText = determineExtraSharedInputs(extraInputs, modifiers)
+#ShowCycleDps, CycleSwapTo{mon}, CycleSwapLevel{level}
+#NoFastMoveCalc, NoMaxOrb, SortByDps, SortByCycleTime
+async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
 
     for input in dynamaxInputs:
         if input.startswith('maxeffective'):
@@ -1208,15 +1244,60 @@ async def determineExtraMaxInputs(extraInputs):
 
             if modifiers['BossHealth'] is None or modifiers['CpmMultiplier'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid dynamax battle tier!\n'
+        elif input == 'showcycledps':
+            modifiers['ShowCycleDps'] = True
+            modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
+        elif input.startswith('cycleswapto'):
+            try:
+                swapMon = input[11:]
+                if not checkDuplicateMon(swapMon):
+                    raise Exception
+                swapMon = [obj for obj in loadedMons if obj['Name'] == formatName(swapMon)][0]
+                modifiers['ShowCycleDps'] = True
+                modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
+                modifiers['CycleWillSwap'] = True
+                modifiers['CycleSwapMon'] = swapMon
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid mon name! Make sure it\'s registered!\n'
+        elif input.startswith('cycleswaplevel'): 
+            try:
+                if re.fullmatch(r'\d+(\.5|\.0)?', input[14:]):
+                    val = float(input[14:])
+                    if 1.0 > val or val > 51.0:
+                        raise Exception
+                    modifiers['CycleSwapMonLevel'] = float(input[14:])
+                else:
+                    raise Exception
+            except:
+                errorText += f'\'{input[14:]}\' wasn\'t understood as a valid level for the swapped mon! Keep it between 1 and 51!\n'
+        elif input.startswith('cycleswapivs'):
+            try:
+                if '/' in input[12:]:
+                    ivs = re.split(r'[/]+', input[12:])
+                    for iv in ivs:
+                        if 0 > int(iv) or int(iv) > 15:
+                            raise Exception
+                    modifiers['CycleSwapMonIvs']['Attack'] = int(ivs[0])
+                    modifiers['CycleSwapMonIvs']['Defence'] = int(ivs[1])
+                    modifiers['CycleSwapMonIvs']['Stamina'] = int(ivs[2])
+                else:
+                    raise Exception
+            except:
+                errorText += f'\'{input[12:]}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!\n'
         elif input == 'nofastmovecalc':
             modifiers['SimFastAlone'] = False
         elif input == 'nomaxorb':
             modifiers['ApplyMaxOrb'] = False
+        elif input == 'sortbycycletime':
+            modifiers['ResultSortOrder'] = 'ByCycleTime'
         elif input == 'sortbydps':
             modifiers['ResultSortOrder'] = 'ByDps'
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
-            
+
+    if not modifiers['ShowCycleDps'] and modifiers['ResultSortOrder'] == 'ByCycleTime':
+        errorText += f'You need to ShowCycleDps in order to be able to sort by cycle time!\n'
+
     if errorText != '':
         errorText += '\n\nCheck `$max modifiers` to see all valid modifiers!'
     
@@ -1377,6 +1458,12 @@ async def calcMaxMoveDamage(movePower, attack, modifiers):
 def getMaxOrbEps():
     return 9.0/15.0
 
+def calcTimeToMax(maxEPS):
+    return 100.0/maxEPS
+
+def calcEntireCycleDps(dps, timeToDmax, maxMoveDamage):
+    return ((dps * timeToDmax) + (maxMoveDamage * 3))/timeToDmax
+
 async def calcRoundedFastMoves(move):
     newDuration = round(move['Duration']*2)/2
     newMove = {
@@ -1401,7 +1488,7 @@ async def calcRoundedChargedMoves(move):
     }
     return newMove
 
-async def getCPMultiplier(level):
+def getCPMultiplier(level):
     return cpMultipliers.get(level, 0)
 #endregion
 #endregion

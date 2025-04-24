@@ -2,10 +2,15 @@ defaultModifiers = {
     'EnemyDpsScaling': 4.0,
     'ExtraDpsValue': 0.5,
 
-    'Level': 50.0,
-    'AttackIv': 15,
-    'DefenceIv': 15,
-    'StaminaIv': 15,
+    'Level': {
+        'raids': 50.0,
+        'dmax': 40.0
+    },
+    'Ivs': {
+        'Attack': 15,
+        'Defence': 15,
+        'Stamina': 15,
+    },
 
     'FastEffectiveness': 1.0,
     'ChargedEffectiveness': 1.0,
@@ -38,6 +43,16 @@ defaultModifiers = {
     'GMaxText': '',
     'MaxMoveText': 'Lv 2 DMax ',
 
+    'ShowCycleDps': False,
+    'CycleWillSwap': False,
+    'CycleSwapMon': [],
+    'CycleSwapMonLevel': 40.0,
+    'CycleSwapMonIvs': {
+        'Attack': 15,
+        'Defence': 15,
+        'Stamina': 15
+    },
+
     'BossAttack': 200,
     'BossDefence': 70,
     'BossHealth': 15_000.0,
@@ -52,7 +67,11 @@ defaultModifiers = {
     'ApplyMoveChanges': True,
 
     'ShowOldDps': False,
-    'ResultSortOrder': 'ByNewDps'
+    'ResultSortOrder': {
+        'raids': 'ByNewDps',
+        'dmax': 'ByMaxEps',
+        'dmax-cycle': 'ByDps'
+    }
 }
 
 activeModifiers = {
@@ -61,6 +80,11 @@ activeModifiers = {
     'FriendMultiplier': 1.1,
     'WeatherMultiplier': 1.2,
     'MegaMultiplier': 1.3,
+
+    'STABMultiplier': {
+        'active': 1.2,
+        'inactive': 1.0
+    },
 
     'PowerSpotMultiplier': {
         '1': 1.1,
