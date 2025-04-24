@@ -53,6 +53,8 @@ defaultModifiers = {
         'Stamina': 15
     },
 
+    'CyclePlayers': 1.0,
+
     'BossAttack': 200,
     'BossDefence': 70,
     'BossHealth': 15_000.0,
@@ -106,6 +108,9 @@ activeModifiers = {
             '3': 450
         }
     },
+
+    #gives 10 energy, but to dodge into it loses time, therefore 9 energy is a better approx
+    'MaxOrbEnergy': 9.0,
 
     'ZacianMultiplier': 1.2,
     'ZamazentaMultiplier': 1.2,

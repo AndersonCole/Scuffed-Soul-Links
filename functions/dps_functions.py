@@ -164,6 +164,7 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, CycleSwapToBlastoise``` CycleSwapTo: Averages the dps between a charging mon and max move mon\n' +
                                         '```$max check Charizard, CycleSwapLevel50``` CycleSwapLevel: Sets the level of the max move swap mon\n' +
                                         '```$max check Charizard, CycleSwapIvs15/15/15``` CycleSwapIvs: Sets the ivs of the max move swap mon\n' +
+                                        '```$max check Charizard, Players2``` Players: Only for max cycles, increases the calculated stats as if there were multiple players using the same setups\n' +
                                         '```$max check Charizard, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentage\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
                                         '```$max check Charizard, MushroomBoost``` MushroomBoost: Adds the 2x max mushroom damage multiplier\n' +
                                         '```$max check Charizard, NoFastMoveCalc``` NoFastMoveCalc: Turns off the fast move only calcs\n' +
@@ -819,6 +820,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
                 maxEPS = await calcMaxEPS(calculated_stats[0], calculated_stats[1], calculated_stats[2], newFastMove, newChargedMove, modifiers)
                 
                 if modifiers['ShowCycleDps']:
+                    newDPS = newDPS * modifiers['CyclePlayers']
                     maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(newDPS, maxEPS, maxMoveDamage, modifiers)
 
                     dpsResults.append({
@@ -918,7 +920,7 @@ def getEmbedTitle(mon, modifiers, battleSystem):
     gmaxText = modifiers['GMaxText']
     chargerTxt = ''
     cycleSwapText = ''
-    
+    playerText = ''
 
     if battleSystem == 'dmax':
         titleStart = 'Max '
@@ -931,6 +933,9 @@ def getEmbedTitle(mon, modifiers, battleSystem):
         chargerTxt = '(Charging)'
         gmaxText = ''
         cycleSwapText = f' and{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatForDisplay(modifiers["CycleSwapMon"]["Name"])}(Max Move) at Lv {str(modifiers["CycleSwapMonLevel"]).rstrip("0").rstrip(".")}'
+
+    if modifiers['CyclePlayers'] > 1:
+        playerText = f', with {int(modifiers["CyclePlayers"])} trainers'
 
     return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}'
 
@@ -950,7 +955,7 @@ async def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
         maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], swapMonAttack, modifiers)
 
     timeToDmax = calcTimeToMax(maxEPS)
-    totalCycleDps = calcEntireCycleDps(dps, timeToDmax, maxMoveDamage)
+    totalCycleDps = calcEntireCycleDps(dps, timeToDmax, maxMoveDamage, modifiers)
 
     return maxMoveDamage, totalCycleDps, timeToDmax
 
@@ -1284,6 +1289,14 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                     raise Exception
             except:
                 errorText += f'\'{input[12:]}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!\n'
+        elif input.startswith('players'):
+            try:
+                playerCount = input[7:]
+                if 1 > int(playerCount) or int(playerCount) > 4:
+                    raise Exception
+                modifiers['CyclePlayers'] = float(int(playerCount))
+            except:
+                errorText += f'\'{input[12:]}\' wasn\'t understood as a valid player amount! Keep it between 1 and 4!\n'
         elif input == 'nofastmovecalc':
             modifiers['SimFastAlone'] = False
         elif input == 'nomaxorb':
@@ -1297,6 +1310,9 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
 
     if not modifiers['ShowCycleDps'] and modifiers['ResultSortOrder'] == 'ByCycleTime':
         errorText += f'You need to ShowCycleDps in order to be able to sort by cycle time!\n'
+
+    if not modifiers['ShowCycleDps'] and modifiers['CyclePlayers'] > 1:
+        errorText += f'You need to ShowCycleDps in order to sim with multiple players!\n'
 
     if errorText != '':
         errorText += '\n\nCheck `$max modifiers` to see all valid modifiers!'
@@ -1346,6 +1362,8 @@ async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers)
 
     movesetMaxEps = await calcFinalMovesetDPS(fastMaxEps, chargedMaxEps, chargedMove['Duration'], weaveMaxEps, dpsBoss, stamina)
 
+    movesetMaxEps = movesetMaxEps * modifiers['CyclePlayers']
+
     if modifiers['ApplyMaxOrb']:
         movesetMaxEps += getMaxOrbEps()
 
@@ -1355,6 +1373,9 @@ async def calcMaxFastAlone(attack, fastMove, modifiers):
     fastMaxDps = await calcFastMaxDps(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
     fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
     
+    fastMaxDps = fastMaxDps * modifiers['CyclePlayers']
+    fastMaxEps = fastMaxEps * modifiers['CyclePlayers']
+
     if modifiers['ApplyMaxOrb']:
         fastMaxEps += getMaxOrbEps()
 
@@ -1454,15 +1475,14 @@ async def calcMaxMoveDamage(movePower, attack, modifiers):
     dmgMax = math.floor((0.5 * movePower * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue'])
     return dmgMax
 
-#gives 10 energy, but to dodge into it loses time, therefore 9 energy is a better approx
 def getMaxOrbEps():
-    return 9.0/15.0
+    return activeModifiers.get('MaxOrbEnergy')/15.0
 
 def calcTimeToMax(maxEPS):
     return 100.0/maxEPS
 
-def calcEntireCycleDps(dps, timeToDmax, maxMoveDamage):
-    return ((dps * timeToDmax) + (maxMoveDamage * 3))/timeToDmax
+def calcEntireCycleDps(dps, timeToDmax, maxMoveDamage, modifiers):
+    return ((dps * timeToDmax) + ((maxMoveDamage * 3)* modifiers['CyclePlayers']))/timeToDmax
 
 async def calcRoundedFastMoves(move):
     newDuration = round(move['Duration']*2)/2
