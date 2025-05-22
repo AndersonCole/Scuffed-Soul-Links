@@ -72,11 +72,6 @@ class DiscordClient(discord.Client):
                 await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
             input = message.content[4:]
 
-            global version_group
-            global most_recent_version_group
-
-            global run_name
-
             if input[0:] == 'help':
                 embed, file = await help()
                 await message.channel.send(file=file, embed=embed)
@@ -89,148 +84,114 @@ class DiscordClient(discord.Client):
                         name = input[1].strip()
                         input.pop(0)
                         input.pop(0)
-                        if len(input) == 1:
-                            input = str(input[0]).strip()
-                            if ' ' in input:
-                                players = re.split(r'[\s]+', input)
-                                version_group, run_name, msg = await createNewRun(game, name, players)
-                                if msg != 'Success':
-                                    await message.channel.send(msg)
-                                else:
-                                    await createRole(run_name, players, message.guild)
-                                    await message.channel.send('Run Created! Focus set to the newly created run')
-                            else:
-                                await message.channel.send("Specify more than one player!")
+                        if len(input) == 1 and ' ' in input:
+                            players = re.split(r'[\s]+', input[0].strip())
+                            
                         elif len(input) > 1:
                             players = [player.strip() for player in input]
                             
-                            version_group, run_name, msg = await createNewRun(game, name, players)
-                            if msg != 'Success':
-                                await message.channel.send(msg)
-                            else:
-                                await createRole(run_name, players, message.guild)
-                                await message.channel.send('Run Created! Focus set to the newly created run')
                         else:
-                            raise Exception('Specify more than one player!')
+                            raise Exception('Specify more than one player!\nIf you\'re trying to just do a nuzlocke, set Shuckle as player 2!')
+                        
+                        response = await createNewRun(game, name, players)
+                        if response != 'Success':
+                            await message.channel.send(response)
+                        else:
+                            await createRole(players, message.guild)
+                            await message.channel.send('Run Created! Focus set to the newly created run')
+
                     except Exception as ex:
                         await message.channel.send(ex)
                 else:
-                    await message.channel.send("Invalid input! Use commas ',' in between values!")
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
 
             elif input[0:10] == 'encounter ':
                 if ',' in input:
                     input = re.split(r'[,]+', input[10:])
                     if len(input) == 2:
                         if re.search(r'<@\d+>', input[1].strip()) is not None:
-                            response = await encounterMonGroup(input[0].strip(), [input[1]], run_name)
+                            response = await encounterMonGroup(input[0].strip(), [input[1]])
                         else:
-                            response = await encounterMon(input[0].strip(), input[1].strip(), message.author.mention, run_name)
+                            response = await encounterMon(input[0].strip(), input[1].strip(), message.author.mention)
                     elif len(input) > 2:
                         encounter_name = input[0].strip()
                         input.pop(0)
-                        response = await encounterMonGroup(encounter_name, input, run_name)
+                        response = await encounterMonGroup(encounter_name, input)
                         
                     await message.channel.send(response)
                 else:
-                    await message.channel.send("Invalid input! Use commas ',' in between values!")
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
 
             elif input[0:10] == 'encounters':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    embeds = await listEncounters(run_name)
+                embeds = await listEncounters()
 
-                    if(type(embeds) == type('')):
-                        await message.channel.send(embeds)
-                    else:
-                        await Paginator.Simple().start(message.channel, pages=embeds)
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
 
             elif input[0:5] == 'links':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    embeds = await listLinks(run_name)
+                embeds = await listLinks()
 
-                    if(type(embeds) == type('')):
-                        await message.channel.send(embeds)
-                    else:
-                        await Paginator.Simple().start(message.channel, pages=embeds)
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
             
             elif input[0:10] == 'link-data ':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
+                if re.search(r'<@\d+>', input[10:].strip()) is not None:
+                    input = re.split(r'[\s]+', input[10:])
+                    player_name = input[0]
+                    input.pop(0)
+                    input = ' '.join(word for word in input)
+                    embed = await getLinkData(str(input).strip(), player_name)
                 else:
-                    if re.search(r'<@\d+>', input[10:].strip()) is not None:
-                        input = re.split(r'[\s]+', input[10:])
-                        player_name = input[0]
-                        input.pop(0)
-                        input = ' '.join(word for word in input)
-                        embed = await getLinkData(run_name, str(input).strip(), player_name)
-                    else:
-                        embed = await getLinkData(run_name, str(input[10:]).strip(), message.author.mention)
+                    embed = await getLinkData(str(input[10:]).strip(), message.author.mention)
 
-                    if(type(embed) == type('')):
-                        await message.channel.send(embed)
-                    else:
-                        await message.channel.send(embed=embed)
+                if(type(embed) == type('')):
+                    await message.channel.send(embed)
+                else:
+                    await message.channel.send(embed=embed)
 
             elif input[0:7] == 'evolve ':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await evolveMon(run_name, str(input[7:]).strip(), message.author.mention)
+                response = await evolveMon(str(input[7:]).strip(), message.author.mention)
 
-                    await message.channel.send(response)
+                await message.channel.send(response)
 
             elif input[0:12] == 'undo-evolve ':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await undoEvolveMon(run_name, str(input[12:]).strip(), message.author.mention)
+                response = await undoEvolveMon(str(input[12:]).strip(), message.author.mention)
 
-                    await message.channel.send(response)
+                await message.channel.send(response)
 
             elif input[0:10] == 'new-death ':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    if ',' in input:
-                        input = re.split(r'[,]+', input[10:])
-                        encounter_name = input[0].strip()
-                        input.pop(0)
+                if ',' in input:
+                    input = re.split(r'[,]+', input[10:])
+                    encounter_name = input[0].strip()
+                    input.pop(0)
 
-                        response = await newDeath(encounter_name, ','.join(word for word in input), run_name)
-                            
-                        await message.channel.send(response)
-                    else:
-                        await message.channel.send("Invalid input! Use commas ',' in between values!")
-            
-            elif input[0:11] == 'undo-death ':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await undoDeath(input[11:].strip(), run_name)
+                    response = await newDeath(encounter_name, ','.join(word for word in input))
                         
                     await message.channel.send(response)
+                else:
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
+            
+            elif input[0:11] == 'undo-death ':
+                response = await undoDeath(input[11:].strip())
+                    
+                await message.channel.send(response)
             
             elif input[0:6] == 'deaths':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    embeds = await listDeaths(run_name)
+                embeds = await listDeaths()
 
-                    if(type(embeds) == type('')):
-                        await message.channel.send(embeds)
-                    else:
-                        await Paginator.Simple().start(message.channel, pages=embeds)
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
 
             elif input[0:11] == 'select-run ':
-                version_group, run_name, msg = selectRun(input[11:].strip())
+                response = selectRun(input[11:].strip())
 
-                if msg == 'Success':
-                    await message.channel.send(f'Focus set to run {run_name}!')
-                else:
-                    await message.channel.send(msg)
+                await message.channel.send(response)
 
             elif input[0:4] == 'runs':
                 embeds = await listRuns()
@@ -238,36 +199,27 @@ class DiscordClient(discord.Client):
                 await Paginator.Simple().start(message.channel, pages=embeds)
 
             elif input[0:12] == 'choose-team ':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
+                if ',' in input[12:]:
+                    links = re.split(r'[,]+', input[12:])
+                    response = await chooseTeam(links, message.author.mention)
+                    await message.channel.send(response)
                 else:
-                    if ',' in input[12:]:
-                        links = re.split(r'[,]+', input[12:])
-                        response = await chooseTeam(run_name, links, message.author.mention)
-                        await message.channel.send(response)
-                    else:
-                        await message.channel.send("Invalid input! Use commas ',' in between values!")
+                    await message.channel.send('Invalid input! Use commas \',\' in between values!')
 
             elif input[0:7] == 'battles':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await nextBattle(run_name)
-                    await message.channel.send(response)
+                response = await nextBattle()
+
+                await message.channel.send(response)
             
             elif input[0:8] == 'progress':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await progressRun(run_name)
-                    await message.channel.send(response)
+                response = await progressRun()
+
+                await message.channel.send(response)
 
             elif input[0:9] == 'add-note ':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await addNote(run_name, input[9:])
-                    await message.channel.send(response)
+                response = await addNote(input[9:])
+
+                await message.channel.send(response)
 
             elif input[0:14] == 'create-reason ':
                 response = await createReason(input[14:])
@@ -275,52 +227,37 @@ class DiscordClient(discord.Client):
                 await message.channel.send(response)
 
             elif input[0:11] == 'random-user':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await pingUser(run_name)
+                response = await pingUser()
 
-                    await message.channel.send(response)
+                await message.channel.send(response)
 
             elif input[0:7] == 'win-run':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await setRunStatus(run_name, 'Victory', message.guild)
-                    await message.channel.send(response)
+                response = await setRunStatus('Victory', message.guild)
+
+                await message.channel.send(response)
 
             elif input[0:8] == 'fail-run':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await setRunStatus(run_name, 'Defeat', message.guild)
-                    await message.channel.send(response)
+                response = await setRunStatus('Defeat', message.guild)
+
+                await message.channel.send(response)
 
             elif input[0:11] == 'undo-status':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    response = await setRunStatus(run_name, 'In Progress', message.guild)
-                    await message.channel.send(response)
+                response = await setRunStatus('In Progress', message.guild)
+                
+                await message.channel.send(response)
 
             elif input[0:8] == 'run-info':
-                if run_name == '':
-                    await message.channel.send('Select a run first using $sl select-run!')
-                else:
-                    embeds = await seeStats(run_name)
+                embeds = await seeStats()
 
-                    if(type(embeds) == type('')):
-                        await message.channel.send(embeds)
-                    else:
-                        await Paginator.Simple().start(message.channel, pages=embeds)                    
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)                    
 
             elif input[0:4] == 'dex ':
                 mon = input[4:]
 
-                if version_group == '':
-                    embed, file = await makePokedexEmbed(mon, most_recent_version_group)
-                else:
-                    embed, file = await makePokedexEmbed(mon, version_group)
+                embed, file = await makePokedexEmbed(mon)
 
                 if(type(embed) == type('')):
                     await message.channel.send(embed)
@@ -333,10 +270,7 @@ class DiscordClient(discord.Client):
                 user_inputs.pop(-1)
                 mon = ' '.join(word for word in user_inputs)
 
-                if version_group == '':
-                    embed = await calculateCatchRate(mon, level, most_recent_version_group)
-                else:
-                    embed = await calculateCatchRate(mon, level, version_group)
+                embed = await calculateCatchRate(mon, level)
 
                 if(type(embed) == type('')):
                     await message.channel.send(embed)
@@ -349,10 +283,7 @@ class DiscordClient(discord.Client):
                 user_inputs.pop(-1)
                 mon = ' '.join(word for word in user_inputs)
 
-                if version_group == '':
-                    embed = await showMoveSet(mon, level, most_recent_version_group)
-                else:
-                    embed = await showMoveSet(mon, level, version_group)
+                embed = await showMoveSet(mon, level)
 
                 if(type(embed) == type('')):
                     await message.channel.send(embed)
@@ -372,16 +303,14 @@ class DiscordClient(discord.Client):
                     await message.channel.send('Invalid input! Use commas \',\' in between values!')
 
             elif input[0:9] == 'nicknames':
-
                 embed = await seeNicknames()
 
                 await message.channel.send(embed=embed)
 
             elif input[0:5] == 'reset':
-                version_group = ''
-                run_name = ''
+                response = resetFocus()
 
-                await message.channel.send('Run unfocused!')
+                await message.channel.send(response)
 
             elif input[0:12] == 'rare-candies':
                 embeds = await makeRareCandiesEmbed()
@@ -876,11 +805,6 @@ class DiscordClient(discord.Client):
                 await message.channel.send('One cannot hope to heal the world without a strong conviction...')
         #endregion
         #endregion
-        
-version_group = ''
-most_recent_version_group = 'scarlet-violet'
-
-run_name = ''
 
 ## Set up and log in
 client = DiscordClient()

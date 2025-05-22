@@ -13,42 +13,28 @@ import socket
 import subprocess
 import math
 import copy
-from mcrcon import MCRcon
 import requests
+from mcrcon import MCRcon
+from functions.shared_functions import loadDataVariableFromFile
+from dictionaries.mc_dictionaries import dimensions, mcFileLocations
 
-with open('text_files/minecraft_server/serverIp.txt', 'r') as file:
-    serverIp = file.read()
+serverIp = loadDataVariableFromFile(mcFileLocations.get('ServerIp'), False)
 
-with open('text_files/minecraft_server/serverPort.txt', 'r') as file:
-    serverPort = int(file.read())
+serverPort = int(loadDataVariableFromFile(mcFileLocations.get('ServerPort'), False))
 
-with open('text_files/minecraft_server/rconIp.txt', 'r') as file:
-    rconIp = file.read()
+rconIp = loadDataVariableFromFile(mcFileLocations.get('RconIp'), False)
 
-with open('text_files/minecraft_server/rconPort.txt', 'r') as file:
-    rconPort = int(file.read())
+rconPort = int(loadDataVariableFromFile(mcFileLocations.get('RconPort'), False))
 
-with open('text_files/minecraft_server/rconPassword.txt', 'r') as file:
-    rconPassword = file.read()
+rconPassword = loadDataVariableFromFile(mcFileLocations.get('RconPassword'), False)
 
-with open('text_files/minecraft_server/googleDriveLink.txt', 'r') as file:
-    googleDriveLink = file.read()
+googleDriveLink = loadDataVariableFromFile(mcFileLocations.get('GoogleDrive'), False)
 
-with open('text_files/minecraft_server/modInfo.txt', 'r') as file:
-    serverMods = json.loads(file.read())
+serverMods = loadDataVariableFromFile(mcFileLocations.get('ModInfo'))
 
-with open('text_files/minecraft_server/moai.txt', 'r') as file:
-    moaiLocations = json.loads(file.read())
+moaiLocations = loadDataVariableFromFile(mcFileLocations.get('Moai'))
 
-with open('text_files/minecraft_server/boats.txt', 'r') as file:
-    boatLocations = json.loads(file.read())
-
-dimensions = [
-    {'Name': 'Overworld', 'CmdName': 'minecraft:overworld'}, 
-    {'Name': 'Nether', 'CmdName': 'minecraft:the_nether'}, 
-    {'Name': 'End', 'CmdName': 'minecraft:the_end'},
-    {'Name': 'Anu\'s Lair', 'CmdName': 'fossil:anu_lair'}
-]
+boatLocations = loadDataVariableFromFile(mcFileLocations.get('Boats'))
 
 #region help and setup commands
 async def mcHelp():
@@ -581,13 +567,13 @@ async def mcStart():
     except:
         return 'Failed to start the server!'
 
-async def mcBeginStop():
-    await mcSay(f'The server will shutdown in one minute, prepare yourself!')
+async def mcBeginStop(time=30):
+    await mcSay(f'The server will shutdown in {time} seconds, prepare yourself!')
 
     asyncio.create_task(mcStop())
 
-async def mcStop():
-    await asyncio.sleep(60)
+async def mcStop(time=30):
+    await asyncio.sleep(time)
 
     with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
         rcon.command('stop')
@@ -597,8 +583,8 @@ async def mcRestart():
 
     asyncio.create_task(mcWaitStart())
 
-async def mcWaitStart():
-    await asyncio.sleep(90)
+async def mcWaitStart(time=30):
+    await asyncio.sleep((time+30))
 
     await mcStart()
 

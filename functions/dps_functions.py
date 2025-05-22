@@ -7,7 +7,6 @@ Cole Anderson, Sept 2024
 
 import discord
 import openai
-import json
 import random
 import requests
 import regex as re
@@ -15,26 +14,22 @@ import math
 import copy
 from PIL import Image, ImageDraw
 from io import BytesIO
-from text_files.soul_links.soul_link_dictionaries import types
-from text_files.dps.dps_dictionaries import defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
+from functions.shared_functions import *
+from dictionaries.shared_dictionaries import sharedFileLocations, types
+from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
 
-with open("tokens/openai_key.txt") as file:
-    openai.api_key = file.read()
+openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
 
-with open('text_files/dps/moves.txt', 'r') as file:
-    moves = json.loads(file.read())
+dpsNotes = loadDataVariableFromFile(dpsFileLocations.get('Notes'), False)
 
-with open('text_files/dps/move_changes.txt', 'r') as file:
-    changedMoves = json.loads(file.read())
+moves = loadDataVariableFromFile(dpsFileLocations.get('Moves'))
 
-with open('text_files/dps/pokemon.txt', 'r') as file:
-    loadedMons = json.loads(file.read())
+changedMoves = loadDataVariableFromFile(dpsFileLocations.get('ChangedMoves'))
 
-with open('text_files/soul_links/pokemon.txt', 'r') as file:
-    pokemon = json.loads(file.read())
+loadedMons = loadDataVariableFromFile(dpsFileLocations.get('Pokemon'))
 
-with open('text_files/dps/notes.txt', 'r') as file:
-    dpsNotes = file.read()
+pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
+
 
 #dev command $dps symbol {num}
 async def dpsHelp():
@@ -184,47 +179,19 @@ async def dynamaxModifiers():
     return embeds
 
 #region parsing funcs
-def formatName(mon_name):
-    mon = re.sub(r'\s', '-', str(mon_name).strip().lower())
-    return mon
-
 def checkDuplicateMon(mon_name):
-    mon_name = formatName(mon_name)
+    mon_name = formatTextForBackend(mon_name)
     temp = [obj for obj in loadedMons if obj['Name'] == mon_name]
     if len(temp) >= 1:
         return True
     return False
 
 def checkDuplicateMove(move_name):
-    move_name = formatName(move_name)
+    move_name = formatTextForBackend(move_name)
     temp = [obj for obj in moves if obj['Name'] == move_name]
     if len(temp) >= 1:
         return True
     return False
-
-def getDexNum(mon):
-    mon = formatName(mon)
-    try:
-        return [obj for obj in pokemon if obj['Name'] == mon][0]['DexNum']
-    except:
-        return -1
-
-def formatMoveType(moveType):
-    moveType = moveType.lower()
-    moveType = moveType.capitalize()
-    return moveType
-
-def verifyMoveType(moveType):
-    moveType = formatMoveType(moveType)
-    temp = [obj for obj in types if obj['Name'] == moveType]
-    if len(temp) == 1:
-        return True
-    return False
-
-def formatForDisplay(name):
-    words = re.split(r'[\s-.]+', name)
-    name = ' '.join(word.capitalize() for word in words)
-    return name
 
 def displayDurationChange(oldDuration, newDuration, showChanges):
     if showChanges:
@@ -263,43 +230,9 @@ def getChangedMoveStats(moveName, oldPower, oldEnergy, applyChanges):
                 break
     return power, energy
 
-def getOriginalFromNickname(mon):
-    with open('text_files/soul_links/pokemon.txt', 'r') as file:
-        pokemon = json.loads(file.read())
-        
-    mon = formatName(mon)
-    try:
-        dexNum = [obj for obj in pokemon if obj['Name'] == mon and obj['Nickname']][0]['DexNum']
-        return [obj for obj in pokemon if obj['DexNum'] == dexNum][0]['Name']
-    except:
-        return None
-
 #endregion
 
 #region dps commands
-async def saveDpsData():
-    global moves
-    global loadedMons
-    global dpsNotes
-
-    with open('text_files/dps/moves.txt', 'w') as file:
-        file.write(json.dumps(moves))
-
-    with open('text_files/dps/moves.txt', 'r') as file:
-        moves = json.loads(file.read())
-
-    with open('text_files/dps/pokemon.txt', 'w') as file:
-        file.write(json.dumps(loadedMons))
-
-    with open('text_files/dps/pokemon.txt', 'r') as file:
-        loadedMons = json.loads(file.read())
-
-    with open('text_files/dps/notes.txt', 'w') as file:
-        file.write(dpsNotes)
-
-    with open('text_files/dps/notes.txt', 'r') as file:
-        dpsNotes = file.read()
-
 async def dpsAddMon(monName, attack, defence, stamina):
     if checkDuplicateMon(monName):
         return 'That pokemon is already registered!'
@@ -312,7 +245,7 @@ async def dpsAddMon(monName, attack, defence, stamina):
     if dexNum == -1:
         return f'The pokemon \'{monName}\' was not recognized!'
 
-    monName = formatName(monName)
+    monName = formatTextForBackend(monName)
 
     loadedMons.append({
         'Name': monName,
@@ -323,9 +256,9 @@ async def dpsAddMon(monName, attack, defence, stamina):
         'Moves': []
     })
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
 
-    return 'Mon added successfully!'
+    return f'Pokemon \'{formatTextForDisplay(monName)}\' added successfully!'
 
 async def dpsAddFastMove(moveName, damage, energy, duration, moveType):
     if checkDuplicateMove(moveName):
@@ -337,9 +270,9 @@ async def dpsAddFastMove(moveName, damage, energy, duration, moveType):
     if not verifyMoveType(moveType):
         return f'The entered type {moveType} was not recognized!'
 
-    moveName = formatName(moveName)
+    moveName = formatTextForBackend(moveName)
 
-    moveType = formatMoveType(moveType)
+    moveType = formatCapitalize(moveType)
 
     duration = duration/1000
 
@@ -352,9 +285,9 @@ async def dpsAddFastMove(moveName, damage, energy, duration, moveType):
         'MoveType': moveType
     })
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Moves'), moves)
 
-    return 'Fast move added successfully!'
+    return f'Fast move \'{formatTextForDisplay(moveName)}\' added successfully!'
 
 async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindow, moveType):
     if checkDuplicateMove(moveName):
@@ -369,9 +302,9 @@ async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindo
     if not verifyMoveType(moveType):
         return f'The entered type {moveType} was not recognized!'
     
-    moveName = formatName(moveName)
+    moveName = formatTextForBackend(moveName)
     
-    moveType = formatMoveType(moveType)
+    moveType = formatCapitalize(moveType)
 
     duration = duration/1000
     damageWindow = damageWindow/1000
@@ -386,27 +319,27 @@ async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindo
         'MoveType': moveType
     })
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Moves'), moves)
 
-    return 'Charged move added successfully!'
+    return f'Charged move \'{formatTextForDisplay(moveName)}\' added successfully!'
 
 async def dpsAddMoveset(monName, newMoves):
     if not checkDuplicateMon(monName):
         return 'That pokemon is not registered!'
     
-    mon = [obj for obj in loadedMons if obj['Name'] == formatName(monName)][0]
+    mon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(monName)][0]
 
     output = ''
 
     for move in newMoves:
-        moveName = formatName(move)
+        moveName = formatTextForBackend(move)
 
         if not checkDuplicateMove(move):
-            output += f'The move \'{formatForDisplay(moveName)}\' has not been registered!\n'
+            output += f'The move \'{formatTextForDisplay(moveName)}\' has not been registered!\n'
             continue
 
-        if len([obj for obj in mon['Moves'] if obj['Name'] == formatName(move)]) > 0:
-            output += f'\'{formatForDisplay(moveName)}\' has already been added to {monName}!\n'
+        if len([obj for obj in mon['Moves'] if obj['Name'] == formatTextForBackend(move)]) > 0:
+            output += f'\'{formatTextForDisplay(moveName)}\' has already been added to {formatTextForDisplay(monName)}!\n'
             continue
 
         moveType = [obj for obj in moves if obj['Name'] == moveName][0]['Type']
@@ -416,9 +349,9 @@ async def dpsAddMoveset(monName, newMoves):
             'Type': moveType
         })
 
-        output += f'\'{formatForDisplay(moveName)}\' has been added to {monName}!\n'
+        output += f'\'{formatTextForDisplay(moveName)}\' has been added to {formatTextForDisplay(monName)}!\n'
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return output
 
@@ -426,26 +359,26 @@ async def dpsRemoveMoveset(monName, delMoves):
     if not checkDuplicateMon(monName):
         return 'That pokemon is not registered!'
     
-    mon = [obj for obj in loadedMons if obj['Name'] == formatName(monName)][0]
+    mon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(monName)][0]
 
     output = ''
 
     for move in delMoves:
-        moveName = formatName(move)
+        moveName = formatTextForBackend(move)
 
         if not checkDuplicateMove(move):
-            output += f'The move \'{formatForDisplay(moveName)}\' has not been registered!\n'
+            output += f'The move \'{formatTextForDisplay(moveName)}\' has not been registered!\n'
             continue
 
-        if len([obj for obj in mon['Moves'] if obj['Name'] == formatName(move)]) == 0:
-            output += f'\'{formatForDisplay(moveName)}\' has not been added to {monName} yet!\n'
+        if len([obj for obj in mon['Moves'] if obj['Name'] == formatTextForBackend(move)]) == 0:
+            output += f'\'{formatTextForDisplay(moveName)}\' has not been added to {formatTextForDisplay(monName)} yet!\n'
             continue
 
         mon['Moves'].remove(next(move for move in mon['Moves'] if move['Name'] == moveName))
 
-        output += f'\'{formatForDisplay(moveName)}\' has been removed from {monName}!\n'
+        output += f'\'{formatTextForDisplay(moveName)}\' has been removed from {formatTextForDisplay(monName)}!\n'
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return output
 
@@ -472,7 +405,7 @@ async def listDPSMoves():
     pageCount = 15
     for fastMove in fastMoves:
         if pageCount > 0:
-            moveText += f'{formatForDisplay(fastMove["Name"])}\n'
+            moveText += f'{formatTextForDisplay(fastMove["Name"])}\n'
             dmgEnergyText += f'{fastMove["Damage"]} | {fastMove["Energy"]}\n'
             durationText += f'{fastMove["Duration"]}\n'
             pageCount -= 1
@@ -498,7 +431,7 @@ async def listDPSMoves():
 
     for chargedMove in chargedMoves:
         if pageCount > 0:
-            moveText += f'{formatForDisplay(chargedMove["Name"])}\n'
+            moveText += f'{formatTextForDisplay(chargedMove["Name"])}\n'
             dmgEnergyText += f'{chargedMove["Damage"]} | {chargedMove["Energy"]}\n'
             durationText += f'{chargedMove["Duration"]} | {chargedMove["DamageWindow"]}\n'
             pageCount -= 1
@@ -552,7 +485,7 @@ async def listDPSMoveChanges():
     pageCount = 15
     for move in changedMoves:
         if pageCount > 0:
-            moveText += f'{formatForDisplay(move["Name"])}\n'
+            moveText += f'{formatTextForDisplay(move["Name"])}\n'
             if move['PowerChanged']:
                 dmgText += f'{move["OldPower"]} -> {move["NewPower"]}\n'
             else:
@@ -611,7 +544,7 @@ async def listDPSMons():
     pageCount = 15
     for mon in loadedMons:
         if pageCount > 0:
-            monText += f'{formatForDisplay(mon["Name"])}\n'
+            monText += f'{formatTextForDisplay(mon["Name"])}\n'
             statsText += f'{mon["Attack"]} | {mon["Defence"]} | {mon["Stamina"]}\n'
             pageCount -= 1
         else:
@@ -646,7 +579,7 @@ async def deleteDPSMove(moveName):
     if not checkDuplicateMove(moveName):
         return 'That move is not even registered yet!'
     
-    moveName = formatName(moveName)
+    moveName = formatTextForBackend(moveName)
 
     for mon in loadedMons:
         for move in mon['Moves']:
@@ -659,7 +592,8 @@ async def deleteDPSMove(moveName):
             moves.remove(move)
             break
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Moves'), moves)
+    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return 'Move deleted successfully!'
 
@@ -667,14 +601,14 @@ async def deleteDPSMon(monName):
     if not checkDuplicateMon(monName):
         return 'That pokemon is not even registered yet!'
     
-    monName = formatName(monName)
+    monName = formatTextForBackend(monName)
 
     for mon in loadedMons:
         if mon['Name'] == monName:
             loadedMons.remove(mon)
             break
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return 'Mon deleted successfully!'
 #endregion
@@ -689,7 +623,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
             return errorText, None
     
     if not checkDuplicateMon(monName):
-        baseMonName = getOriginalFromNickname(monName)
+        baseMonName = getOriginalNameFromNickname(monName)
         if baseMonName is not None:
             monName = baseMonName
             if not checkDuplicateMon(monName):
@@ -699,7 +633,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
     
     monTypes = []
 
-    mon = [obj for obj in loadedMons if obj['Name'] == formatName(monName)][0]
+    mon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(monName)][0]
     if mon['ImageDexNum'] >= 0:
         monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{mon["ImageDexNum"]}')
         monData = monData.json()
@@ -725,10 +659,10 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
                 changedIndicator = '★'
         if move['Type'] == 'Fast':
             fastMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
-            fastMovesText += f'{formatForDisplay(move["Name"])}{changedIndicator}, '
+            fastMovesText += f'{formatTextForDisplay(move["Name"])}{changedIndicator}, '
         else:
             chargedMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
-            chargedMovesText += f'{formatForDisplay(move["Name"])}{changedIndicator}, '
+            chargedMovesText += f'{formatTextForDisplay(move["Name"])}{changedIndicator}, '
 
     if len(fastMoves) == 0:
         return 'This pokemon doesn\'t have any fast moves registered to it!', None
@@ -861,10 +795,10 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
     for result in sortedDpsResults:
         if battleSystem == 'raids':
-            moveNameOutput += f'{formatForDisplay(result["FastName"])}{displayDurationChange(result["FastDuration"], result["NewFastDuration"], modifiers["ShowMoveTimings"])} | {formatForDisplay(result["ChargedName"])}{displayDurationChange(result["ChargedDuration"], result["NewChargedDuration"], modifiers["ShowMoveTimings"])}\n'
+            moveNameOutput += f'{formatTextForDisplay(result["FastName"])}{displayDurationChange(result["FastDuration"], result["NewFastDuration"], modifiers["ShowMoveTimings"])} | {formatTextForDisplay(result["ChargedName"])}{displayDurationChange(result["ChargedDuration"], result["NewChargedDuration"], modifiers["ShowMoveTimings"])}\n'
             moveDpsOutput += f'{displayOldDps(roundDPS(result["OldDPS"]), modifiers["ShowOldDps"])}{roundDPS(result["NewDPS"])}\n'
         elif battleSystem == 'dmax':
-            moveNameOutput += f'{formatForDisplay(result["FastName"])} | {formatForDisplay(result["ChargedName"])}\n'
+            moveNameOutput += f'{formatTextForDisplay(result["FastName"])} | {formatTextForDisplay(result["ChargedName"])}\n'
             moveDpsOutput += f'{roundDPS(result["DPS"])}\n'
             if modifiers['ShowCycleDps']:
                 moveTtdOutput += f'{roundDPS(result["TTD"])}s\n'
@@ -932,12 +866,12 @@ def getEmbedTitle(mon, modifiers, battleSystem):
     if modifiers['CycleWillSwap']:
         chargerTxt = '(Charging)'
         gmaxText = ''
-        cycleSwapText = f' and{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatForDisplay(modifiers["CycleSwapMon"]["Name"])}(Max Move) at Lv {str(modifiers["CycleSwapMonLevel"]).rstrip("0").rstrip(".")}'
+        cycleSwapText = f' and{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatTextForDisplay(modifiers["CycleSwapMon"]["Name"])}(Max Move) at Lv {str(modifiers["CycleSwapMonLevel"]).rstrip("0").rstrip(".")}'
 
     if modifiers['CyclePlayers'] > 1:
         playerText = f', with {int(modifiers["CyclePlayers"])} trainers'
 
-    return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}'
+    return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatTextForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}'
 
 def getCalculatedStats(mon, modifiers):
     calculated_stats = []
@@ -960,14 +894,14 @@ async def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
     return maxMoveDamage, totalCycleDps, timeToDmax
 
 async def getEmbedImage(mon, modifiers, embedColour):
-    imageMon = [obj for obj in pokemon if obj['Name'] == formatName(f'{mon["Name"]}{modifiers["GMaxText"]}')]
+    imageMon = [obj for obj in pokemon if obj['Name'] == formatTextForBackend(f'{mon["Name"]}{modifiers["GMaxText"]}')]
     if len(imageMon) > 0:
         imageDexNum = imageMon[0]['DexNum']
     else:
         imageDexNum = mon['ImageDexNum']
 
     if modifiers['CycleWillSwap']:
-        imageCycleMon = [obj for obj in pokemon if obj['Name'] == formatName(f'{modifiers["CycleSwapMon"]["Name"]}{modifiers["GMaxText"]}')]
+        imageCycleMon = [obj for obj in pokemon if obj['Name'] == formatTextForBackend(f'{modifiers["CycleSwapMon"]["Name"]}{modifiers["GMaxText"]}')]
         if len(imageCycleMon) > 0:
             imageCycleDexNum = imageCycleMon[0]['DexNum']
         else:
@@ -1136,7 +1070,7 @@ async def determineModifierValues(extraInputs, battleSystem):
                 bossMon = input[4:]
                 if not checkDuplicateMon(bossMon):
                     raise Exception
-                bossMon = [obj for obj in loadedMons if obj['Name'] == formatName(bossMon)][0]
+                bossMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(bossMon)][0]
                 modifiers['BossAttack'] = bossMon['Attack']
                 modifiers['BossDefence'] = bossMon['Defence']
             except:
@@ -1257,7 +1191,7 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                 swapMon = input[11:]
                 if not checkDuplicateMon(swapMon):
                     raise Exception
-                swapMon = [obj for obj in loadedMons if obj['Name'] == formatName(swapMon)][0]
+                swapMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(swapMon)][0]
                 modifiers['ShowCycleDps'] = True
                 modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
                 modifiers['CycleWillSwap'] = True
@@ -1519,7 +1453,7 @@ async def addDPSNote(note):
 
     dpsNotes += f'{note}\n'
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Notes'), dpsNotes)
 
     return 'Note added successfully!'
 
@@ -1530,57 +1464,32 @@ async def clearDPSNotes():
 
     dpsNotes = ''
 
-    await saveDpsData()
+    await saveAndLoadDataVariable(dpsFileLocations.get('Notes'), dpsNotes)
 
     return noteDeletionMessage[:2000]
 
 async def readDPSNotes(user, userInput):
     rand_num = random.randint(1, 100)
     if rand_num > 95:
-        with open('text_files/chat_gpt_instructions/drunkShuckle.txt', 'r') as file:
-            systemContent = file.read()
+        systemContent = loadShucklePersonality('drunk')
 
-        messages = [
-            {'role':'system', 'content':systemContent},
-            {'role':'user', 'content':f'Here are the notes I, {user} have saved:\n{dpsNotes}'},
-            {'role':'user', 'content':userInput}
-        ]
     elif rand_num > 90:
-        with open('text_files/chat_gpt_instructions/distractedShuckle.txt', 'r') as file:
-            systemContent = file.read()
+        systemContent = loadShucklePersonality('distracted')
 
-        messages = [
-            {'role':'system', 'content':systemContent},
-            {'role':'user', 'content':f'Here are the notes I, {user} have saved:\n{dpsNotes}'},
-            {'role':'user', 'content':userInput}
-        ]
     elif rand_num > 85:
-        with open('text_files/chat_gpt_instructions/hollowShuckle.txt', 'r') as file:
-            systemContent = file.read()
+        systemContent = loadShucklePersonality('hollow')
 
-        messages = [
-            {'role':'system', 'content':systemContent},
-            {'role':'user', 'content':f'Here are the notes I, {user} have saved:\n{dpsNotes}'},
-            {'role':'user', 'content':userInput}
-        ]
     elif rand_num > 75:
-        with open('text_files/chat_gpt_instructions/hauntedShuckle.txt', 'r') as file:
-            systemContent = file.read()
+        systemContent = loadShucklePersonality('haunted')
 
-        messages = [
-            {'role':'system', 'content':systemContent},
-            {'role':'user', 'content':f'Here are the notes I, {user} have saved:\n{dpsNotes}'},
-            {'role':'user', 'content':userInput}
-        ]
     else:
-        with open('text_files/chat_gpt_instructions/smartShuckle.txt', 'r') as file:
-            systemContent = file.read()
+        systemContent = loadShucklePersonality('smart')
 
-        messages = [
-            {'role':'system', 'content':systemContent},
-            {'role':'user', 'content':f'Here are the notes I, {user} have saved:\n{dpsNotes}'},
-            {'role':'user', 'content':userInput}
-        ]  
+    messages = [
+        {'role':'system', 'content':systemContent},
+        {'role':'user', 'content':f'Here are the notes I, {user} have saved:\n{dpsNotes}'},
+        {'role':'user', 'content':userInput}
+    ]  
 
     try:
         response = openai.chat.completions.create(model="gpt-4o-mini", messages = messages, temperature=0.8, max_tokens=500)

@@ -9,12 +9,12 @@ import discord
 import json
 import copy
 from datetime import datetime
+from functions.shared_functions import loadDataVariableFromFile, saveAndLoadDataVariable
+from dictionaries.routes_dictionaries import routesFileLocations
 
-with open('text_files/routes/routes.txt', 'r') as file:
-    routes = json.loads(file.read())
+routes = loadDataVariableFromFile(routesFileLocations.get('Routes'))
 
-with open('text_files/routes/walked_routes.txt', 'r') as file:
-    walkedRoutes = json.loads(file.read())
+walkedRoutes = loadDataVariableFromFile(routesFileLocations.get('WalkedRoutes'))
 
 async def checkStrongestSoldier(user_id, guild):
     user = guild.get_member(user_id)
@@ -68,21 +68,6 @@ def getDirection(direction):
 #end region
 
 #region routes commands
-async def saveRoutesData():
-    global routes
-    global walkedRoutes
-    with open('text_files/routes/routes.txt', 'w') as file:
-        file.write(json.dumps(routes))
-
-    with open('text_files/routes/routes.txt', 'r') as file:
-        routes = json.loads(file.read())
-
-    with open('text_files/routes/walked_routes.txt', 'w') as file:
-        file.write(json.dumps(walkedRoutes))
-        
-    with open('text_files/routes/walked_routes.txt', 'r') as file:
-        walkedRoutes = json.loads(file.read())
-
 async def addRoute(route_name, distance, times_walked, user):
     routes.append({
         'Name': route_name,
@@ -91,7 +76,7 @@ async def addRoute(route_name, distance, times_walked, user):
         'User': user
     })
 
-    await saveRoutesData()
+    await saveAndLoadDataVariable(routesFileLocations.get('Routes'), routes)
 
     return 'Route added successfully!'
 
@@ -102,19 +87,30 @@ async def walkRoute(route_name, distance, direction, cell_count, user):
     if route_data == None:
         return 'The name of the route was invalid, or you were not the one who created this route!'
     
+    currentDate = datetime.now().date().strftime("%Y-%m-%d")
+
     walkedRoutes.append({
         'Name': route_data['Name'],
         'Cells': cell_count,
         'Distance': distance,
         'Direction': direction,
         'BadgeLevel': getBadgeLevel(route_data['TimesWalked'] + 1),
-        'Date': datetime.now().date().strftime("%Y-%m-%d"),
+        'Date': currentDate,
         'User': user
     })
 
     [obj for obj in routes if obj['Name'].lower() == route_name.lower() and obj['User'] == user][0]['TimesWalked'] += 1
 
-    await saveRoutesData()
+    await saveAndLoadDataVariable(routesFileLocations.get('WalkedRoutes'), walkedRoutes)
+
+    todayCellCount = 0
+    todaysRoutes = [obj for obj in walkedRoutes if obj['Date'] == currentDate and obj['User'] == user]
+
+    for route in todaysRoutes:
+        todayCellCount += route['Cells']
+
+    if(todayCellCount == 3):
+        return 'Route logged. Good work out there soldier, Zygarde rewards your efforts!'
 
     return 'Route logged. Continue on soldier.'
 #endregion

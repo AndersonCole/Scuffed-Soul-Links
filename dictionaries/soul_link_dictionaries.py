@@ -1,30 +1,11 @@
-types = [
-    {'Name': 'Normal', 'Colour': 9542306, 'Emoji': '<:_:1187545017695338576>'},
-    {'Name': 'Fighting', 'Colour': 13581929, 'Emoji': '<:_:1187558808915025961>'},
-    {'Name': 'Flying', 'Colour': 9480670, 'Emoji': '<:_:1187558754057723935>'},
-    {'Name': 'Poison', 'Colour': 11299529, 'Emoji': '<:_:1187558708012662907>'},
-    {'Name': 'Ground', 'Colour': 14317636, 'Emoji': '<:_:1187558659639738439>'},
-    {'Name': 'Rock', 'Colour': 13154444, 'Emoji': '<:_:1187558613590495333>'},
-    {'Name': 'Bug', 'Colour': 9552424, 'Emoji': '<:_:1187558577313939456>'},
-    {'Name': 'Ghost', 'Colour': 5335470, 'Emoji': '<:_:1187558536008441916>'},
-    {'Name': 'Steel', 'Colour': 5869474, 'Emoji': '<:_:1187558497836081152>'},
-    {'Name': 'Grass', 'Colour': 6536283, 'Emoji': '<:_:1187558444941717604>'},
-    {'Name': 'Fire', 'Colour': 16751955, 'Emoji': '<:_:1187544873251909674>'},
-    {'Name': 'Water', 'Colour': 5018070, 'Emoji': '<:_:1187558409390784512>'},
-    {'Name': 'Electric', 'Colour': 15979320, 'Emoji': '<:_:1187558371293933568>'},
-    {'Name': 'Psychic', 'Colour': 16347767, 'Emoji': '<:_:1187558330705641532>'},
-    {'Name': 'Ice', 'Colour': 7720897, 'Emoji': '<:_:1187558296824057876>'},
-    {'Name': 'Dragon', 'Colour': 224709, 'Emoji': '<:_:1187558252758708234>'},
-    {'Name': 'Dark', 'Colour': 5919334, 'Emoji': '<:_:1187558208760447066>'},
-    {'Name': 'Fairy', 'Colour': 15569127, 'Emoji': '<:_:1187558167937294346>'},
-    {'Name': '???', 'Colour': 6856848, 'Emoji': '<:_:1187590001970663526>'}
-]
+soulLinksFileLocations = {
+    'Runs': 'text_files/soul_links/runs.txt'
+}
 
-categories = [
-    {'Name': 'Physical', 'Emoji': '<:_:1187586750139351100>'},
-    {'Name': 'Special', 'Emoji': '<:_:1187586794242457703>'},
-    {'Name': 'Status', 'Emoji': '<:_:1187586830539964426>'}
-]
+defaultRun = {
+    'VersionGroup': '',
+    'RunName': '',
+}
 
 gens = [
     {'Name': 1, 'Serebii-Link': '', 'Roman-Numeral': 'I', 'Version-Groups': [{'Name': 'red-blue'}, {'Name': 'yellow'}]},
