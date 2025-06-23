@@ -1046,9 +1046,9 @@ async def determineModifierValues(extraInputs, battleSystem):
         elif input == 'megaboost':
             modifiers['MegaMultiplier'] = activeModifiers.get('MegaMultiplier')
         elif input == 'behemothblade':
-            modifiers['ZacianMultiplier'] = activeModifiers.get('ZacianMultiplier')
+            modifiers['ZacianMultiplier'] = activeModifiers.get('ZacianMultiplier').get(battleSystem)
         elif input == 'behemothbash':
-            modifiers['ZamazentaMultiplier'] = activeModifiers.get('ZamazentaMultiplier')
+            modifiers['ZamazentaMultiplier'] = activeModifiers.get('ZamazentaMultiplier').get(battleSystem)
         elif input.startswith('bossatk'):
             try:
                 atkVal = int(input[7:])

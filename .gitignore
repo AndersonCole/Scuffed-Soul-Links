@@ -1,5 +1,6 @@
 tokens/bot_token.txt
 tokens/openai_key.txt
+tokens/coins.txt
 text_files/soul_links/runs.txt
 text_files/soul_links/pokemon_backup.txt
 text_files/chat_gpt_instructions/*

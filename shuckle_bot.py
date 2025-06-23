@@ -384,7 +384,7 @@ class DiscordClient(discord.Client):
         #endregion
         
         #region pvp
-        elif message.content[0:4] == '$pvp':
+        elif message.content == '$pvp':
             rand_num = random.randint(1, 100)
             if rand_num == 69:
                 await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
@@ -394,6 +394,20 @@ class DiscordClient(discord.Client):
             file = discord.File('images/pvp.png', filename='pvp.png')
 
             await message.channel.send(file=file)
+        #endregion
+
+        #region coins
+        elif message.content == '$coins':
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinyGimmighoul:1386804181670564032>')
+            else: 
+                await message.add_reaction('<:Gimmighoul:1386804101865668658>')
+
+            with open('tokens/coins.txt') as file:
+                link = file.read()
+
+            await message.channel.send(link)
         #endregion
 
         #region mimikyu format
@@ -719,17 +733,14 @@ class DiscordClient(discord.Client):
                     await message.channel.send('The server\'s offline!')
             
             elif input == 'start':
-                if message.author.mention[2:-1] == '341722760852013066' or message.author.mention[2:-1] == '341696864833241090':
-                    if not await serverOnline():
-                        await message.channel.send('Attempting to start server...')
+                if not await serverOnline():
+                    await message.channel.send('Attempting to start server...')
 
-                        response = await mcStart()
+                    response = await mcStart()
 
-                        await message.channel.send(response)
-                    else:
-                        await message.channel.send('The server is already online!')
+                    await message.channel.send(response)
                 else:
-                    await message.channel.send('Get outta here, Anderson only!')
+                    await message.channel.send('The server is already online!')
 
             elif input == 'stop':
                 if message.author.mention[2:-1] == '341722760852013066':
@@ -808,6 +819,6 @@ class DiscordClient(discord.Client):
 
 ## Set up and log in
 client = DiscordClient()
-with open("tokens/bot_token.txt") as file:
+with open('tokens/bot_token.txt') as file:
     token = file.read()
 client.run(token)

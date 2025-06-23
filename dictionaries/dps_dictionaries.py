@@ -119,8 +119,14 @@ activeModifiers = {
     #gives 10 energy, but to dodge into it loses time, therefore 9 energy is a better approx
     'MaxOrbEnergy': 9.0,
 
-    'ZacianMultiplier': 1.2,
-    'ZamazentaMultiplier': 1.2,
+    'ZacianMultiplier': {
+        'raids': 1.1,
+        'dmax': 1.05
+    },
+    'ZamazentaMultiplier': {
+        'raids': 1.1,
+        'dmax': 1.05
+    }
 }
 
 battleTierStats = {
