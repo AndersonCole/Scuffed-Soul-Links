@@ -871,7 +871,7 @@ def getEmbedTitle(mon, modifiers, battleSystem):
     if modifiers['CyclePlayers'] > 1:
         playerText = f', with {int(modifiers["CyclePlayers"])} trainers'
 
-    return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatTextForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}'
+    return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatTextForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}{playerText}'
 
 def getCalculatedStats(mon, modifiers):
     calculated_stats = []
