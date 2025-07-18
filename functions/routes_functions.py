@@ -102,6 +102,7 @@ async def walkRoute(route_name, distance, direction, cell_count, user):
     [obj for obj in routes if obj['Name'].lower() == route_name.lower() and obj['User'] == user][0]['TimesWalked'] += 1
 
     await saveAndLoadDataVariable(routesFileLocations.get('WalkedRoutes'), walkedRoutes)
+    await saveAndLoadDataVariable(routesFileLocations.get('Routes'), routes)
 
     todayCellCount = 0
     todaysRoutes = [obj for obj in walkedRoutes if obj['Date'] == currentDate and obj['User'] == user]
