@@ -158,17 +158,6 @@ def tryAddRunData(run, name_string):
     return True
 #endregion
 
-#region run commands
-'''
-async def saveRunData():
-    global runs
-    with open('text_files/soul_links/runs.txt', 'w') as file:
-        file.write(json.dumps(runs))
-
-    with open('text_files/soul_links/runs.txt', 'r') as file:
-        runs = json.loads(file.read())
-'''
-
 #region $sl new-sl command and createRole func
 async def createNewRun(game, name, players):
     versionGroup = getGroup(game)
@@ -181,10 +170,6 @@ async def createNewRun(game, name, players):
     
     if checkDuplicateName(name):
         return 'The run name has been used before! Use unique names!'
-    
-    dexArray = []
-    for i in range(len(players)):
-        dexArray.append(-1)
 
     teamArray = []
     for i in range(15):
@@ -196,7 +181,7 @@ async def createNewRun(game, name, players):
     for encounter in encounterList:
         encounters.append({
             'Name': encounter,
-            'Pokemon': dexArray,
+            'Pokemon': [-1 for i in players],
             'Completed': False,
             'Alive': True,
             'Death-Reason': ''
