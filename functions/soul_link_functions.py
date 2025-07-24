@@ -881,14 +881,10 @@ async def progressRun():
     if (len([obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"]) - 1) > run['Current-Progress']:
         run['Current-Progress'] += 1
 
-        dex_array = []
-        for i in range(len(run['Players'])):
-            dex_array.append(-1)
-
         for new_encounter in [obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run['Current-Progress']]['Encounters']:
             run['Encounters'].append({
                 'Name': new_encounter,
-                'Pokemon': dex_array,
+                'Pokemon': [-1 for i in run['Players']],
                 'Completed': False,
                 'Alive': True,
                 'Death-Reason': ''

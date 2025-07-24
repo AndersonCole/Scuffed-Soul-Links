@@ -103,16 +103,19 @@ activeModifiers = {
     },
     'MushroomMultiplier': 2.0,
 
+    #4 is exclusive to eternatus' adventure effect
     'MaxMovePower': {
         'dmax': {
             '1': 250,
             '2': 300,
-            '3': 350
+            '3': 350,
+            '4': 450
         },
         'gmax': {
             '1': 350,
             '2': 400,
-            '3': 450
+            '3': 450,
+            '4': 550
         }
     },
 
