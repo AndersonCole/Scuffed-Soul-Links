@@ -1047,8 +1047,16 @@ async def determineModifierValues(extraInputs, battleSystem):
             modifiers['MegaMultiplier'] = activeModifiers.get('MegaMultiplier')
         elif input == 'behemothblade':
             modifiers['ZacianMultiplier'] = activeModifiers.get('ZacianMultiplier').get(battleSystem)
+            if not modifiers['UsingAdventureEffect']:
+                modifiers['UsingAdventureEffect'] = True
+            else:
+                errorText += 'You can only use one adventure effect at a time!'
         elif input == 'behemothbash':
             modifiers['ZamazentaMultiplier'] = activeModifiers.get('ZamazentaMultiplier').get(battleSystem)
+            if not modifiers['UsingAdventureEffect']:
+                modifiers['UsingAdventureEffect'] = True
+            else:
+                errorText += 'You can only use one adventure effect at a time!'
         elif input.startswith('bossatk'):
             try:
                 atkVal = int(input[7:])
@@ -1169,14 +1177,20 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
         elif input == 'mushroomboost':
             modifiers['MushroomMultiplier'] = activeModifiers.get('MushroomMultiplier')
         elif input.startswith('dmax') or input.startswith('gmax'):
-            modifiers['MaxMovePower'] = activeModifiers.get('MaxMovePower', {}).get(input[:4], {}).get(input[4:], None)
-            modifiers['MaxMoveText'] = f'Lv {input[4:]} {input[0].upper()}Max '
+            maxMoveLevel = input[4:]
+            modifiers['MaxMovePower'] = activeModifiers.get('MaxMovePower', {}).get(input[:4], {}).get(maxMoveLevel, None)
+            modifiers['MaxMoveText'] = f'Lv {maxMoveLevel} {input[0].upper()}Max '
             
             if input.startswith('gmax'):
                 modifiers['GMaxText'] = ' Gmax'
 
             if modifiers['MaxMovePower'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid dynamax move level!\n'
+            if maxMoveLevel == '4':
+                if not modifiers['UsingAdventureEffect']:
+                    modifiers['UsingAdventureEffect'] = True
+                else:
+                    errorText += 'You can only use one adventure effect at a time!'
         elif input.startswith('tier'):
             modifiers['BossHealth'] = battleTierStats.get(input[4:], {}).get('dmax', {}).get('bossHealth', None)
             modifiers['CpmMultiplier'] = battleTierStats.get(input[4:], {}).get('dmax', {}).get('cpmMultiplier', None)

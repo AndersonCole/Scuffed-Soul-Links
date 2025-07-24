@@ -40,9 +40,10 @@ defaultModifiers = {
     'PartyPowerMultiplier': 1.0,
     'PowerSpotMultiplier': 1.0,
     'MushroomMultiplier': 1.0,
+
+    'UsingAdventureEffect': False,
     'ZacianMultiplier': 1.0,
     'ZamazentaMultiplier': 1.0,
-
 
     'MaxEffectiveness': 1.0,
     'MaxSTABMultiplier': 1.2,
