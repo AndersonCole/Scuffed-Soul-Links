@@ -117,7 +117,7 @@ async def getSharedModifiers(commandText):
 
     return embed, rand_num
 
-async def dpsModifiers():
+async def raidModifiers():
     sharedEmbed, rand_num = await getSharedModifiers('$dps check Kartana')
 
     embeds = []

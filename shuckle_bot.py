@@ -163,7 +163,7 @@ class DiscordClient(discord.Client):
 
                 await message.channel.send(response)
 
-            elif input[0:10] == 'new-death ':
+            elif input[0:6] == 'death ':
                 if ',' in input:
                     input = re.split(r'[,]+', input[10:])
                     encounter_name = input[0].strip()
@@ -206,7 +206,7 @@ class DiscordClient(discord.Client):
                 else:
                     await message.channel.send('Invalid input! Use commas \',\' in between values!')
 
-            elif input[0:7] == 'battles':
+            elif input[0:11] == 'next-battle':
                 response = await nextBattle()
 
                 await message.channel.send(response)
@@ -221,12 +221,12 @@ class DiscordClient(discord.Client):
 
                 await message.channel.send(response)
 
-            elif input[0:14] == 'create-reason ':
-                response = await createReason(input[14:])
+            elif input[0:12] == 'ask-shuckle ':
+                response = await askShuckle(input[14:])
 
                 await message.channel.send(response)
 
-            elif input[0:11] == 'random-user':
+            elif input[0:6] == 'random':
                 response = await pingUser()
 
                 await message.channel.send(response)
@@ -474,7 +474,7 @@ class DiscordClient(discord.Client):
                 await message.channel.send(file=file, embed=embed)
             
             elif input == 'modifiers':
-                embeds = await dpsModifiers()
+                embeds = await raidModifiers()
                 if(type(embeds) == type('')):
                     await message.channel.send(embeds)
                 else:

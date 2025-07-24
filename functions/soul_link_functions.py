@@ -44,13 +44,13 @@ async def help():
                                       '```$sl link-data Bulbasaur``` Gives you information about the link for the specified mon you own\n' +
                                       '```$sl link-data Starter``` Gives you information about the link for the area it was encountered\n' +
                                       '```$sl evolve Bulbasaur``` Evolves a pokemon you own\n' +
-                                      '```$sl new-death Starter, Metronome explosion :(``` Removes the link from the active links\n' +
+                                      '```$sl death Starter, Metronome explosion :(``` Removes the link from the active links\n' +
                                       '```$sl deaths``` Lists out all the dead links, and cause of death\n' +
-                                      '```$sl create-reason It was Nate\'s fault the starters died``` Explain the situation, and an excuse for the cause of death will be generated\n' +
+                                      '```$sl ask-shuckle It was Nate\'s fault the starters died``` Explain the situation, and an excuse for the cause of death will be generated\n' +
                                       '```$sl encounters``` Lists out all the areas where mons can be encountered\n' +
                                       '```$sl choose-team Bulbasaur, Groudon, Kyogre...``` Selects a team for the next important battle. Matches mons to links. Not required\n' +
-                                      '```$sl random-user``` @\'s a random user participating in the run\n' +
-                                      '```$sl battles``` Lists out the next important battle and its level caps\n' +
+                                      '```$sl random``` @\'s a random player participating in the run\n' +
+                                      '```$sl next-battle``` Lists out the next important battle and its level cap\n' +
                                       '```$sl progress``` Moves the runs progress past the next important battle\n' +
                                       '```$sl add-note REM sleep is trendy!``` Adds a note to the run, highlighting funny events or whatnot\n' +
                                       '```$sl select-run HGAttempt1``` Selects a run to focus on\n' +
@@ -620,7 +620,7 @@ async def undoEvolveMon(mon_name, player):
     return f'Your {mon_name} from {encounter_data["Name"]} unevolved back into a {pre_evo_mon["Name"]}!'
 #endregion
 
-#region $sl new-death and undo-death command
+#region $sl death and undo-death command
 async def newDeath(encounter_name, reason):
     run = getRun(currentRun['RunName'])
 
@@ -665,8 +665,8 @@ async def undoDeath(encounter_name):
 
 #endregion
 
-#region $sl create-reason command
-async def createReason(user_input):
+#region $sl ask-shuckle command
+async def askShuckle(user_input):
     rand_num = random.randint(1, 100)
     if rand_num > 90:
         systemContent = loadShucklePersonality('merry')
@@ -858,10 +858,10 @@ async def chooseTeam(links, player):
 
     await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'Team successfully set for the upcoming battle with {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run["Current-Progress"]]["Battle-Name"]}. Use the $sl random-user command if you want to randomly decide who starts the battle first!'
+    return f'Team successfully set for the upcoming battle with {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run["Current-Progress"]]["Battle-Name"]}. {pingUser()} gets to go first.\nUse the $sl random command if you want to reroll who starts the battle first!'
 #endregion
 
-#region $sl battles command
+#region $sl next-battle command
 async def nextBattle():
     run = getRun(currentRun['RunName'])
 
@@ -897,7 +897,7 @@ async def progressRun():
     return 'The run was successfully advanced! New encounters are available! Surely nobody threw too hard in that last battle...'
 #endregion
 
-#region $sl random-user command
+#region $sl random command
 async def pingUser():
     run = getRun(currentRun['RunName'])
 
