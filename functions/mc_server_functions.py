@@ -15,8 +15,8 @@ import math
 import copy
 import requests
 from mcrcon import MCRcon
-from functions.shared_functions import loadDataVariableFromFile
-from dictionaries.mc_dictionaries import dimensions, mcFileLocations
+from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
+from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths
 
 serverIp = loadDataVariableFromFile(mcFileLocations.get('ServerIp'), False)
 
@@ -130,9 +130,9 @@ async def mcSetup():
                             color=14914576)
     
     if rand_num == 69:
-        embed.set_thumbnail(url='https://i.imgur.com/Np0NjY2.png')
+        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
     else:
-        embed.set_thumbnail(url='https://i.imgur.com/oC02eDj.png')
+        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
 
     embeds.append(copy.deepcopy(embed))
 
@@ -168,9 +168,9 @@ async def mcSetup():
                             color=14914576)
     
     if rand_num == 69:
-        embed.set_thumbnail(url='https://i.imgur.com/Np0NjY2.png')
+        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
     else:
-        embed.set_thumbnail(url='https://i.imgur.com/oC02eDj.png')
+        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
 
     embeds.append(embed)
 
@@ -548,7 +548,8 @@ async def mcLoot(structure, location):
     else:
         return f'I don\'t know what a \'{structure}\' is!'
 
-    await saveStructureData()
+    await saveDataVariableToFile(mcFileLocations.get('Moai'), moaiLocations)
+    await saveDataVariableToFile(mcFileLocations.get('Boats'), boatLocations)
 
     return 'Structure marked as looted!'
 

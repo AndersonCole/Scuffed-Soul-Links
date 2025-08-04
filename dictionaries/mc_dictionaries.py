@@ -10,6 +10,11 @@ mcFileLocations = {
     'Boats': 'text_files/minecraft_server/boats.txt'
 }
 
+mcImagePaths = {
+    'AmberShuckle': 'https://i.imgur.com/oC02eDj.png',
+    'ShinyAmberShuckle': 'https://i.imgur.com/Np0NjY2.png'
+}
+
 dimensions = [
     {'Name': 'Overworld', 'CmdName': 'minecraft:overworld'}, 
     {'Name': 'Nether', 'CmdName': 'minecraft:the_nether'}, 

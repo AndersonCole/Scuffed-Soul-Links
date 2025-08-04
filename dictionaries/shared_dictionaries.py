@@ -3,6 +3,11 @@ sharedFileLocations = {
     'Pokemon': 'text_files/shared/pokemon.txt'
 }
 
+sharedImagePaths = {
+    'Shuckle': 'https://i.imgur.com/N4RHrVQ.png',
+    'ShinyShuckle': 'https://i.imgur.com/vwke1vY.png'
+}
+
 types = [
     {'Name': 'Normal', 'Colour': 9542306, 'Emoji': '<:_:1187545017695338576>', 'TypeChart': {
                                                                                                 'Attacking': {

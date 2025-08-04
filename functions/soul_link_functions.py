@@ -19,7 +19,7 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from io import BytesIO
 from functions.shared_functions import *
-from dictionaries.shared_dictionaries import sharedFileLocations, types, categories
+from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, types, categories
 from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
@@ -202,7 +202,7 @@ async def createNewRun(game, name, players):
     currentRun['VersionGroup'] = versionGroup
     currentRun['RunName'] = name
 
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return 'Success'
 
@@ -269,7 +269,7 @@ async def encounterMon(encounter_name, encounter, player):
     if all(num != -1 for num in encounter_data['Pokemon']):
         encounter_data['Completed'] = True
     
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return f'{encounter} successfully added for {player} for {encounter_name}!'
     
@@ -314,7 +314,7 @@ async def encounterMonGroup(encounter_name, encounters):
     if all(num != -1 for num in encounter_data['Pokemon']):
         encounter_data['Completed'] = True
     
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return response_string
 
@@ -580,7 +580,7 @@ async def evolveMon(mon_name, player):
 
     encounter_data['Pokemon'][player_index] = evo_mon['DexNum']
 
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return f'Your {mon_name} from {encounter_data["Name"]} has evolved into a {evo_mon["Name"]}!\nIf this was a mistake, use $sl undo-evolve {evo_mon["Name"]}\nIf this is not the correct evolution, use $sl encounter {encounter_data["Name"]}, evo-name-here'
 
@@ -615,7 +615,7 @@ async def undoEvolveMon(mon_name, player):
 
     encounter_data['Pokemon'][player_index] = pre_evo_mon['DexNum']
 
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return f'Your {mon_name} from {encounter_data["Name"]} unevolved back into a {pre_evo_mon["Name"]}!'
 #endregion
@@ -638,7 +638,7 @@ async def newDeath(encounter_name, reason):
     encounter_data['Alive'] = False
     encounter_data['Death-Reason'] = reason
 
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return f'The encounter from {encounter_name} has been marked as dead! If this was a mistake, use $sl undo-death {encounter_name}'
 
@@ -659,7 +659,7 @@ async def undoDeath(encounter_name):
     encounter_data['Alive'] = True
     encounter_data['Death-Reason'] = ''
 
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return f'The encounter from {encounter_name} has been revived!'
 
@@ -773,9 +773,9 @@ async def listRuns():
     
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='https://i.imgur.com/vwke1vY.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
     else: 
-        embed.set_thumbnail(url='https://i.imgur.com/N4RHrVQ.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
     
     name_string = ''
     status_string = ''
@@ -856,9 +856,11 @@ async def chooseTeam(links, player):
     
     run['Teams'][run['Current-Progress']] = encounter_data
 
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'Team successfully set for the upcoming battle with {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run["Current-Progress"]]["Battle-Name"]}. {pingUser()} gets to go first.\nUse the $sl random command if you want to reroll who starts the battle first!'
+    randomUser = await pingUser()
+
+    return f'Team successfully set for the upcoming battle with {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run["Current-Progress"]]["Battle-Name"]}. {randomUser} gets to go first.\nUse the $sl random command if you want to reroll who starts the battle first!'
 #endregion
 
 #region $sl next-battle command
@@ -892,7 +894,7 @@ async def progressRun():
     else:
         return 'We\'re already in the end-game!'
     
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return 'The run was successfully advanced! New encounters are available! Surely nobody threw too hard in that last battle...'
 #endregion
@@ -917,12 +919,12 @@ async def addNote(note):
     if run is None:
         return 'Specify a run first!'
     
-    if len(note) > 100:
-        return 'Keep the notes short. Less than 100 characters.'
+    if len(note) > 250:
+        return 'Keep the notes short. Less than 250 characters.'
     
     run['Run-Notes'] += f'{note}\n'
 
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return f'Note successfully added to {run["Name"]}'
 #endregion
@@ -1023,7 +1025,7 @@ async def setRunStatus(status, guild):
 
     run['Run-Status'] = status
     
-    await saveAndLoadDataVariable(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     return f'The runs status was set to {status}! If this was a mistake, use $sl undo-status!'
 
@@ -1483,9 +1485,9 @@ async def makeRareCandiesEmbed():
     
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='https://i.imgur.com/vwke1vY.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
     else: 
-        embed.set_thumbnail(url='https://i.imgur.com/N4RHrVQ.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
     
     embed.add_field(name='For DeSmuME DS Emulator',
                     value=  '\nEven though I\'ve had 151 beers, I remember how to use PKHex to get infinite rare candies... even the shadow people think you\'re a fraud!\n\n' +
@@ -1603,7 +1605,7 @@ async def addNickname(nickname, originalName):
         'Evolves-From': mon['Evolves-From']
     })
 
-    await saveAndLoadDataVariable(sharedFileLocations.get('Pokemon'), pokemon)
+    await saveDataVariableToFile(sharedFileLocations.get('Pokemon'), pokemon)
 
     return f'Nickname \'{nickname}\' successfully added for {mon["Name"]}'
 

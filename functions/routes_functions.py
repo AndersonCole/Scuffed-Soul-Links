@@ -9,8 +9,8 @@ import discord
 import json
 import copy
 from datetime import datetime
-from functions.shared_functions import loadDataVariableFromFile, saveAndLoadDataVariable
-from dictionaries.routes_dictionaries import routesFileLocations
+from functions.shared_functions import *
+from dictionaries.routes_dictionaries import routesFileLocations, routesImagePaths
 
 routes = loadDataVariableFromFile(routesFileLocations.get('Routes'))
 
@@ -53,7 +53,7 @@ def getBadgeLevel(count):
     elif count >= 5:
         return 'Bronze'
     else:
-        return 'None'
+        return 'No'
 
 def getCellPercentage(times_walked, cell_count):
     try:
@@ -76,7 +76,7 @@ async def addRoute(route_name, distance, times_walked, user):
         'User': user
     })
 
-    await saveAndLoadDataVariable(routesFileLocations.get('Routes'), routes)
+    await saveDataVariableToFile(routesFileLocations.get('Routes'), routes)
 
     return 'Route added successfully!'
 
@@ -101,8 +101,8 @@ async def walkRoute(route_name, distance, direction, cell_count, user):
 
     [obj for obj in routes if obj['Name'].lower() == route_name.lower() and obj['User'] == user][0]['TimesWalked'] += 1
 
-    await saveAndLoadDataVariable(routesFileLocations.get('WalkedRoutes'), walkedRoutes)
-    await saveAndLoadDataVariable(routesFileLocations.get('Routes'), routes)
+    await saveDataVariableToFile(routesFileLocations.get('WalkedRoutes'), walkedRoutes)
+    await saveDataVariableToFile(routesFileLocations.get('Routes'), routes)
 
     todayCellCount = 0
     todaysRoutes = [obj for obj in walkedRoutes if obj['Date'] == currentDate and obj['User'] == user]
@@ -229,14 +229,7 @@ async def printoutRoutes(user):
             
             badge = getBadgeLevel(route['TimesWalked'])
 
-            if badge == 'Bronze':
-                embed.set_thumbnail(url='https://i.imgur.com/6ml8tPH.png')
-            elif badge == 'Silver':
-                embed.set_thumbnail(url='https://i.imgur.com/UQVgqzX.png')
-            elif badge == 'Gold':
-                embed.set_thumbnail(url='https://i.imgur.com/fOtlgwX.png')
-            else:
-                embed.set_thumbnail(url='https://i.imgur.com/NlaviUg.png')
+            embed.set_thumbnail(url=routesImagePaths.get(f'{badge}Badge'))
 
             embeds.append(copy.deepcopy(embed))
 

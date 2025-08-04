@@ -165,7 +165,7 @@ class DiscordClient(discord.Client):
 
             elif input[0:6] == 'death ':
                 if ',' in input:
-                    input = re.split(r'[,]+', input[10:])
+                    input = re.split(r'[,]+', input[6:])
                     encounter_name = input[0].strip()
                     input.pop(0)
 
@@ -222,7 +222,7 @@ class DiscordClient(discord.Client):
                 await message.channel.send(response)
 
             elif input[0:12] == 'ask-shuckle ':
-                response = await askShuckle(input[14:])
+                response = await askShuckle(input[12:])
 
                 await message.channel.send(response)
 

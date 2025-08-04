@@ -15,7 +15,7 @@ import copy
 from PIL import Image, ImageDraw
 from io import BytesIO
 from functions.shared_functions import *
-from dictionaries.shared_dictionaries import sharedFileLocations, types
+from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
@@ -111,9 +111,9 @@ async def getSharedModifiers(commandText):
 
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='https://i.imgur.com/vwke1vY.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
     else: 
-        embed.set_thumbnail(url='https://i.imgur.com/N4RHrVQ.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
 
     return embed, rand_num
 
@@ -135,9 +135,9 @@ async def raidModifiers():
                             color=3553598)
 
     if rand_num == 69:
-        embed.set_thumbnail(url='https://i.imgur.com/vwke1vY.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
     else:
-        embed.set_thumbnail(url='https://i.imgur.com/N4RHrVQ.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
 
     embeds.append(embed)
 
@@ -170,9 +170,9 @@ async def dynamaxModifiers():
                             color=3553598)
 
     if rand_num == 69:
-        embed.set_thumbnail(url='https://i.imgur.com/vwke1vY.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
     else:
-        embed.set_thumbnail(url='https://i.imgur.com/N4RHrVQ.png')
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
 
     embeds.append(embed)
 
@@ -256,7 +256,7 @@ async def dpsAddMon(monName, attack, defence, stamina):
         'Moves': []
     })
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
+    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return f'Pokemon \'{formatTextForDisplay(monName)}\' added successfully!'
 
@@ -285,7 +285,7 @@ async def dpsAddFastMove(moveName, damage, energy, duration, moveType):
         'MoveType': moveType
     })
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Moves'), moves)
+    await saveDataVariableToFile(dpsFileLocations.get('Moves'), moves)
 
     return f'Fast move \'{formatTextForDisplay(moveName)}\' added successfully!'
 
@@ -319,7 +319,7 @@ async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindo
         'MoveType': moveType
     })
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Moves'), moves)
+    await saveDataVariableToFile(dpsFileLocations.get('Moves'), moves)
 
     return f'Charged move \'{formatTextForDisplay(moveName)}\' added successfully!'
 
@@ -351,7 +351,7 @@ async def dpsAddMoveset(monName, newMoves):
 
         output += f'\'{formatTextForDisplay(moveName)}\' has been added to {formatTextForDisplay(monName)}!\n'
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
+    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return output
 
@@ -378,7 +378,7 @@ async def dpsRemoveMoveset(monName, delMoves):
 
         output += f'\'{formatTextForDisplay(moveName)}\' has been removed from {formatTextForDisplay(monName)}!\n'
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
+    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return output
 
@@ -592,8 +592,8 @@ async def deleteDPSMove(moveName):
             moves.remove(move)
             break
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Moves'), moves)
-    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
+    await saveDataVariableToFile(dpsFileLocations.get('Moves'), moves)
+    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return 'Move deleted successfully!'
 
@@ -608,7 +608,7 @@ async def deleteDPSMon(monName):
             loadedMons.remove(mon)
             break
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Pokemon'), loadedMons)
+    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
 
     return 'Mon deleted successfully!'
 #endregion
@@ -1467,7 +1467,7 @@ async def addDPSNote(note):
 
     dpsNotes += f'{note}\n'
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Notes'), dpsNotes)
+    await saveDataVariableToFile(dpsFileLocations.get('Notes'), dpsNotes)
 
     return 'Note added successfully!'
 
@@ -1478,7 +1478,7 @@ async def clearDPSNotes():
 
     dpsNotes = ''
 
-    await saveAndLoadDataVariable(dpsFileLocations.get('Notes'), dpsNotes)
+    await saveDataVariableToFile(dpsFileLocations.get('Notes'), dpsNotes)
 
     return noteDeletionMessage[:2000]
 
