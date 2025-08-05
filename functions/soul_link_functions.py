@@ -171,10 +171,6 @@ async def createNewRun(game, name, players):
     if checkDuplicateName(name):
         return 'The run name has been used before! Use unique names!'
 
-    teamArray = []
-    for i in range(15):
-        teamArray.append([])
-
     encounters = []
     encounterList = [obj for obj in games if obj['Name'] == versionGroup][0]['Progression'][0]['Encounters']
 
@@ -195,7 +191,7 @@ async def createNewRun(game, name, players):
         'Players': players,
         'Encounters': encounters,
         'Run-Status': 'In Progress',
-        'Teams': teamArray,
+        'Teams': [[]],
         'Run-Notes': ''
     })
 
@@ -848,7 +844,7 @@ async def chooseTeam(links, player):
 
         if len(encounter_link) > 0: 
             try:
-                encounter_data.append([obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == link and obj['Completed'] and obj['Alive']][0])
+                encounter_data.append(copy.deepcopy([obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == link and obj['Completed'] and obj['Alive']][0]['Pokemon']))
             except:
                 return f'{temp_link} was not paired to a completed or alive link! Some fraud needs to mark their encounters or deaths!'
         else:
@@ -882,6 +878,8 @@ async def progressRun():
     
     if (len([obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"]) - 1) > run['Current-Progress']:
         run['Current-Progress'] += 1
+
+        run['Teams'].append([])
 
         for new_encounter in [obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run['Current-Progress']]['Encounters']:
             run['Encounters'].append({
@@ -972,11 +970,11 @@ async def seeStats():
         
         if len(run['Teams'][progress_index]) > 0:
             for encounter in run['Teams'][progress_index]:
-                for index, dex_num in enumerate(encounter['Pokemon']):
+                for index, dex_num in enumerate(encounter):
                     mon_name = getMonName(dex_num)
                     if mon_name is None:
                         mon_name = 'Invalid Name'
-                    if index == len(encounter['Pokemon']) - 1:
+                    if index == len(encounter) - 1:
                         link_string += f'{mon_name}\n'
                     else:
                         link_string += f'{mon_name}{link_emoji}'

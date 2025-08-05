@@ -411,7 +411,7 @@ class DiscordClient(discord.Client):
         #endregion
 
         #region mimikyu format
-        elif message.content[0:8] == "$format ":
+        elif message.content[0:8] == '$format ':
             input = message.content[8:]
             try:
                 if input == 'help':
@@ -419,10 +419,8 @@ class DiscordClient(discord.Client):
                 
                 if ',' in input:
                     input = str(input).split(",")
-                    name = str(input[0]).strip()
-                    next_name = str(input[1]).strip()
-                    level_cap = int(input[2])
-                    input.pop(0)
+                    battle_name = str(input[0]).strip()
+                    level_cap = int(input[1])
                     input.pop(0)
                     input.pop(0)
                     encounters = []
@@ -438,12 +436,12 @@ class DiscordClient(discord.Client):
                         else:
                             encounters_text += f'\'{encounter}\', '
                         
-                    await message.channel.send('{' + f'\'Stage\': , \'Name\': \'{name}\', \'Battle-Name\': \'{next_name}\', \'Level-Cap\': {level_cap}, \'Encounters\': {encounters_text}' + '}')
+                    await message.channel.send('{' + f'\'Stage\': , \'Battle-Name\': \'{battle_name}\', \'Level-Cap\': {level_cap}, \'Encounters\': {encounters_text}' + '}')
                     await message.delete()
                 else:
                     raise Exception()
             except:
-                await message.channel.send("Mimikyu Lives On! But... you've still learned nothing and went and fucked something up.\n Only send messages like this ```$format Gym 1, Misty, 20, Route 3, Route 4``` In this order, Name of the previous battle ex. Gym 1, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
+                await message.channel.send("Mimikyu Lives On! But... you've still learned nothing and went and fucked something up.\n Only send messages like this ```$format Misty, 20, Route 3, Route 4``` In this order, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, encounters before the next battle.")
         #endregion
 
         #region mudae

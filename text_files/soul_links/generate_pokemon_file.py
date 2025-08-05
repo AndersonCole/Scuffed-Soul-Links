@@ -303,11 +303,26 @@ def showPokemonWithMultipleEvos():
         file.write(json.dumps(pokemon))
 
 
-            
+def fixRunTeams():
+    with open('text_files/soul_links/runs.txt', 'r') as file:
+        runs = json.loads(file.read())  
+
+    for run in runs:
+        for team in run['Teams']:
+            try:
+                for i, member in enumerate(team):
+                    team[i] = member['Pokemon']
+            except Exception as ex:
+                continue
+
+    with open('text_files/soul_links/runs.txt', 'w') as file:
+        file.write(json.dumps(runs))
+
 
 #generate_pokemon()
 
-fixEvolvesInto()
+fixRunTeams()
+#fixEvolvesInto()
 #showPokemonWithMultipleEvos()
 
 #with open('pokemon.txt', 'w') as file:
