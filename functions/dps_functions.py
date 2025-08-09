@@ -839,7 +839,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
                             value=moveEpsOutput,
                             inline=True)
         
-        embed.description += f'\n\n{modifiers["MaxMoveText"]} Move Damage: {roundDPS(maxMoveDamage)} dmg'
+        embed.description += f'\n\n{modifiers["MaxMoveText"]}Move Damage: {roundDPS(maxMoveDamage)} dmg'
 
     embed.description += f'\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}'
 

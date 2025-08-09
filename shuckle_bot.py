@@ -10,6 +10,7 @@ import regex as re
 from functions.soul_link_functions import *
 from functions.routes_functions import *
 from functions.dps_functions import *
+from functions.pogo_events_functions import *
 from functions.mc_server_functions import *
 import Paginator
 
@@ -651,6 +652,29 @@ class DiscordClient(discord.Client):
                 await message.channel.send('I don\'t know wtf you\'re trying to input!')
         #endregion
         
+        #region pogo events
+        elif message.content[:6] == '$pogo ':
+            rand_num = random.randint(1, 100)
+            if rand_num == 69:
+                await message.add_reaction('<:ShinySwoleShuckle:1188674339260878941>')
+            else: 
+                await message.add_reaction('<:SwoleShuckle:1187641763960205392>')
+
+            input = message.content[6:]
+
+            if input == 'help':
+                embed, file = await eventsHelp()
+                await message.channel.send(file=file, embed=embed)
+
+            else:
+                embeds = await createEventsEmbeds(input)
+                if(type(embeds) == type('')):
+                    await message.channel.send(embeds)
+                else:
+                    await Paginator.Simple().start(message.channel, pages=embeds)
+
+        #endregion
+
         #region minecraft server
         elif message.content[0:4] == '$mc ':
             rand_num = random.randint(1, 100)
