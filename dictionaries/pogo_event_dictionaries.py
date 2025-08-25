@@ -19,6 +19,11 @@ eventColours = {
     'gbl': 3759832,
 }
 
+timezones = {
+    'NZ': 'Pacific/Auckland',
+    'Hawaii': 'Pacific/Honolulu'
+}
+
 filterLists = {
     'events': ['event', 'community-day', 'pokemon-go-fest', 'pokemon-go-tour', 'raid-day', 'raid-weekend'],
     'commdays': ['community-day'],

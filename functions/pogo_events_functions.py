@@ -9,8 +9,9 @@ import requests
 import copy
 import random
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from dictionaries.shared_dictionaries import sharedImagePaths
-from dictionaries.pogo_event_dictionaries import eventColours, filterLists
+from dictionaries.pogo_event_dictionaries import eventColours, filterLists, timezones
 from functions.shared_functions import formatTextForDisplay
 
 #region help command
@@ -67,6 +68,14 @@ def formatTimeForDisplay(time):
 
     return f'{time.strftime("%A, %B %d, %Y %I:%M %p")}'
 
+def formatTimeZoneForDisplay(time, timezone):
+    time = datetime.strptime(time, getDateTimeFormatString())
+    time = time.replace(tzinfo=ZoneInfo(timezone))
+
+    epochTime = int(time.timestamp())
+
+    return f'<t:{epochTime}:F>'
+
 def formatEventDates(start, end):
     if start.endswith('Z'):
         start = start[:-1]
@@ -83,10 +92,14 @@ def doubleSpacing(length):
     return ''
 
 async def createEventsEmbeds(filterFor):
-    events = await retrieveEventsFromAPI(filterLists.get(filterFor.lower().strip()))
+    filterList = filterLists.get(filterFor.lower().strip(), None)
+    if filterList is None:
+        return 'I don\'t understand what events you\'re trying to get info on!\n\nCheck `$pogo help` to see all valid searches!'
+    
+    events = await retrieveEventsFromAPI(filterList)
 
     if len(events) == 0:
-        return 'I don\'t understand what events you\'re trying to get info on!'
+        return 'There was no data on the requested events!'
     
     embeds = []
     
@@ -107,15 +120,17 @@ async def createEventsEmbeds(filterFor):
     embeds.append(firstEmbed)
 
     eventNames = ''
-    eventTimes = ''
+    eventDates = ''
 
     for event in events:
         eventNames += f'{event["name"]}\n'
-        eventTimes += f'{formatEventDates(event["start"], event["end"])}\n{doubleSpacing(len(event["name"]))}'
+        eventDates += f'{formatEventDates(event["start"], event["end"])}\n{doubleSpacing(len(event["name"]))}'
 
         embed.title = event["name"]
 
         embed.description = f'Start Time: {formatTimeForDisplay(event["start"])}\nEnd Time: {formatTimeForDisplay(event["end"])}'
+        if not event['start'].endswith('Z'):
+            embed.description += f'\n\nNZ Start Time: {formatTimeZoneForDisplay(event["start"], timezones.get("NZ"))}\nHawaii End Time: {formatTimeZoneForDisplay(event["end"], timezones.get("Hawaii"))}'
 
         embed.colour = eventColours.get(event['eventType'], 3553598)
 
@@ -130,8 +145,8 @@ async def createEventsEmbeds(filterFor):
     firstEmbed.add_field(name='Event Name',
                          value=eventNames)
     
-    firstEmbed.add_field(name='Event Times',
-                         value=eventTimes)
+    firstEmbed.add_field(name='Event Dates',
+                         value=eventDates)
 
     return embeds
     
