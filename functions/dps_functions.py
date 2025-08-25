@@ -864,10 +864,14 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
 def getEmbedTitle(mon, modifiers, battleSystem):
     titleStart = ''
-    gmaxText = modifiers['GMaxText']
     chargerTxt = ''
     cycleSwapText = ''
     playerText = ''
+
+    if mon['Name'] == 'eternatus':
+        gmaxText = ''
+    else:
+        gmaxText = modifiers['GMaxText']
 
     if battleSystem == 'dmax':
         titleStart = 'Max '
