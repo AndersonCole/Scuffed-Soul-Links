@@ -97,8 +97,8 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, FriendBoost``` FriendBoost: Adds a 1.1x boost to all attacks\n' +
                                         f'```{commandText}, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to all attacks\n' +
                                         f'```{commandText}, MegaBoost``` MegaBoost: Adds a 1.3x boost to all attacks\n' +
-                                        f'```{commandText}, BehemothBlade``` BehemothBlade: Adds a 1.2x boost to all attacks\n' +
-                                        f'```{commandText}, BehemothBash``` BehemothBash: Adds a 1.2x boost to your defence\n\n' +
+                                        f'```{commandText}, BehemothBlade``` BehemothBlade: Adds a boost to all attacks\n' +
+                                        f'```{commandText}, BehemothBash``` BehemothBash: Adds a boost to your defence\n\n' +
                                         f'```{commandText}, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
                                         f'```{commandText}, BossDef70``` BossDef: Sets the enemy boss defence to the specified value. The default is 70\n' +
                                         f'```{commandText}, BossKyogre``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
@@ -125,7 +125,7 @@ async def raidModifiers():
     embeds.append(sharedEmbed)
 
     embed = discord.Embed(title='Shuckles PoGo Raid Specific Modifiers',
-                            description='```$dps check Kartana, PartyPower1``` PartyPower: Applies the party power boost at the specified rate\n1 = Every charged move, 2 = Every other, 3 = Every third, etc\n' +
+                            description='```$dps check Kartana, PartySize2``` PartySize: Calculates the party power boost based on the trainers in the party.\n2 = Every 18 Attacks, 3 = Every 10 Attacks, 4 = Every 3 Attacks\n' +
                                         '```$dps check Kartana, ShowMoveTimings``` ShowMoveTimings: Shows the timing difference when the moves got rounded to the nearest 0.5s\n' +
                                         '```$dps check Kartana, ShowMoveChanges``` ShowMoveChanges: Adds a star beside the moves that were changed in the Oct 2024 re-balance\n' +
                                         '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n' +
@@ -229,6 +229,20 @@ def getChangedMoveStats(moveName, oldPower, oldEnergy, applyChanges):
                     energy = move['NewEnergy']
                 break
     return power, energy
+
+async def getMonTypes(dexNum):
+    monTypes = []
+
+    if dexNum >= 0:
+        monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+        monData = monData.json()
+        monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
+        if len(monData['types']) > 1:
+            monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
+    else:
+        monTypes.append('???')
+
+    return monTypes
 
 #endregion
 
@@ -631,19 +645,12 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
         else:
             return 'That pokemon is not registered!', None
     
-    monTypes = []
-
     mon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(monName)][0]
-    if mon['ImageDexNum'] >= 0:
-        monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{mon["ImageDexNum"]}')
-        monData = monData.json()
-        monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
-        if len(monData['types']) > 1:
-            monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
-        embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
-    else:
-        monTypes.append('???')
-        embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
+
+    monTypes = await getMonTypes(mon['ImageDexNum'])
+    bossTypes = await getMonTypes(modifiers['BossDexNum'])
+
+    embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
 
     calculated_stats = getCalculatedStats(mon, modifiers)
 
@@ -696,6 +703,9 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
             else:
                 modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
 
+        if modifiers['CalculateFastEffectiveness']:
+            modifiers['FastEffectiveness'] = calculateMoveEffectiveness(fastMove['MoveType'], bossTypes)
+
         newFastMove = await calcRoundedFastMoves(copiedFastMove)
 
         if battleSystem == 'dmax' and modifiers['SimFastAlone']:
@@ -731,6 +741,9 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
                     modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
                 else:
                     modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
+
+            if modifiers['CalculateChargedEffectiveness']:
+                modifiers['ChargedEffectiveness'] = calculateMoveEffectiveness(chargedMove['MoveType'], bossTypes)
 
             newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
             
@@ -1017,6 +1030,7 @@ async def determineModifierValues(extraInputs, battleSystem):
                 if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['FastEffectiveness'] = val
+                modifiers['CalculateFastEffectiveness'] = False
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif input.startswith('chargedeffective'):
@@ -1027,6 +1041,7 @@ async def determineModifierValues(extraInputs, battleSystem):
                 if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['ChargedEffectiveness'] = val
+                modifiers['CalculateChargedEffectiveness'] = False
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif input == 'nofaststab':
@@ -1079,6 +1094,7 @@ async def determineModifierValues(extraInputs, battleSystem):
                 if not checkDuplicateMon(bossMon):
                     raise Exception
                 bossMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(bossMon)][0]
+                modifiers['BossDexNum'] = bossMon['ImageDexNum']
                 modifiers['BossAttack'] = bossMon['Attack']
                 modifiers['BossDefence'] = bossMon['Defence']
             except:
@@ -1106,14 +1122,11 @@ async def determineModifierValues(extraInputs, battleSystem):
 async def determineRaidModifierValues(modifiers, raidInputs, errorText):
 
     for input in raidInputs:
-        if input.startswith('partypower'):
-            try:
-                multiplier = int(input[10:])
-                if multiplier < 1 or multiplier > 5:
-                    raise Exception
-                modifiers['PartyPowerMultiplier'] = 1.0 + (1.0/float(multiplier))
-            except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid party power value! Keep it between 1 and 5!\n'
+        if input.startswith('partysize'):
+            modifiers['PartyPowerGain'] = activeModifiers.get('PartyPowerGain').get(input[9:], None)
+
+            if modifiers['PartyPowerGain'] is None:
+                errorText += f'\'{input}\' wasn\'t understood as a valid amount of trainers in a party! Keep it between 2 and 4!\n'
         elif input.startswith('tier'):
             modifiers['BossHealth'] = battleTierStats.get(input[4:], {}).get('raids', {}).get('bossHealth', None)
             modifiers['CpmMultiplier'] = battleTierStats.get(input[4:], {}).get('raids', {}).get('cpmMultiplier', None)
@@ -1281,7 +1294,10 @@ async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifi
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
     chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss, modifiers['ApplyEnergyPenalty'])
-    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], modifiers)
+
+    fastMovesPerCharged = calcFastMovesPerCharged(fastMove['Duration'], fastEps, chargedMoveEnergy, dpsBoss)
+
+    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], fastMovesPerCharged, modifiers)
     chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
     energyEfficiency = await calcEnergyEfficiency(fastDps, fastEps, chargedDps, chargedEps)
@@ -1301,6 +1317,7 @@ async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
     chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss, modifiers['ApplyEnergyPenalty'])
+
     chargedMaxEps = await calcChargedMaxEPS(chargedMove['Damage'], chargedMove['Duration'], attack, modifiers)
     chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
@@ -1346,9 +1363,9 @@ async def calcSurvivalTime(dpsBoss, stamina):
     return survivalTime
 '''
 
-async def calcModifierValue(modifiers, moveType):
+async def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
     if moveType == 'Charged':
-        partyPower = modifiers['PartyPowerMultiplier']
+        partyPower = calculatePartyPowerMultiplier(fastMovesPerCharged, modifiers)
     else:
         partyPower = 1.0
     
@@ -1366,8 +1383,8 @@ async def calcFastEPS(fastEnergy, fastDuration):
     epsFast = fastEnergy/fastDuration
     return epsFast
 
-async def calcChargedDPS(chargedDamage, chargedDuration, modifiers):
-    modifierVal = await calcModifierValue(modifiers, 'Charged')
+async def calcChargedDPS(chargedDamage, chargedDuration, fastMovesPerCharged, modifiers):
+    modifierVal = await calcModifierValue(modifiers, 'Charged', fastMovesPerCharged)
     dmgCharged = (chargedDamage * modifierVal) + modifiers['ExtraDpsValue']
     dpsCharged = dmgCharged/chargedDuration
     return dpsCharged
@@ -1431,6 +1448,40 @@ def calcTimeToMax(maxEPS):
 
 def calcEntireCycleDps(dps, timeToDmax, maxMoveDamage, modifiers):
     return ((dps * timeToDmax) + ((maxMoveDamage * 3)* modifiers['CyclePlayers']))/timeToDmax
+
+def calculateMoveEffectiveness(atkType, bossTypes):
+    moveEffectiveness = 1.0
+
+    superMult = activeModifiers.get('TypeEffectiveness').get('Super')
+    notVeryMult = activeModifiers.get('TypeEffectiveness').get('NotVery')
+
+    for bossType in bossTypes:
+        defType = [obj for obj in types if obj['Name'] == bossType][0]['TypeChart'].get('Defending')
+        if atkType in defType.get('Super'):
+            moveEffectiveness *= superMult
+        elif atkType in defType.get('NotVery'):
+            moveEffectiveness *= notVeryMult
+        elif atkType in defType.get('Immune'):
+            moveEffectiveness *= (notVeryMult * notVeryMult)
+    
+    return moveEffectiveness
+
+def calculatePartyPowerMultiplier(fastMovesPerCharged, modifiers):
+    avgBoost = calcAveragePartyBoost(fastMovesPerCharged, modifiers)
+
+    return 1.0 + avgBoost
+
+def calcFastMovesPerCharged(fastDuration, epsFast, chargedEnergy, dpsBoss):
+    return chargedEnergy/((epsFast + (0.5*dpsBoss))* fastDuration)
+
+def calcAveragePartyBoost(fastMovesPerCharged, modifiers):
+    if modifiers['PartyPowerGain'] == 0.0:
+        return 0.0
+
+    #charged moves count towards party power, so the +1 accounts for that
+    partyEnergyPerCharged = modifiers['PartyPowerGain'] * (fastMovesPerCharged + 1)
+
+    return min(1.0, partyEnergyPerCharged/activeModifiers.get('PartyPowerReadyAt'))
 
 async def calcRoundedFastMoves(move):
     newDuration = round(move['Duration']*2)/2

@@ -21,6 +21,8 @@ defaultModifiers = {
 
     'FastEffectiveness': 1.0,
     'ChargedEffectiveness': 1.0,
+    'CalculateFastEffectiveness': True,
+    'CalculateChargedEffectiveness': True,
 
     'ForceNoFastSTAB': False,
     'ForceFastSTAB': False,
@@ -29,6 +31,7 @@ defaultModifiers = {
     'ForceNoChargedSTAB': False,
     'ForceChargedSTAB': False,
     'ChargedSTABMultiplier': 1.0,
+
     'ApplyEnergyPenalty': True,
 
     'ShadowMultiplier': 1.0,
@@ -37,7 +40,7 @@ defaultModifiers = {
     'FriendMultiplier': 1.0,
     'WeatherMultiplier': 1.0,
     'MegaMultiplier': 1.0,
-    'PartyPowerMultiplier': 1.0,
+    'PartyPowerGain': 0.0,
     'PowerSpotMultiplier': 1.0,
     'MushroomMultiplier': 1.0,
 
@@ -63,6 +66,7 @@ defaultModifiers = {
 
     'CyclePlayers': 1.0,
 
+    'BossDexNum': -1,
     'BossAttack': 200,
     'BossDefence': 70,
     'BossHealth': 15_000.0,
@@ -85,15 +89,28 @@ defaultModifiers = {
 }
 
 activeModifiers = {
+    'TypeEffectiveness': {
+        'Super': 1.6,
+        'NotVery': 0.625
+    },
+
+    'STABMultiplier': {
+        'active': 1.2,
+        'inactive': 1.0
+    },
+    
     'ShadowMultiplier': 1.2,
 
     'FriendMultiplier': 1.1,
     'WeatherMultiplier': 1.2,
     'MegaMultiplier': 1.3,
-
-    'STABMultiplier': {
-        'active': 1.2,
-        'inactive': 1.0
+    
+    'PartyPowerReadyAt': 90.0,
+    #amount of energy each fast move gives towards party power energy
+    'PartyPowerGain': {
+        '2': 5.0, #18 atks
+        '3': 9.0, #10 atks
+        '4': 30.0 #3  atks
     },
 
     'PowerSpotMultiplier': {
