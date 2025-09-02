@@ -7,7 +7,6 @@ Cole Anderson, Dec 2023
 import discord
 import openai
 import requests
-import json
 import random
 import regex as re
 import math
@@ -33,9 +32,6 @@ currentRun = copy.deepcopy(defaultRun)
 #region help command
 #dev commands, undo-death {name}, reset, undo-status
 async def help():
-    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
-    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
-
     embed = discord.Embed(title=f'Scuffed Soul Link Bot Commands',
                           description='```$sl new-sl HeartGold, HGAttempt1, @Player1, @Player2...``` Creates a new soul link run linked to the users specified\n' +
                                       '```$sl encounter Starter, Bulbasaur``` Adds data to an encounter, the other users in the sl can call the command again to set their encountered mon\n' +
@@ -70,11 +66,11 @@ async def help():
     
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
-        return embed, shinyFile
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
     else: 
-        embed.set_thumbnail(url='attachment://swole_shuckle.png')
-        return embed, file
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+
+    return embed
 #endregion
 
 #region text parsing functions
@@ -111,7 +107,7 @@ def checkDuplicateName(name):
 
 def getRun(run_name):
     try:
-        return [obj for obj in runs if obj['Name'] == run_name][0]
+        return [obj for obj in runs if obj['Name'].lower() == run_name.strip().lower()][0]
     except:
         return None
     
@@ -159,7 +155,7 @@ def tryAddRunData(run, name_string):
 #endregion
 
 #region $sl new-sl command and createRole func
-async def createNewRun(game, name, players):
+async def createNewRun(game, name, players, guild):
     versionGroup = getGroup(game)
 
     if versionGroup is None:
@@ -200,7 +196,9 @@ async def createNewRun(game, name, players):
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return 'Success'
+    await createRole(players, guild)
+
+    return 'Run Created! Focus set to the newly created run!'
 
 async def createRole(players, guild):
     try:
@@ -250,13 +248,13 @@ async def encounterMon(encounter_name, encounter, player):
     dex_num = getDexNum(encounter)
 
     if player_index is None:
-        return f'{player} was not recogized as a player in the currently selected run!'
+        return f'\'{player}\' was not recogized as a player in the currently selected run!'
     
     if dex_num == -1:
-        return f'{encounter} was not recognized as a pokemon!'
+        return f'\'{encounter}\' was not recognized as a pokemon!'
     
     if not checkEncounter(encounter_name, run):
-        return f'{encounter_name} was not recognized as a valid area for an encounter! Make sure to use the \'$sl progress\' command after each major battle to unlock new encounters!'
+        return f'\'{encounter_name}\' was not recognized as a valid area for an encounter! Make sure to use the \'$sl progress\' command after each major battle to unlock new encounters!'
     
     encounter_data = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounter_name.lower()][0]
 
@@ -267,7 +265,7 @@ async def encounterMon(encounter_name, encounter, player):
     
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'{encounter} successfully added for {player} for {encounter_name}!'
+    return f'{formatTextForDisplay(encounter)} successfully added for {player} for {formatTextForDisplay(encounter_name)}!'
     
 async def encounterMonGroup(encounter_name, encounters):
     run = getRun(currentRun['RunName'])
@@ -276,7 +274,7 @@ async def encounterMonGroup(encounter_name, encounters):
         return 'Specify a run first!'
 
     if not checkEncounter(encounter_name, run):
-        return f'{encounter_name} was not recognized as a valid area for an encounter! Make sure to use the \'$sl progress\' command after each major battle to unlock new encounters!'
+        return f'\'{encounter_name}\' was not recognized as a valid area for an encounter! Make sure to use the \'$sl progress\' command after each major battle to unlock new encounters!'
     
     encounter_data = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounter_name.lower()][0]
 
@@ -289,14 +287,13 @@ async def encounterMonGroup(encounter_name, encounters):
             continue
         else:
             player = encounter[0].strip()
-            encounter.pop(0)
-            encounter = ' '.join(word.capitalize() for word in encounter)
+            encounter = ' '.join(word.lower().capitalize() for word in encounter[1:])
 
         player_index = matchPlayer(player, run)
         dex_num = getDexNum(encounter)
 
         if player_index is None:
-            response_string += f'{player} was not recogized as a player in the currently selected run!\n'
+            response_string += f'\'{player}\' was not recogized as a player in the currently selected run!\n'
             continue
     
         if dex_num == -1:
@@ -305,7 +302,7 @@ async def encounterMonGroup(encounter_name, encounters):
 
         encounter_data['Pokemon'][player_index] = dex_num
 
-        response_string += f'{encounter} successfully added for {player} for {encounter_name}!\n'
+        response_string += f'{formatTextForDisplay(encounter)} successfully added for {player} for {formatTextForDisplay(encounter_name)}!\n'
     
     if all(num != -1 for num in encounter_data['Pokemon']):
         encounter_data['Completed'] = True
@@ -504,7 +501,7 @@ async def getLinkData(input, player):
         dex_num = getDexNum(input)
 
         if dex_num == -1:
-            return f'{input} was not recognized as a valid mon name or as an encounter location!'
+            return f'\'{input}\' was not recognized as a valid mon name or as an encounter location!'
         
         player_index = matchPlayer(player, run)
 
@@ -516,7 +513,7 @@ async def getLinkData(input, player):
         if len(encounter_data) >= 1:
             encounter_data = encounter_data[0]
         else:
-            return f'You do not own a {input}!'
+            return f'You do not own a {formatTextForDisplay(input)}!'
 
         encounter_string = ''
         for index, dex_num in enumerate(encounter_data['Pokemon']):
@@ -554,7 +551,7 @@ async def evolveMon(mon_name, player):
     mon = getMon(dex_num)
 
     if dex_num == -1 or mon is None:
-        return f'{mon_name} was not recognized as a valid pokemon!'
+        return f'\'{mon_name}\' was not recognized as a valid pokemon!'
     
     player_index = matchPlayer(player, run)
 
@@ -562,7 +559,7 @@ async def evolveMon(mon_name, player):
         return 'The author of this input was not recognized as a player in the currently selected run!'
     
     if len(mon['Evolves-Into']) == 0:
-        return f'{mon_name} can\'t evolve!'
+        return f'{formatTextForDisplay(mon_name)} can\'t evolve!'
     
 
     encounter_data = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == dex_num and obj['Completed'] and obj['Alive']]
@@ -570,7 +567,7 @@ async def evolveMon(mon_name, player):
     if len(encounter_data) >= 1:
         encounter_data = encounter_data[0]
     else:
-        return f'You do not own a {mon_name}!'
+        return f'You do not own a {formatTextForDisplay(mon_name)}!'
     
     evo_mon = getMon(mon['Evolves-Into'][0]['DexNum'])
 
@@ -578,7 +575,7 @@ async def evolveMon(mon_name, player):
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'Your {mon_name} from {encounter_data["Name"]} has evolved into a {evo_mon["Name"]}!\nIf this was a mistake, use $sl undo-evolve {evo_mon["Name"]}\nIf this is not the correct evolution, use $sl encounter {encounter_data["Name"]}, evo-name-here'
+    return f'Your {formatTextForDisplay(mon_name)} from {encounter_data["Name"]} has evolved into a {formatTextForDisplay(evo_mon["Name"])}!\nIf this was a mistake, use $sl undo-evolve {formatTextForDisplay(evo_mon["Name"])}\nIf this is not the correct evolution, use $sl encounter {encounter_data["Name"]}, evo-name-here'
 
 async def undoEvolveMon(mon_name, player):
     run = getRun(currentRun['RunName'])
@@ -590,7 +587,7 @@ async def undoEvolveMon(mon_name, player):
     mon = getMon(dex_num)
 
     if dex_num == -1 or mon is None:
-        return f'{mon_name} was not recognized as a valid pokemon!'
+        return f'\'{mon_name}\' was not recognized as a valid pokemon!'
     
     player_index = matchPlayer(player, run)
 
@@ -598,14 +595,14 @@ async def undoEvolveMon(mon_name, player):
         return 'The author of this input was not recognized as a player in the currently selected run!'
     
     if mon['Evolves-From'] is None:
-        return f'{mon_name} doesn\'t have a pre-evo!'
+        return f'{formatTextForDisplay(mon_name)} doesn\'t have a pre-evo!'
     
     encounter_data = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == dex_num and obj['Completed'] and obj['Alive']]
 
     if len(encounter_data) >= 1:
         encounter_data = encounter_data[0]
     else:
-        return f'You do not own a {mon_name}!'
+        return f'You do not own a {formatTextForDisplay(mon_name)}!'
     
     pre_evo_mon = getMon(mon['Evolves-From'])
 
@@ -613,7 +610,7 @@ async def undoEvolveMon(mon_name, player):
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'Your {mon_name} from {encounter_data["Name"]} unevolved back into a {pre_evo_mon["Name"]}!'
+    return f'Your {formatTextForDisplay(mon_name)} from {encounter_data["Name"]} unevolved back into a {formatTextForDisplay(pre_evo_mon["Name"])}!'
 #endregion
 
 #region $sl death and undo-death command
@@ -627,7 +624,7 @@ async def newDeath(encounter_name, reason):
         return 'Make the reason for death shorter!'
     
     if not checkEncounter(encounter_name, run):
-        return f'{encounter_name} was not recognized as a valid encounter name!'
+        return f'\'{encounter_name}\' was not recognized as a valid encounter name!'
     
     encounter_data = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounter_name.lower()][0]
     
@@ -636,7 +633,7 @@ async def newDeath(encounter_name, reason):
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'The encounter from {encounter_name} has been marked as dead! If this was a mistake, use $sl undo-death {encounter_name}'
+    return f'The encounter from {encounter_data["Name"]} has been marked as dead! If this was a mistake, use $sl undo-death {encounter_data["Name"]}'
 
 async def undoDeath(encounter_name):
     run = getRun(currentRun['RunName'])
@@ -645,30 +642,25 @@ async def undoDeath(encounter_name):
         return 'Specify a run first!'
     
     if not checkEncounter(encounter_name, run):
-        return f'{encounter_name} was not recognized as a valid encounter name!'
+        return f'\'{encounter_name}\' was not recognized as a valid encounter name!'
     
     encounter_data = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounter_name.lower()][0]
     
     if encounter_data['Alive']:
-        return f'The encounter from {encounter_name} is already alive! Use $sl death {encounter_name} if you wanted to mark the encounter as dead!'
+        return f'The encounter from {encounter_data["Name"]} is alive and well! Use $sl death {encounter_data["Name"]} if you wanted to mark the encounter as dead!'
 
     encounter_data['Alive'] = True
     encounter_data['Death-Reason'] = ''
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'The encounter from {encounter_name} has been revived!'
+    return f'The encounter from {encounter_data["Name"]} has been revived!'
 
 #endregion
 
 #region $sl ask-shuckle command
 async def askShuckle(user_input):
-    rand_num = random.randint(1, 100)
-    if rand_num > 90:
-        systemContent = loadShucklePersonality('merry')
-
-    else:
-        systemContent = loadShucklePersonality('original')
+    systemContent = loadShucklePersonality('original')
         
     messages = [
         {'role':'system', 'content': systemContent},
@@ -787,7 +779,7 @@ async def listRuns():
                     value=name_string,
                     inline=True)
     
-            embed.add_field(name='Player Count',
+            embed.add_field(name='Players',
                             value=player_string,
                             inline=True)
             
@@ -836,9 +828,9 @@ async def chooseTeam(links, player):
 
     for link in links:
         temp_link = link
-        link = getDexNum(str(link).strip())
+        link = getDexNum(link.strip())
         if link is None:
-            return f'{temp_link} was not recognized as a valid pokemon name!'
+            return f'\'{temp_link}\' was not recognized as a valid pokemon name!'
         
         encounter_link = [obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == link]
 
@@ -846,9 +838,9 @@ async def chooseTeam(links, player):
             try:
                 encounter_data.append(copy.deepcopy([obj for obj in run['Encounters'] if obj['Pokemon'][player_index] == link and obj['Completed'] and obj['Alive']][0]['Pokemon']))
             except:
-                return f'{temp_link} was not paired to a completed or alive link! Some fraud needs to mark their encounters or deaths!'
+                return f'\'{formatTextForDisplay(temp_link)}\' was not paired to a completed or alive link! Some fraud needs to mark their encounters or deaths!'
         else:
-            return f'{temp_link} was not recognized as a pokemon you own! Make sure you\'re listing out your pokemon, and not everyone elses pokemon'
+            return f'\'{formatTextForDisplay(temp_link)}\' was not recognized as a pokemon you own! Make sure you\'re listing out your pokemon, and not everyone elses pokemon'
     
     run['Teams'][run['Current-Progress']] = encounter_data
 
@@ -1605,33 +1597,53 @@ async def addNickname(nickname, originalName):
 
     await saveDataVariableToFile(sharedFileLocations.get('Pokemon'), pokemon)
 
-    return f'Nickname \'{nickname}\' successfully added for {mon["Name"]}'
+    return f'Nickname \'{nickname}\' successfully added for {formatTextForDisplay(mon["Name"])}'
 
 #endregion
         
 #region $sl nicknames command
 async def seeNicknames():
-    nicknames = [obj for obj in pokemon if obj['Nickname'] is True]
+    embeds = []
 
-    original_names = ''
-    nick_names = ''
-    
-    for mon in nicknames:
-        original_names += f'{[obj for obj in pokemon if obj["DexNum"] == mon["DexNum"]][0]["Name"]}\n'
-        nick_names += f'{mon["Name"]}\n'
-    
-    embed = discord.Embed(title='Scuffed Soul Links Nicknames', 
+    embed = discord.Embed(title='Shuckles Nicknames', 
                           color=3553598)
+
+    allNicknames = [obj for obj in pokemon if obj['Nickname'] is True]
+
+    originalNames = ''
+    nicknames = ''
     
-    embed.add_field(name='Nicknames',
-                    value=nick_names,
-                    inline=True)
-    
+    pageCount = 15
+    for mon in allNicknames:
+        if pageCount > 0:
+            originalNames += f'{formatTextForDisplay([obj for obj in pokemon if obj["DexNum"] == mon["DexNum"]][0]["Name"])}\n'
+            nicknames += f'{formatTextForDisplay(mon["Name"])}\n'
+            pageCount -= 1
+        else:
+            embed.add_field(name='Nickname',
+                            value=nicknames,
+                            inline=True)
+            
+            embed.add_field(name='Original',
+                            value=originalNames,
+                            inline=True)
+            embeds.append(copy.deepcopy(embed))
+
+            embed.clear_fields()
+            originalNames = ''
+            nicknames = ''
+            pageCount = 15
+        
+    embed.add_field(name='Nickname',
+                        value=nicknames,
+                        inline=True)
+        
     embed.add_field(name='Original',
-                    value=original_names,
+                    value=originalNames,
                     inline=True)
-    
-    return embed
+    embeds.append(embed)
+        
+    return embeds
 
 #endregion
         

@@ -1,6 +1,7 @@
 import json
 import regex as re
-from dictionaries.shared_dictionaries import sharedFileLocations, types
+import random
+from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, types
 
 def loadDataVariableFromFile(filePath, readJson=True):
     with open(filePath, 'r') as file:
@@ -34,7 +35,7 @@ def formatTextForBackend(text):
 
 def formatTextForDisplay(text):
     words = re.split(r'[\s-.]+', text)
-    text = ' '.join(word.capitalize() for word in words)
+    text = ' '.join(word.lower().capitalize() for word in words)
     return text
 
 def formatCapitalize(text):
@@ -50,6 +51,8 @@ def verifyMoveType(moveType):
     return False
 
 def getDexNum(monName):
+    pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
+
     monName = formatTextForBackend(monName)
     try:
         return [obj for obj in pokemon if obj['Name'] == monName][0]['DexNum']
@@ -57,7 +60,7 @@ def getDexNum(monName):
         return -1
 
 def getOriginalNameFromNickname(monName):
-    pokemon = loadDataVariableFromFile('text_files/shared/pokemon.txt')
+    pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
         
     monName = formatTextForBackend(monName)
 
@@ -66,5 +69,10 @@ def getOriginalNameFromNickname(monName):
         return [obj for obj in pokemon if obj['DexNum'] == dexNum][0]['Name']
     except:
         return None
+    
+def assignReactionEmoji(command):
+    rand_num = random.randint(1, 100)
 
-pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
+    if rand_num == 69:
+        return reactionEmojis.get(command).get('Shiny')
+    return reactionEmojis.get(command).get('Normal')

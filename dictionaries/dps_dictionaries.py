@@ -180,7 +180,7 @@ battleTierStats = {
     '4': {
         'raids':  {
             'bossHealth': 9000.0,
-            'cpmMultiplier': 0.73
+            'cpmMultiplier': 0.79
         },
         'dmax': {
             'bossHealth': 20_000.0,
@@ -199,7 +199,7 @@ battleTierStats = {
     },
     '6': {
         'raids':  {
-            'bossHealth': 20_000.0,
+            'bossHealth': 22_500.0,
             'cpmMultiplier': 0.79
         },
         'dmax': {
@@ -209,7 +209,7 @@ battleTierStats = {
     },
     'mega': {
         'raids':  {
-            'bossHealth': 20_000.0,
+            'bossHealth': 9000.0,
             'cpmMultiplier': 0.79
         }
     },

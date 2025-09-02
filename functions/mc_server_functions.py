@@ -18,8 +18,6 @@ from mcrcon import MCRcon
 from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
 from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths
 
-serverIp = loadDataVariableFromFile(mcFileLocations.get('ServerIp'), False)
-
 serverPort = int(loadDataVariableFromFile(mcFileLocations.get('ServerPort'), False))
 
 rconIp = loadDataVariableFromFile(mcFileLocations.get('RconIp'), False)
@@ -38,9 +36,6 @@ boatLocations = loadDataVariableFromFile(mcFileLocations.get('Boats'))
 
 #region help and setup commands
 async def mcHelp():
-    file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
-    shinyFile = discord.File('images/minecraft/amber_shiny_shuckle.png', filename='amber_shiny_shuckle.png')
-
     embed = discord.Embed(title='Shuckles Fossils Server Commands',
                             description='```$mc setup``` Gives info on required and recommended mods.\n' +
                                         '```$mc info``` Gives server info such as players online and time of day.\n' +
@@ -56,16 +51,13 @@ async def mcHelp():
 
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='attachment://amber_shiny_shuckle.png')
-        return embed, shinyFile
+        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
     else:
-        embed.set_thumbnail(url='attachment://amber_shuckle.png')
-        return embed, file
+        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
+    
+    return embed
 
 async def mcLocateHelp():
-    file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
-    shinyFile = discord.File('images/minecraft/amber_shiny_shuckle.png', filename='amber_shiny_shuckle.png')
-
     embed = discord.Embed(title='Shuckles Fossils Server Locate Command',
                             description='Locate searches for the closest biome or structure to 0 0 0 in the overworld by default\n' +
                                         'You MUST specify the mod name if it\'s not a vanilla biome/structure! Examples are below:\n' +
@@ -88,32 +80,26 @@ async def mcLocateHelp():
 
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='attachment://amber_shiny_shuckle.png')
-        return embed, shinyFile
+        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
     else:
-        embed.set_thumbnail(url='attachment://amber_shuckle.png')
-        return embed, file
+        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
+    
+    return embed
 
 async def checkIp():
     try:
         externalIp = requests.get('http://api.ipify.org', timeout=5).content.decode('utf8')
 
-        global serverIp
-
-        with open('text_files/minecraft_server/serverIp.txt', 'w') as file:
-            file.write(externalIp)
-
-        with open('text_files/minecraft_server/serverIp.txt', 'r') as file:
-            serverIp = file.read()
+        return externalIp
     except:
-        print('Failed to get Ip!')
+        return '000.000.0.000'
 
 async def mcSetup():
     embeds = []
 
     rand_num = random.randint(1, 100)
 
-    await checkIp()
+    serverIp = await checkIp()
 
     serverOn = await serverOnline()
 
@@ -181,6 +167,7 @@ async def mcSetup():
 #region rcon server info commands
 async def serverOnline():
     try:
+        serverIp = await checkIp()
         with socket.create_connection((serverIp, serverPort), timeout=3):
             return True
     except:
@@ -239,9 +226,6 @@ def getSearchTargetType(searchFor):
         return 'Structure'
 
 async def mcInfo():
-    file = discord.File('images/minecraft/amber_shuckle.png', filename='amber_shuckle.png')
-    shinyFile = discord.File('images/minecraft/amber_shiny_shuckle.png', filename='amber_shiny_shuckle.png')
-
     with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
         daytime = rcon.command('time query daytime')
 
@@ -267,13 +251,13 @@ async def mcInfo():
                     dimensionData = re.split('"', dimension)[1]
                     playerDimensionText += f'{getDimensionName(dimensionData.strip())}\n'
                 else:
-                    return f'Couldn\'t get data on {player}!', file
+                    return f'Couldn\'t get data on {player}!'
                 
                 if ':' in coordinates:
                     coordinateData = re.split(':', coordinates)[1]
                     playerCoordinateText += f'{formatPlayerCoordinates(coordinateData.strip()[1:-1])}\n'
                 else:
-                    return f'Couldn\'t get data on {player}!', file
+                    return f'Couldn\'t get data on {player}!'
 
     embed = discord.Embed(title=f'Fossils Server Info',
                           description=f'Players Online: {len(players)}\nCurrent Overworld Time: **{timeText}**',
@@ -295,11 +279,11 @@ async def mcInfo():
 
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='attachment://amber_shiny_shuckle.png')
-        return embed, shinyFile
+        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
     else:
-        embed.set_thumbnail(url='attachment://amber_shuckle.png')
-        return embed, file
+        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
+    
+    return embed
     
 async def mcSay(message, author='Shuckle'):
     authorColour = 'dark_green'

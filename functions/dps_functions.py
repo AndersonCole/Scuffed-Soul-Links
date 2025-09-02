@@ -33,9 +33,6 @@ pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
 
 #dev command $dps symbol {num}
 async def dpsHelp():
-    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
-    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
-
     embed = discord.Embed(title='Shuckles PoGo DPS Commands',
                             description='```$dps check Kartana``` Calcs the dps for the moveset for the mon at level 50\n' +
                                         '```$dps modifiers``` Lists out all the available modifers\n' +
@@ -57,16 +54,13 @@ async def dpsHelp():
 
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
-        return embed, shinyFile
-    else:
-        embed.set_thumbnail(url='attachment://swole_shuckle.png')
-        return embed, file
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
+    else: 
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    
+    return embed
 
 async def dynamaxHelp():
-    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
-    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
-
     embed = discord.Embed(title=f'Shuckles PoGo Dynamax Commands',
                             description='```$max check Charizard``` Calcs the dps and max eps for the moveset for the mon\n' +
                                         '```$max modifiers``` Lists out all the available modifers\n\n' +
@@ -75,11 +69,11 @@ async def dynamaxHelp():
 
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
-        return embed, shinyFile
-    else:
-        embed.set_thumbnail(url='attachment://swole_shuckle.png')
-        return embed, file
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
+    else: 
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+
+    return embed
     
 async def getSharedModifiers(commandText):
     embed = discord.Embed(title='Shuckles PoGo Shared Modifiers',

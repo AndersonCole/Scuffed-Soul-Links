@@ -6,7 +6,6 @@ Cole Anderson, Apr 2024
 """
 
 import discord
-import json
 import copy
 from datetime import datetime
 from functions.shared_functions import *
@@ -25,8 +24,6 @@ async def checkStrongestSoldier(user_id, guild):
     return False
 
 async def routesHelp():
-    file = discord.File('images/routes/zygarde_cell.png', filename='zygarde_cell.png')
-
     embed = discord.Embed(title=f'Routes Strongest Soldier\'s Commands',
                           description='```$routes add Best Route, 501, 0``` Creates a new route from the name, distance and times walked given\n' +
                                       '```$routes walk Best Route, 480, R, 1``` Logs a walked route from the name, distance, direction (Normal or Reverse) and cells found\n' +
@@ -35,8 +32,9 @@ async def routesHelp():
                                       '```$routes stats``` Lists out all the stats for every route you\'ve made', 
                           color=9029154)
     
-    embed.set_thumbnail(url='attachment://zygarde_cell.png')
-    return embed, file
+    embed.set_thumbnail(url=routesImagePaths.get('ZygardeCell'))
+    
+    return embed
 
 #region text parsing functions
 def getRoute(route_name, user):
@@ -118,8 +116,6 @@ async def walkRoute(route_name, distance, direction, cell_count, user):
 
 #region printouts
 async def listRoutes(user):
-    file = discord.File('images/routes/zygarde_cell.png', filename='zygarde_cell.png')
-
     users_routes = [obj for obj in routes if obj['User'] == user]
 
     if len(users_routes) == 0:
@@ -138,13 +134,11 @@ async def listRoutes(user):
                     value=routes_string,
                     inline=True)
 
-    embed.set_thumbnail(url='attachment://zygarde_cell.png')
+    embed.set_thumbnail(url=routesImagePaths.get('ZygardeCell'))
 
-    return embed, file
+    return embed
 
 async def printoutDay(user):
-    file = discord.File('images/routes/zygarde_cell.png', filename='zygarde_cell.png')
-
     todays_routes = [obj for obj in walkedRoutes if obj['Date'] == datetime.now().date().strftime("%Y-%m-%d") and obj['User'] == user]
 
     if len(todays_routes) == 0:
@@ -169,19 +163,21 @@ async def printoutDay(user):
                     value=routes_string,
                     inline=True)
 
-    embed.set_thumbnail(url='attachment://zygarde_cell.png')
+    embed.set_thumbnail(url=routesImagePaths.get('ZygardeCell'))
 
-    return embed, file
+    return embed
 
 async def printoutRoutes(user):
     embeds = []
 
-    users_routes = [obj for obj in routes if obj['User'] == user]
+    usersRoutes = [obj for obj in routes if obj['User'] == user]
 
-    if len(users_routes) == 0:
+    if len(usersRoutes) == 0:
         return 'You haven\'t created any routes yet! Use `$routes help` to get started! Zygarde needs YOU!'
 
-    for route in users_routes:
+    sortedRoutes = sorted(usersRoutes, key=lambda x: x['TimesWalked'], reverse=True)
+
+    for route in sortedRoutes:
         embed = discord.Embed(title=f'{route["Name"]}',
                         description=f'Stats for {route["User"]}',
                         color=9029154)

@@ -8,16 +8,15 @@ import discord
 import requests
 import copy
 import random
+import regex as re
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from dictionaries.shared_dictionaries import sharedImagePaths
-from dictionaries.pogo_event_dictionaries import eventColours, filterLists
+from dictionaries.pogo_event_dictionaries import eventColours, filterLists, timezones
 from functions.shared_functions import formatTextForDisplay
 
 #region help command
 async def eventsHelp():
-    file = discord.File('images/swole_shuckle.png', filename='swole_shuckle.png')
-    shinyFile = discord.File('images/shiny_swole_shuckle.png', filename='shiny_swole_shuckle.png')
-
     embed = discord.Embed(title='Shuckles PoGo Event Commands',
                             description='```$pogo events``` Shows upcoming and current events\n' +
                                         '```$pogo commDays``` Shows upcoming community days\n' +
@@ -31,11 +30,11 @@ async def eventsHelp():
 
     rand_num = random.randint(1, 100)
     if rand_num == 69:
-        embed.set_thumbnail(url='attachment://shiny_swole_shuckle.png')
-        return embed, shinyFile
-    else:
-        embed.set_thumbnail(url='attachment://swole_shuckle.png')
-        return embed, file
+        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
+    else: 
+        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    
+    return embed
     
 #endregion
 
@@ -47,6 +46,9 @@ async def retrieveEventsFromAPI(eventFilterList):
     filteredEvents = []
     for event in sortedEvents:
         if event['eventType'] in eventFilterList:
+            if event['eventType'] == 'go-battle-league':
+                splitName = re.split(r'[\|]+', event['name'])
+                event['name'] = splitName[0]
             filteredEvents.append(event)
 
     return filteredEvents
@@ -67,6 +69,14 @@ def formatTimeForDisplay(time):
 
     return f'{time.strftime("%A, %B %d, %Y %I:%M %p")}'
 
+def formatTimeZoneForDisplay(time, timezone):
+    time = datetime.strptime(time, getDateTimeFormatString())
+    time = time.replace(tzinfo=ZoneInfo(timezone))
+
+    epochTime = int(time.timestamp())
+
+    return f'<t:{epochTime}:F>'
+
 def formatEventDates(start, end):
     if start.endswith('Z'):
         start = start[:-1]
@@ -78,15 +88,19 @@ def formatEventDates(start, end):
     return f'{start.strftime("%m/%d")} - {end.strftime("%m/%d")}'
 
 def doubleSpacing(length):
-    if length > 50:
+    if length > 49:
         return '\n'
     return ''
 
 async def createEventsEmbeds(filterFor):
-    events = await retrieveEventsFromAPI(filterLists.get(filterFor.lower().strip()))
+    filterList = filterLists.get(filterFor.lower().strip(), None)
+    if filterList is None:
+        return 'I don\'t understand what events you\'re trying to get info on!\n\nCheck `$pogo help` to see all valid searches!'
+    
+    events = await retrieveEventsFromAPI(filterList)
 
     if len(events) == 0:
-        return 'I don\'t understand what events you\'re trying to get info on!'
+        return 'There was no data on the requested events!'
     
     embeds = []
     
@@ -107,15 +121,17 @@ async def createEventsEmbeds(filterFor):
     embeds.append(firstEmbed)
 
     eventNames = ''
-    eventTimes = ''
+    eventDates = ''
 
     for event in events:
         eventNames += f'{event["name"]}\n'
-        eventTimes += f'{formatEventDates(event["start"], event["end"])}\n{doubleSpacing(len(event["name"]))}'
+        eventDates += f'{formatEventDates(event["start"], event["end"])}\n{doubleSpacing(len(event["name"]))}'
 
         embed.title = event["name"]
 
         embed.description = f'Start Time: {formatTimeForDisplay(event["start"])}\nEnd Time: {formatTimeForDisplay(event["end"])}'
+        if not event['start'].endswith('Z'):
+            embed.description += f'\n\nNZ Start Time: {formatTimeZoneForDisplay(event["start"], timezones.get("NZ"))}\nHawaii End Time: {formatTimeZoneForDisplay(event["end"], timezones.get("Hawaii"))}'
 
         embed.colour = eventColours.get(event['eventType'], 3553598)
 
@@ -129,9 +145,9 @@ async def createEventsEmbeds(filterFor):
 
     firstEmbed.add_field(name='Event Name',
                          value=eventNames)
-    
-    firstEmbed.add_field(name='Event Times',
-                         value=eventTimes)
+
+    firstEmbed.add_field(name='Event Dates',
+                         value=eventDates)
 
     return embeds
     

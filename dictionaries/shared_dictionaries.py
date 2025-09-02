@@ -8,6 +8,49 @@ sharedImagePaths = {
     'ShinyShuckle': 'https://i.imgur.com/vwke1vY.png'
 }
 
+reactionEmojis = {
+    'Shuckle': {
+        'Normal': '<:SwoleShuckle:1187641763960205392>',
+        'Shiny': '<:ShinySwoleShuckle:1188674339260878941>'
+    },
+    'Soul Links': {
+        'Normal': '<:SwoleShuckle:1187641763960205392>',
+        'Shiny': '<:ShinySwoleShuckle:1188674339260878941>'
+    },
+    'Routes': {
+        'Normal': '<:Zygarde_Cell:1231761804032610384>',
+        'Shiny': '<:Zygarde_Cell:1231761804032610384>'
+    },
+    'DPS': {
+        'Normal': '<:SwoleShuckle:1187641763960205392>',
+        'Shiny': '<:ShinySwoleShuckle:1188674339260878941>'
+    },
+    'Max': {
+        'Normal': '<:SwoleShuckle:1187641763960205392>',
+        'Shiny': '<:ShinySwoleShuckle:1188674339260878941>'
+    },
+    'PoGo': {
+        'Normal': '<:SwoleShuckle:1187641763960205392>',
+        'Shiny': '<:ShinySwoleShuckle:1188674339260878941>'
+    },
+    'PVP': {
+        'Normal': '<:SwoleShuckle:1187641763960205392>',
+        'Shiny': '<:ShinySwoleShuckle:1188674339260878941>'
+    },
+    'Minecraft': {
+        'Normal': '<:AmberShuckle:1323169451033759745>',
+        'Shiny': '<:AmberShinyShuckle:1323169482964996160>'
+    },
+    'Coins': {
+        'Normal': '<:Gimmighoul:1386804101865668658>',
+        'Shiny': '<:ShinyGimmighoul:1386804181670564032>'
+    },
+    'Mimikyu': {
+        'Normal': '<:Mimikyu:1412302913715310695>',
+        'Shiny': '<:ShinyMimikyu:1412302939447361616>'
+    }
+}
+
 types = [
     {'Name': 'Normal', 'Colour': 9542306, 'Emoji': '<:_:1187545017695338576>', 'TypeChart': {
                                                                                                 'Attacking': {

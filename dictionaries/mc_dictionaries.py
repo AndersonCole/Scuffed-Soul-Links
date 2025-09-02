@@ -1,5 +1,4 @@
 mcFileLocations = {
-    'ServerIp': 'text_files/minecraft_server/serverIp.txt',
     'ServerPort': 'text_files/minecraft_server/serverPort.txt',
     'RconIp': 'text_files/minecraft_server/rconIp.txt',
     'RconPort': 'text_files/minecraft_server/rconPort.txt',
