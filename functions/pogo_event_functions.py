@@ -145,7 +145,6 @@ async def createEventsEmbeds(filterFor):
 
     firstEmbed.add_field(name='Event Name',
                          value=eventNames)
-
     firstEmbed.add_field(name='Event Dates',
                          value=eventDates)
 
