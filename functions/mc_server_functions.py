@@ -14,6 +14,8 @@ import subprocess
 import math
 import copy
 import requests
+import tarfile
+from datetime import datetime
 from mcrcon import MCRcon
 from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
 from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths
@@ -573,4 +575,38 @@ async def mcWaitStart(time=30):
 
     await mcStart()
 
+async def mcBackup():
+    await mcSay('Starting backup process in 5 minutes! The server will stay online!')
+
+    asyncio.create_task(mcWaitBackup())
+
+async def mcOfflineBackup():
+    asyncio.create_task(mcCreateBackup())
+
+async def mcWaitBackup():
+    await asyncio.sleep(300)
+
+    await mcSay('Starting backup NOW! It should take about 10 minutes! Expect some lag!')
+
+    with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
+        rcon.command('save-off')
+        rcon.command('save-all')
+
+        result = await mcCreateBackup()
+
+        rcon.command('save-on')
+
+    await mcSay(result)
+
+async def mcCreateBackup():
+    backupPath = 'C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Backups\\Fossils Server\\'
+    date = datetime.now().strftime("%Y-%m-%d")
+    try:
+        with tarfile.open(f'{backupPath}{date}.tar.gz', 'w|gz') as tar:
+            tar.add('C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server\\world', arcname='world')
+
+        return 'Server backup complete!'
+    except Exception as ex:
+        print(ex)
+        return 'An error occured while making the backup!'
 #endregion

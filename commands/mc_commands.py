@@ -84,6 +84,20 @@ async def minecraftCommands(userInput, author):
         else:
             response = 'Get outta here, Anderson only!'
     
+    elif userInput == 'backup':
+        if author.mention[2:-1] == '341722760852013066':
+            if await serverOnline():
+                response = 'Backup starting in 5 minutes!'
+
+                await mcBackup()
+            else:
+                response = 'The server\'s offline, so I\'m making a backup right now! The server will stay offline while the backup is happenning!'
+
+                await mcOfflineBackup()
+        else:
+            response = 'Get outta here, Anderson only!'
+                 
+
     else:
         response = 'I don\'t know wtf you\'re trying to input!'
     
