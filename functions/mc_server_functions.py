@@ -605,8 +605,10 @@ async def mcCreateBackup():
         with tarfile.open(f'{backupPath}{date}.tar.gz', 'w|gz') as tar:
             tar.add('C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server\\world', arcname='world')
 
+        print(f'Backup on {date} successful!')
         return 'Server backup complete!'
     except Exception as ex:
+        print(f'Backup on {date} failed!\n')
         print(ex)
         return 'An error occured while making the backup!'
 #endregion
