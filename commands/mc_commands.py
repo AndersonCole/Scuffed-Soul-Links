@@ -91,7 +91,7 @@ async def minecraftCommands(userInput, author):
 
                 await mcBackup()
             else:
-                response = 'The server\'s offline, so I\'m making a backup right now! The server will stay offline while the backup is happenning!'
+                response = 'The server\'s offline, so I\'m starting the backup process right now! The server should stay offline while the backup is happening!'
 
                 await mcOfflineBackup()
         else:

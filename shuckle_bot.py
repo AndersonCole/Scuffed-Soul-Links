@@ -111,7 +111,8 @@ class DiscordClient(discord.Client):
                 await Paginator.Simple().start(message.channel, pages=response)
 
 ## Set up and log in
-client = DiscordClient()
-with open('tokens/bot_token.txt') as file:
-    token = file.read()
-client.run(token)
+if __name__ == "__main__":
+    client = DiscordClient()
+    with open('tokens/bot_token.txt') as file:
+        token = file.read()
+    client.run(token)

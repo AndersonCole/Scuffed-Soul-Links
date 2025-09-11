@@ -16,6 +16,7 @@ import copy
 import requests
 import tarfile
 from datetime import datetime
+from concurrent.futures import ProcessPoolExecutor
 from mcrcon import MCRcon
 from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
 from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths
@@ -598,17 +599,22 @@ async def mcWaitBackup():
 
     await mcSay(result)
 
-async def mcCreateBackup():
+def createBackup():
     backupPath = 'C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Backups\\Fossils Server\\'
     date = datetime.now().strftime("%Y-%m-%d")
-    try:
-        with tarfile.open(f'{backupPath}{date}.tar.gz', 'w|gz') as tar:
-            tar.add('C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server\\world', arcname='world')
 
-        print(f'Backup on {date} successful!')
+    with tarfile.open(f'{backupPath}{date}.tar.gz', 'w|gz') as tar:
+        tar.add('C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server\\world', arcname='world')
+
+async def mcCreateBackup():
+    loop = asyncio.get_running_loop()
+    try:
+        with ProcessPoolExecutor() as pool:
+            await loop.run_in_executor(pool, createBackup)
+
+        print(f'Backup successful!')
         return 'Server backup complete!'
     except Exception as ex:
-        print(f'Backup on {date} failed!\n')
-        print(ex)
+        print(f'Backup has failed!\n{ex}')
         return 'An error occured while making the backup!'
 #endregion
