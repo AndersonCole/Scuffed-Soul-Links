@@ -19,7 +19,7 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from mcrcon import MCRcon
 from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
-from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths
+from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths, defaultModifiers
 
 serverPort = int(loadDataVariableFromFile(mcFileLocations.get('ServerPort'), False))
 
@@ -49,7 +49,8 @@ async def mcHelp():
                                         '**Admin Only:**\n' +
                                         '```$mc start``` Starts the server\n' +
                                         '```$mc stop``` Stops the server\n' +
-                                        '```$mc restart``` Stops the restarts the server.', 
+                                        '```$mc restart``` Stops then restarts the server\n' +
+                                        '```$mc backup``` Backs up the servers world folder', 
                             color=14914576)
 
     rand_num = random.randint(1, 100)
@@ -70,8 +71,8 @@ async def mcLocateHelp():
                                         '```$mc locate structure, fortress, nether``` Locates the nearest `minecraft:fortress` in the nether from 0 0\n' +
                                         '```$mc locate byg:imparius_grove, end``` Locates the nearest `byg:imparius_grove` modded biome in the end from 0 0\n' +
                                         '```$mc locate forest, 1500 -1500``` Locates the nearest `minecraft:forest` in the overworld from X:1500 Z:-1500\n' +
-                                        '```$mc locate plains, GridSearch``` Does 4 seperate checks for a `minecraft:plains` 100 blocks in each direction around 0 0\n' +
-                                        '```$mc locate forest, GridSearch, GridRange500``` Does 4 seperate checks for a `minecraft:forest` 500 blocks in each direction around 0 0\n\n' +
+                                        '```$mc locate plains, GridSearch``` Does 4 seperate checks for a `minecraft:plains` 250 blocks in each direction around 0 0\n' +
+                                        '```$mc locate mushroom_fields, GridRange1000``` Does 4 seperate checks for a `minecraft:mushroom_fields` 1000 blocks in each direction around 0 0\n\n' +
                                         'As usual, all the modifiers can be applied in any order\n\n' +
                                         'For Vanilla Biomes, check: https://minecraft.wiki/w/Biome#Biome_IDs \n' +
                                         'For Vanilla Structures, check: https://minecraft.wiki/w/Structure#Data_values \n'
@@ -311,17 +312,7 @@ async def mcSave(author):
     await mcSay(f'{author} initialized a manual server save! If it causes lag blame them!')
 
 def getLocateModifiers(inputs):
-    modifiers = {
-        'Dimension': 'minecraft:overworld',
-        'XCoordinate': 0,
-        'ZCoordinate': 0,
-
-        'GridSearch': False,
-        'GridRange': 100,
-
-        'SearchFor': 'biome',
-        'Target': ''
-    }
+    modifiers = copy.deepcopy(defaultModifiers)
 
     errorText = ''
 
@@ -346,6 +337,7 @@ def getLocateModifiers(inputs):
                 if 0 > val or val > 1000:
                     raise Exception
                 modifiers['GridRange'] = val
+                modifiers['GridSearch'] = True
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid grid search range value! Keep it between 0 and 1000!\n'
             
@@ -370,9 +362,6 @@ def getLocateModifiers(inputs):
                 modifiers['Target'] = re.sub(r'\s', '_', input)
             else:
                 modifiers['Target'] = re.sub(r'\s', '_', input)
-
-    if not modifiers['GridSearch'] and modifiers['GridRange'] != 100:
-        errorText += 'You have to add GridSearch to be able to change the search range!\n'
 
     return modifiers, errorText
 
@@ -542,7 +531,7 @@ async def mcLoot(structure, location):
 
 #endregion
 
-#region start stop and restart
+#region server processes
 
 async def mcStart():
     try:

@@ -20,3 +20,15 @@ dimensions = [
     {'Name': 'End', 'CmdName': 'minecraft:the_end'},
     {'Name': 'Anu\'s Lair', 'CmdName': 'fossil:anu_lair'}
 ]
+
+defaultModifiers = {
+    'Dimension': 'minecraft:overworld',
+    'XCoordinate': 0,
+    'ZCoordinate': 0,
+
+    'GridSearch': False,
+    'GridRange': 250,
+
+    'SearchFor': 'biome',
+    'Target': ''
+}

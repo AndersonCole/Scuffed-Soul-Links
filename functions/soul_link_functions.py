@@ -1041,23 +1041,22 @@ async def createArrowImage(direction, type, method, value):
         draw = ImageDraw.Draw(arrow_img)
         font = ImageFont.truetype('fonts/pkmndp.ttf', 10)
         draw.text((10,15), f"Lv. {value}", 'black', font=font)
-    elif method == 'trade':
-        item_image = Image.open(f'images/evo_helpers/linking-cord.png').convert('RGBA')
-        arrow_img.paste(item_image, (10, 4), mask=item_image)
-        item_image.close()
+
+        return arrow_img.rotate(direction)
+    
     elif method == 'use-item':
         item_image = await open_http_image(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/{value}.png', False)
-        arrow_img.paste(item_image, (10, 4), mask=item_image)
-        item_image.close()
-    elif method == 'happiness':
-        item_image = Image.open(f'images/evo_helpers/heart.png').convert('RGBA')
-        arrow_img.paste(item_image, (10, 4), mask=item_image)
-        item_image.close()
-    elif method == 'mega-evo':
-        item_image = Image.open(f'images/evo_helpers/mega_evo.png').convert('RGBA')
-        arrow_img.paste(item_image, (10, 4), mask=item_image)
-        item_image.close()
+
+    #use item-img covers trade, friendship and mega evos as well
+    elif method == 'use-item-img':
+        try:
+            item_image = Image.open(f'images/evo_helpers/{value}.png').convert('RGBA')
+        except FileNotFoundError:
+            item_image = Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
     
+    arrow_img.paste(item_image, (10, 4), mask=item_image)
+    item_image.close()
+
     return arrow_img.rotate(direction)
 
 async def pasteOnImage(backgroundImage, dexNum, positionX, positionY):
@@ -1108,19 +1107,19 @@ async def createEvoChainImage(dex_num, type):
 
         elif len(base_pokemon['Evolves-Into']) == 2:
             #2 evos, like slowpoke
-            background_image = await pasteOnImage(background_image, base_pokemon['DexNum'], 100, 50)
-            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][0]['DexNum'], 200, 0)
-            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][1]['DexNum'], 200, 100)
+            background_image = await pasteOnImage(background_image, base_pokemon['DexNum'], 75, 50)
+            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][0]['DexNum'], 225, 0)
+            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][1]['DexNum'], 225, 100)
 
             background_image = await pasteArrowImage(background_image, 175, 55, 45, type, base_pokemon['Evolves-Into'][0]['Method'], base_pokemon['Evolves-Into'][0]['Value'])
-            background_image = await pasteArrowImage(background_image, 175, 125, -45, type, base_pokemon['Evolves-Into'][0]['Method'], base_pokemon['Evolves-Into'][1]['Value'])
+            background_image = await pasteArrowImage(background_image, 175, 125, -45, type, base_pokemon['Evolves-Into'][1]['Method'], base_pokemon['Evolves-Into'][1]['Value'])
 
         elif len(base_pokemon['Evolves-Into']) == 3:
             #3 evos, like tyrogue
-            background_image = await pasteOnImage(background_image, base_pokemon['DexNum'], 100, 50)
-            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][0]['DexNum'], 200, 0)
-            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][1]['DexNum'], 200, 100)
-            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][2]['DexNum'], 275, 50)
+            background_image = await pasteOnImage(background_image, base_pokemon['DexNum'], 75, 50)
+            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][0]['DexNum'], 225, 0)
+            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][1]['DexNum'], 225, 100)
+            background_image = await pasteOnImage(background_image, base_pokemon['Evolves-Into'][2]['DexNum'], 300, 50)
 
             background_image = await pasteArrowImage(background_image, 175, 55, 45, type, base_pokemon['Evolves-Into'][0]['Method'], base_pokemon['Evolves-Into'][0]['Value'])
             background_image = await pasteArrowImage(background_image, 175, 125, -45, type, base_pokemon['Evolves-Into'][0]['Method'], base_pokemon['Evolves-Into'][1]['Value'])
@@ -1214,7 +1213,7 @@ async def createEvoChainImage(dex_num, type):
                     background_image = await pasteOnImage(background_image, middle_pokemon_3['Evolves-Into'][0]['DexNum'], 315, 50)
 
                     background_image = await pasteArrowImage(background_image, 275, 90, 0, type, middle_pokemon_3['Evolves-Into'][0]['Method'], middle_pokemon_3['Evolves-Into'][0]['Value'])
-    
+        
     image_in_memory = BytesIO()
 
     background_image.save(image_in_memory, format='PNG')
@@ -1284,7 +1283,7 @@ async def makePokedexEmbed(mon):
                     inline=True)
     
     embed.add_field(name=f'᲼',
-                    value=f'Spd - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]}\nSp.Atk - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]}\nSp.Def - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"]}',
+                    value=f'Speed - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]}\nSp.Atk - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]}\nSp.Def - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"]}',
                     inline=True)
 
     embed.add_field(name=f'Moveset Data from {version_group_name}',
