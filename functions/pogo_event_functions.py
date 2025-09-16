@@ -39,9 +39,22 @@ async def eventsHelp():
 #endregion
 
 #region commands
+def getDateForComparison(date):
+    if date.endswith('Z'):
+        return datetime.fromisoformat(date[:-1])
+    return datetime.fromisoformat(date)
+
+def eventSortKey(event):
+    startDate = getDateForComparison(event['start'])
+    endDate = getDateForComparison(event['end'])
+
+    if (endDate-startDate).days >= 21:
+        return endDate
+    return startDate
+
 async def retrieveEventsFromAPI(eventFilterList):
     events = (requests.get(f'https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.json')).json()
-    sortedEvents = sorted(events, key=lambda x: x['start'], reverse=False)
+    sortedEvents = sorted(events, key=eventSortKey, reverse=False)
 
     filteredEvents = []
     for event in sortedEvents:

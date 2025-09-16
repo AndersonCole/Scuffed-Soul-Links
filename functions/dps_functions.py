@@ -45,7 +45,10 @@ async def dpsHelp():
                                         '```$dps list-moves``` Lists all the registered moves.\n' +
                                         '```$dps list-move-changes``` Lists all the changes made in October to some moves.\n' +
                                         '```$dps delete-mon Kartana``` Deletes a mon from the registered list.\n' +
-                                        '```$dps delete-move Razor Leaf``` Deletes a move from the registered list.\n' +
+                                        '```$dps delete-move Razor Leaf``` Deletes a move from the registered list.\n\n' +
+                                        '```$dps go-stats Kartana``` Calculates what the pokemons stats would be like in Go using its most recent main series stats.\n'
+                                        '```$dps go-stats Kartana, noNerf``` Calculates what it would be like without any stat nerfs.\n`noNerf`, `3Nerf` and `9Nerf` are the allowed nerf exceptions.\n'
+                                        '```$dps go-stats 59, 181, 131, 59, 31, 109``` Calculates stats for Go based on the entered HP, Atk, Def, SpAtk, SpDef and Spd stats. Nerf exceptions can be applied here too.\n\n'
                                         '```$dps add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
                                         '```$dps delete-notes``` Deletes all saved notes.\n' +
                                         '```$dps check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n\n' +
@@ -646,7 +649,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
     embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
 
-    calculated_stats = getCalculatedStats(mon, modifiers)
+    monAttack, monDefence, monStamina, monCP = getCalculatedStats(mon, modifiers)
 
     fastMoves = []
     chargedMoves = []
@@ -677,11 +680,11 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
     dpsResults = []
 
     embed = discord.Embed(title=getEmbedTitle(mon, modifiers, battleSystem),
-                          description=f'Attack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["Ivs"]["Attack"]}/{modifiers["Ivs"]["Defence"]}/{modifiers["Ivs"]["Stamina"]}',
+                          description=f'{monCP} CP\nAttack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["Ivs"]["Attack"]}/{modifiers["Ivs"]["Defence"]}/{modifiers["Ivs"]["Stamina"]}',
                           color=embedColour)
     
     if battleSystem == 'dmax':
-        maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], calculated_stats[0], modifiers)
+        maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], monAttack, modifiers)
 
     for fastMove in fastMoves:
         copiedFastMove = copy.deepcopy(fastMove)
@@ -703,7 +706,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
         newFastMove = await calcRoundedFastMoves(copiedFastMove)
 
         if battleSystem == 'dmax' and modifiers['SimFastAlone']:
-            fastDps, fastEps = await calcMaxFastAlone(calculated_stats[0], newFastMove, modifiers)
+            fastDps, fastEps = await calcMaxFastAlone(monAttack, newFastMove, modifiers)
 
             if modifiers['ShowCycleDps']:
                 maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(fastDps, fastEps, maxMoveDamage, modifiers)
@@ -741,10 +744,10 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
             newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
             
-            newDPS = await calcOverallDPS(calculated_stats[0], calculated_stats[1], calculated_stats[2], newFastMove, newChargedMove, modifiers)
+            newDPS = await calcOverallDPS(monAttack, monDefence, monStamina, newFastMove, newChargedMove, modifiers)
 
             if battleSystem == 'raids':
-                oldDPS = await calcOverallDPS(calculated_stats[0], calculated_stats[1], calculated_stats[2], fastMove, chargedMove, modifiers)
+                oldDPS = await calcOverallDPS(monAttack, monDefence, monStamina, fastMove, chargedMove, modifiers)
 
                 dpsResults.append({
                     'FastName': fastMove['Name'],
@@ -758,7 +761,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
                 })
 
             elif battleSystem == 'dmax':
-                maxEPS = await calcMaxEPS(calculated_stats[0], calculated_stats[1], calculated_stats[2], newFastMove, newChargedMove, modifiers)
+                maxEPS = await calcMaxEPS(monAttack, monDefence, monStamina, newFastMove, newChargedMove, modifiers)
                 
                 if modifiers['ShowCycleDps']:
                     newDPS = newDPS * modifiers['CyclePlayers']
@@ -885,14 +888,24 @@ def getEmbedTitle(mon, modifiers, battleSystem):
     return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatTextForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}{playerText}'
 
 def getCalculatedStats(mon, modifiers):
-    calculated_stats = []
     cpMultiplier = getCPMultiplier(modifiers['Level'])
 
-    calculated_stats.append((mon['Attack'] + modifiers['Ivs']['Attack'])*cpMultiplier)
-    calculated_stats.append((mon['Defence'] + modifiers['Ivs']['Defence'])*cpMultiplier)
-    calculated_stats.append((mon['Stamina'] + modifiers['Ivs']['Stamina'])*cpMultiplier)
+    monAttack = calcStat(mon['Attack'], modifiers['Ivs']['Attack'], cpMultiplier)
+    monDefence = calcStat(mon['Defence'], modifiers['Ivs']['Defence'], cpMultiplier)
+    monStamina = calcStat(mon['Stamina'], modifiers['Ivs']['Stamina'], cpMultiplier)
 
-    return calculated_stats
+    monCP = calcCP(monAttack, monDefence, monStamina)
+
+    return monAttack, monDefence, monStamina, monCP
+
+def calcStat(baseStat, iv, cpMultiplier):
+    calculatedStat = (baseStat + iv)*cpMultiplier
+
+    return calculatedStat
+
+def calcCP(attack, defence, stamina):
+    cp = max(10, math.floor((attack*(defence**0.5)*(stamina**0.5))/10))
+    return cp
 
 async def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
     if modifiers['CycleWillSwap']:
@@ -1508,6 +1521,118 @@ async def calcRoundedChargedMoves(move):
 def getCPMultiplier(level):
     return cpMultipliers.get(level, 0)
 #endregion
+#endregion
+
+#region go stat convert
+async def convertToGoStats(stats, nerfOverride=None):
+    try:
+        stats = [int(obj) for obj in stats]
+    except:
+        return 'Not all 6 stats were numbers!'
+    
+    if nerfOverride is not None:
+        nerfOverride = calcNerfOverride(nerfOverride)
+        if (isinstance(nerfOverride, str)):
+            return nerfOverride
+        
+    attack, defence, stamina, lv40CP, lv50CP, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
+
+    nerfText = getNerfText(nerfAmount)
+
+    return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'
+        
+
+async def convertToGoStatsFromName(monName, nerfOverride=None):
+    dexNum = getDexNum(monName)
+
+    if dexNum == -1:
+        return f'The pokemon \'{monName}\' was not recognized!'
+    
+    monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+    monData = monData.json()
+
+    stats = []
+
+    for i in range(6):
+        stats.append(int(monData['stats'][i]['base_stat']))
+
+    if nerfOverride is not None:
+        nerfOverride = calcNerfOverride(nerfOverride)
+        if (isinstance(nerfOverride, str)):
+            return nerfOverride
+    
+    attack, defence, stamina, lv40CP, lv50CP, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
+
+    nerfText = getNerfText(nerfAmount)
+
+    return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'
+
+def calcNerfOverride(nerfOverride):
+    if nerfOverride == '9nerf':
+        return 0.91
+    elif nerfOverride == '3nerf':
+        return 0.97
+    elif nerfOverride == 'nonerf':
+        return 1.00
+    else:
+        return f'The nerf exception \'{nerfOverride}\' was not recognized!\n`noNerf`, `3Nerf` and `9Nerf` are the only valid exceptions!'
+
+def getNerfText(nerfAmount):
+    if nerfAmount == 0.91:
+        return '(After a 9% nerf)'
+    elif nerfAmount == 0.97:
+        return '(After a 3% nerf)'
+    return ''
+
+def calcPoGoStatsFromBaseStats(hp, attack, defence, spAttack, spDefence, speed, nerfAmount):
+    if attack >= spAttack:
+        highestAttack = attack
+        lowestAttack = spAttack
+    else:
+        highestAttack = spAttack
+        lowestAttack = attack
+
+    if defence >= spDefence:
+        highestDefence = defence
+        lowestDefence = spDefence
+    else:
+        highestDefence = spDefence
+        lowestDefence = defence
+
+    staminaGo = math.floor((1.75*hp) + 50)
+    attackScaled = round(2 * (((7/8)*highestAttack) + (1/8)*lowestAttack))
+    defenceScaled = round(2 * (((5/8)*highestDefence) + (3/8)*lowestDefence))
+
+    speedMult = ((speed-75)/500) + 1
+
+    attackGo = round(attackScaled * speedMult)
+    defenceGo = round(defenceScaled * speedMult)
+
+    if nerfAmount is None:
+        lv40CP = determineCPFromBaseStat(attackGo, defenceGo, staminaGo, 40)
+        if lv40CP >= 4000:
+            nerfAmount = 0.91
+        else:
+            nerfAmount = 1.00
+
+    staminaNerfed = round(staminaGo * nerfAmount)
+    attackNerfed = round(attackGo * nerfAmount)
+    defenceNerfed = round(defenceGo * nerfAmount)
+
+    lv40CP = determineCPFromBaseStat(attackNerfed, defenceNerfed, staminaNerfed, 40)
+    lv50CP = determineCPFromBaseStat(attackNerfed, defenceNerfed, staminaNerfed, 50)
+
+    return attackNerfed, defenceNerfed, staminaNerfed, lv40CP, lv50CP, nerfAmount
+
+def determineCPFromBaseStat(attack, defence, stamina, level):
+    cpMultiplier = getCPMultiplier(level)
+    calculatedAttack = calcStat(attack, 15, cpMultiplier)
+    calculatedDefence = calcStat(defence, 15, cpMultiplier)
+    calculatedStamina = calcStat(stamina, 15, cpMultiplier)
+
+    cp = calcCP(calculatedAttack, calculatedDefence, calculatedStamina)
+
+    return cp
 #endregion
 
 #region chatgpt notes

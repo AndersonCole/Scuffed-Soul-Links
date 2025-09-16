@@ -76,6 +76,20 @@ async def dpsCommands(userInput, author):
         else:
             response, file = await dpsCheck(userInput[6:].strip(), 'raids')
 
+    elif userInput.startswith('go-stats '):
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[9:])
+            if len(splitInput) == 7:
+                response = await convertToGoStats(splitInput[:-1], nerfOverride=splitInput[-1].strip().lower())
+            elif len(splitInput) == 6:
+                response = await convertToGoStats(splitInput)
+            elif len(splitInput) == 2:
+                response = await convertToGoStatsFromName(splitInput[0], nerfOverride=splitInput[1].strip().lower())
+            else:
+                response = 'Invalid input! Make sure you add all 6 stats comma separated!'
+        else:
+            response = await convertToGoStatsFromName(userInput[9:])
+            
     elif userInput.startswith('add-note '):
         response = await addDPSNote(userInput[9:])
     
