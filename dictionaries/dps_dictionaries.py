@@ -105,12 +105,12 @@ activeModifiers = {
     'WeatherMultiplier': 1.2,
     'MegaMultiplier': 1.3,
     
-    'PartyPowerReadyAt': 90.0,
+    'PartyPowerReadyAt': 36.0,
     #amount of energy each fast move gives towards party power energy
     'PartyPowerGain': {
-        '2': 5.0, #18 atks
-        '3': 9.0, #10 atks
-        '4': 30.0 #3  atks
+        '2': 2.0, #18 atks
+        '3': 4.0, #9 atks
+        '4': 6.0 #6  atks
     },
 
     'PowerSpotMultiplier': {
