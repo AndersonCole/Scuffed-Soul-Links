@@ -8,6 +8,7 @@ import discord
 import json
 import random
 import regex as re
+import socket
 import asyncio
 import subprocess
 import math
@@ -16,7 +17,6 @@ import requests
 import tarfile
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
-from mcstatus import JavaServer
 from mcrcon import MCRcon
 from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
 from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths, defaultModifiers
@@ -171,8 +171,7 @@ async def mcSetup():
 #region rcon server info commands
 async def serverOnline():
     try:
-        serverIp = await checkIp()
-        with JavaServer.lookup(f'{serverIp}:{serverPort}', timeout=3):
+        with socket.create_connection((rconIp, serverPort), timeout=3):
             return True
     except:
         return False
