@@ -1,7 +1,13 @@
 import json
 import regex as re
 import random
+import aiohttp
+from diskcache import Cache
+from PIL import Image
+from io import BytesIO
 from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, types
+
+pokeApiCache = Cache('./cache/poke_api')
 
 def loadDataVariableFromFile(filePath, readJson=True):
     with open(filePath, 'r') as file:
@@ -22,6 +28,55 @@ async def saveDataVariableToFile(filePath, content, writeJson=True):
 async def saveAndLoadDataVariable(filePath, content, readWriteJson=True):
     await saveDataVariableToFile(filePath, content, readWriteJson)
     return loadDataVariableFromFile(filePath, readWriteJson)
+
+async def getPokeApiJsonData(url, session=None):
+    if '/pokemon/' in url:
+        label = 'pokemon'
+    elif '/pokemon-species/' in url:
+        label = 'species'
+    elif '/move/' in url:
+        label = 'move'
+    else:
+        return None
+    
+    cacheKey = f'{label}:{url.lower().replace("https://pokeapi.co/api/v2/", "")}'
+
+    if cacheKey in pokeApiCache:
+        return pokeApiCache[cacheKey]
+    
+    try:
+        if session is None:
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url) as response:
+                    response.raise_for_status()
+
+                    data = await response.json()
+                
+        else:
+            async with session.get(url) as response:
+                response.raise_for_status()
+
+                data = await response.json()
+
+        pokeApiCache.set(cacheKey, data, expire=86400*30)
+        return data
+            
+    except Exception as ex:
+        print(ex)
+        return None
+
+async def openHttpImage(url, bigImg=True):
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                image_data = BytesIO(await response.read())
+                return Image.open(image_data).convert('RGBA')
+    if not bigImg:
+        return Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
+    return Image.open(f'images/evo_helpers/missing_no.png').convert('RGBA')
+
 
 def loadShucklePersonality(variant):
     with open(f'text_files/chat_gpt_instructions/{variant}Shuckle.txt', 'r') as file:

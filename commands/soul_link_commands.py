@@ -106,7 +106,11 @@ async def soulLinkCommands(userInput, author, guild):
         response = await seeStats()              
 
     elif userInput.startswith('dex '):
-        response, file = await makePokedexEmbed(userInput[4:])
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[4:])
+            response, file = await makePokedexEmbed(splitInput[0].strip(), splitInput[1].strip())
+        else:
+            response, file = await makePokedexEmbed(userInput[4:], None)
 
     elif userInput.startswith('catch '):
         splitInput = re.split(r'[\s-.]+', userInput[6:])

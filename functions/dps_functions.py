@@ -8,7 +8,6 @@ Cole Anderson, Sept 2024
 import discord
 import openai
 import random
-import requests
 import regex as re
 import math
 import copy
@@ -94,6 +93,8 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, FriendBoost``` FriendBoost: Adds a 1.1x boost to all attacks\n' +
                                         f'```{commandText}, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to all attacks\n' +
                                         f'```{commandText}, MegaBoost``` MegaBoost: Adds a 1.3x boost to all attacks\n' +
+                                        f'```{commandText}, PrimalBoost``` PrimalBoost: Adds a 1.1x boost to all attacks\n' +
+                                        f'```{commandText}, Rayquaza MegaBoost``` MegaBoost: Adds a 1.3x or 1.1x boost to all attacks\n' +
                                         f'```{commandText}, BehemothBlade``` BehemothBlade: Adds a boost to all attacks\n' +
                                         f'```{commandText}, BehemothBash``` BehemothBash: Adds a boost to your defence\n\n' +
                                         f'```{commandText}, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
@@ -230,13 +231,19 @@ def getChangedMoveStats(moveName, oldPower, oldEnergy, applyChanges):
 async def getMonTypes(dexNum):
     monTypes = []
 
-    if dexNum >= 0:
-        monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-        monData = monData.json()
+    try:
+        if dexNum < 0:
+            raise Exception
+        
+        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+
+        if monData is None:
+            raise Exception
+        
         monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
         if len(monData['types']) > 1:
             monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
-    else:
+    except:
         monTypes.append('???')
 
     return monTypes
@@ -703,6 +710,12 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
         if modifiers['CalculateFastEffectiveness']:
             modifiers['FastEffectiveness'] = calculateMoveEffectiveness(fastMove['MoveType'], bossTypes)
 
+        if modifiers['ApplyMegaBoost']:
+            if fastMove['MoveType'] in modifiers['MegaTypes']:
+                modifiers['FastMegaMultiplier'] = activeModifiers.get('MegaMultiplier').get('SameType')
+            else:
+                modifiers['FastMegaMultiplier'] = activeModifiers.get('MegaMultiplier').get('DiffType')
+
         newFastMove = await calcRoundedFastMoves(copiedFastMove)
 
         if battleSystem == 'dmax' and modifiers['SimFastAlone']:
@@ -741,6 +754,12 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
             if modifiers['CalculateChargedEffectiveness']:
                 modifiers['ChargedEffectiveness'] = calculateMoveEffectiveness(chargedMove['MoveType'], bossTypes)
+
+            if modifiers['ApplyMegaBoost']:
+                if chargedMove['MoveType'] in modifiers['MegaTypes']:
+                    modifiers['ChargedMegaMultiplier'] = activeModifiers.get('MegaMultiplier').get('SameType')
+                else:
+                    modifiers['ChargedMegaMultiplier'] = activeModifiers.get('MegaMultiplier').get('DiffType')
 
             newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
             
@@ -835,11 +854,17 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
         if modifiers['ShowCycleDps']:
             if modifiers['CycleWillSwap']:
-                embed.description = (f'Attack: {mon["Attack"]} | Attack: {modifiers["CycleSwapMon"]["Attack"]}\n'
-                                    f'Defence: {mon["Defence"]} | Defence: {modifiers["CycleSwapMon"]["Defence"]}\n'
-                                    f'Stamina: {mon["Stamina"]} | Stamina: {modifiers["CycleSwapMon"]["Stamina"]}\n'
+                swapMonCpMultiplier = getCPMultiplier(modifiers['CycleSwapMon']['Level'])
+
+                swapMonAttack = calcStat(modifiers['CycleSwapMon']['Stats']['Attack'], modifiers['CycleSwapMon']['Ivs']['Attack'], swapMonCpMultiplier)
+                swapMonDefence = calcStat(modifiers['CycleSwapMon']['Stats']['Defence'], modifiers['CycleSwapMon']['Ivs']['Defence'], swapMonCpMultiplier)
+                swapMonStamina = calcStat(modifiers['CycleSwapMon']['Stats']['Stamina'], modifiers['CycleSwapMon']['Ivs']['Stamina'], swapMonCpMultiplier)
+                embed.description = (f'{monCP} CP | {calcCP(swapMonAttack, swapMonDefence, swapMonStamina)} CP\n'
+                                    f'Attack: {mon["Attack"]} | Attack: {modifiers["CycleSwapMon"]["Stats"]["Attack"]}\n'
+                                    f'Defence: {mon["Defence"]} | Defence: {modifiers["CycleSwapMon"]["Stats"]["Defence"]}\n'
+                                    f'Stamina: {mon["Stamina"]} | Stamina: {modifiers["CycleSwapMon"]["Stats"]["Stamina"]}\n'
                                     f'IVs: {modifiers["Ivs"]["Attack"]}/{modifiers["Ivs"]["Defence"]}/{modifiers["Ivs"]["Stamina"]} | '
-                                    f'IVs: {modifiers["CycleSwapMonIvs"]["Attack"]}/{modifiers["CycleSwapMonIvs"]["Defence"]}/{modifiers["CycleSwapMonIvs"]["Stamina"]}')
+                                    f'IVs: {modifiers["CycleSwapMon"]["Ivs"]["Attack"]}/{modifiers["CycleSwapMon"]["Ivs"]["Defence"]}/{modifiers["CycleSwapMon"]["Ivs"]["Stamina"]}')
             
             embed.add_field(name='Time to Max',
                             value=moveTtdOutput,
@@ -880,7 +905,7 @@ def getEmbedTitle(mon, modifiers, battleSystem):
     if modifiers['CycleWillSwap']:
         chargerTxt = '(Charging)'
         gmaxText = ''
-        cycleSwapText = f' and{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatTextForDisplay(modifiers["CycleSwapMon"]["Name"])}(Max Move) at Lv {str(modifiers["CycleSwapMonLevel"]).rstrip("0").rstrip(".")}'
+        cycleSwapText = f' and{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatTextForDisplay(modifiers["CycleSwapMon"]["Name"])}(Max Move) at Lv {str(modifiers["CycleSwapMon"]["Level"]).rstrip("0").rstrip(".")}'
 
     if modifiers['CyclePlayers'] > 1:
         playerText = f', with {int(modifiers["CyclePlayers"])} trainers'
@@ -909,7 +934,7 @@ def calcCP(attack, defence, stamina):
 
 async def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
     if modifiers['CycleWillSwap']:
-        swapMonAttack = (modifiers['CycleSwapMon']['Attack'] + 15)*getCPMultiplier(modifiers['CycleSwapMonLevel'])
+        swapMonAttack = (modifiers['CycleSwapMon']['Stats']['Attack'] + 15)*getCPMultiplier(modifiers['CycleSwapMon']['Level'])
         maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], swapMonAttack, modifiers)
 
     timeToDmax = calcTimeToMax(maxEPS)
@@ -941,13 +966,6 @@ async def getEmbedImage(mon, modifiers, embedColour):
         return f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{imageDexNum}.png', None
     
     return f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{imageDexNum}.png', None
-
-async def openHttpImage(url):
-    response = requests.get(url)
-    if response.status_code == 200:
-        image_data = BytesIO(response.content)
-        return Image.open(image_data).convert('RGBA')
-    return Image.open(f'images/evo_helpers/missing_no.png').convert('RGBA')
 
 async def createCombinedMonsImage(chargingMonDex, maxMonDex, embedColour):
     rand_num = random.randint(1, 100)
@@ -1069,8 +1087,32 @@ async def determineModifierValues(extraInputs, battleSystem):
             modifiers['FriendMultiplier'] = activeModifiers.get('FriendMultiplier')
         elif input == 'weatherboost':
             modifiers['WeatherMultiplier'] = activeModifiers.get('WeatherMultiplier')
-        elif input == 'megaboost':
-            modifiers['MegaMultiplier'] = activeModifiers.get('MegaMultiplier')
+        elif 'megaboost' in input or 'primalboost' in input:
+            if input == 'megaboost':
+                modifiers['MegaTypes'] = [obj['Name'] for obj in types]
+                modifiers['ApplyMegaBoost'] = True
+            elif input == 'primalboost':
+                modifiers['ApplyMegaBoost'] = True
+            else:
+                try:
+                    megaMon = input[:-5]
+                    if not checkDuplicateMon(megaMon):
+                        raise Exception
+                    megaMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(megaMon)][0]
+                    match megaMon['Name']:
+                        case 'groudon-primal':
+                            megaTypes = ['Ground', 'Grass', 'Fire']
+                        case 'kyogre=primal':
+                            megaTypes = ['Bug', 'Water', 'Electric']
+                        case 'rayquaza-mega':
+                            megaTypes = ['Flying', 'Psychic', 'Dragon']
+                        case _:
+                            megaTypes = await getMonTypes(megaMon['ImageDexNum'])
+
+                    modifiers['MegaTypes'] = megaTypes
+                    modifiers['ApplyMegaBoost'] = True
+                except:
+                    errorText += f'\'{input}\' wasn\'t understood as a valid mega name! Make sure it\'s registered!\n'
         elif input == 'behemothblade':
             modifiers['ZacianMultiplier'] = activeModifiers.get('ZacianMultiplier').get(battleSystem)
             if not modifiers['UsingAdventureEffect']:
@@ -1233,7 +1275,11 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                 modifiers['ShowCycleDps'] = True
                 modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
                 modifiers['CycleWillSwap'] = True
-                modifiers['CycleSwapMon'] = swapMon
+                modifiers['CycleSwapMon']['Name'] = swapMon['Name']
+                modifiers['CycleSwapMon']['ImageDexNum'] = swapMon['ImageDexNum']
+                modifiers['CycleSwapMon']['Stats']['Attack'] = swapMon['Attack']
+                modifiers['CycleSwapMon']['Stats']['Defence'] = swapMon['Defence']
+                modifiers['CycleSwapMon']['Stats']['Stamina'] = swapMon['Stamina']
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid mon name! Make sure it\'s registered!\n'
         elif input.startswith('cycleswaplevel'): 
@@ -1242,7 +1288,7 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                     val = float(input[14:])
                     if 1.0 > val or val > 51.0:
                         raise Exception
-                    modifiers['CycleSwapMonLevel'] = float(input[14:])
+                    modifiers['CycleSwapMon']['Level'] = float(input[14:])
                 else:
                     raise Exception
             except:
@@ -1254,9 +1300,9 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                     for iv in ivs:
                         if 0 > int(iv) or int(iv) > 15:
                             raise Exception
-                    modifiers['CycleSwapMonIvs']['Attack'] = int(ivs[0])
-                    modifiers['CycleSwapMonIvs']['Defence'] = int(ivs[1])
-                    modifiers['CycleSwapMonIvs']['Stamina'] = int(ivs[2])
+                    modifiers['CycleSwapMon']['Ivs']['Attack'] = int(ivs[0])
+                    modifiers['CycleSwapMon']['Ivs']['Defence'] = int(ivs[1])
+                    modifiers['CycleSwapMon']['Ivs']['Stamina'] = int(ivs[2])
                 else:
                     raise Exception
             except:
@@ -1375,12 +1421,18 @@ async def calcSurvivalTime(dpsBoss, stamina):
 '''
 
 async def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
-    if moveType == 'Charged':
+    megaMultiplier = 1.0
+    partyPower = 1.0
+    if moveType == 'Fast':
+        megaMultiplier = modifiers['FastMegaMultiplier']
+    elif moveType == 'Charged':
+        megaMultiplier = modifiers['ChargedMegaMultiplier']
         partyPower = calculatePartyPowerMultiplier(fastMovesPerCharged, modifiers)
-    else:
-        partyPower = 1.0
+    elif moveType == 'Max':
+        if modifiers['ApplyMegaBoost']:
+            megaMultiplier = activeModifiers.get('MegaMultiplier').get('SameType')
     
-    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * modifiers['WeatherMultiplier'] * modifiers['MegaMultiplier'] * modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * modifiers['ZacianMultiplier'] * partyPower
+    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * modifiers['WeatherMultiplier'] * megaMultiplier * modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * modifiers['ZacianMultiplier'] * partyPower
 
     return modifierVal
 
@@ -1548,8 +1600,10 @@ async def convertToGoStatsFromName(monName, nerfOverride=None):
     if dexNum == -1:
         return f'The pokemon \'{monName}\' was not recognized!'
     
-    monData = requests.get(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-    monData = monData.json()
+    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+
+    if monData is None:
+        return f'An error occured while checking the api!'
 
     stats = []
 

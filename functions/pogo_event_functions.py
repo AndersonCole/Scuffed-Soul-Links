@@ -5,7 +5,7 @@ Cole Anderson, Aug 2025
 """
 
 import discord
-import requests
+import aiohttp
 import copy
 import random
 import regex as re
@@ -53,7 +53,16 @@ def eventSortKey(event):
     return startDate
 
 async def retrieveEventsFromAPI(eventFilterList):
-    events = (requests.get(f'https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.json')).json()
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get('https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.json') as response:
+                response.raise_for_status()
+
+                events = await response.json()
+    except:
+        return None
+    
     sortedEvents = sorted(events, key=eventSortKey, reverse=False)
 
     filteredEvents = []
@@ -111,6 +120,9 @@ async def createEventsEmbeds(filterFor):
         return 'I don\'t understand what events you\'re trying to get info on!\n\nCheck `$pogo help` to see all valid searches!'
     
     events = await retrieveEventsFromAPI(filterList)
+
+    if events is None:
+        return 'There was an error while checking the api!'
 
     if len(events) == 0:
         return 'There was no data on the requested events!'

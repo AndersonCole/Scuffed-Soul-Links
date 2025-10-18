@@ -6,7 +6,6 @@ Cole Anderson, Dec 2023
 """
 import discord
 import openai
-import requests
 import random
 import regex as re
 import math
@@ -55,6 +54,7 @@ async def help():
                                       '```$sl fail-run``` Ends the run in failure\n' +
                                       '```$sl run-info``` Prints out all relevant stats for the currently selected run\n\n' +
                                       '```$sl dex Bulbasaur``` Shows data on selected pokemon\n' +
+                                      '```$sl dex Bulbasaur, HeartGold``` Shows data on selected pokemon in HearGold\n' +
                                       '```$sl moves Bulbasaur 24``` Shows the four moves the mon has at a specific level\n' +
                                       '```$sl add-nickname Ttar, Tyranitar``` Adds nicknames to link to original names\n' +
                                       '```$sl nicknames``` Prints out all nicknames\n' +
@@ -1026,15 +1026,6 @@ async def setRunStatus(status, guild):
 #region dex commands
 
 #region evo chain image
-async def open_http_image(url, bigImg=True):
-    response = requests.get(url)
-    if response.status_code == 200:
-        image_data = BytesIO(response.content)
-        return Image.open(image_data).convert('RGBA')
-    if not bigImg:
-        return Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
-    return Image.open(f'images/evo_helpers/missing_no.png').convert('RGBA')
-
 async def createArrowImage(direction, type, method, value):
     arrow_img = Image.open(f'images/evo_helpers/arrows/arrow_{type}.png').convert('RGBA')
     if method == 'level-up':
@@ -1045,7 +1036,10 @@ async def createArrowImage(direction, type, method, value):
         return arrow_img.rotate(direction)
     
     elif method == 'use-item':
-        item_image = await open_http_image(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/{value}.png', False)
+        item_image = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/{value}.png', False)
+
+        arrow_img.paste(item_image, (10, 4), mask=item_image)
+        item_image.close()
 
     #use item-img covers trade, friendship and mega evos as well
     elif method == 'use-item-img':
@@ -1054,13 +1048,13 @@ async def createArrowImage(direction, type, method, value):
         except FileNotFoundError:
             item_image = Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
     
-    arrow_img.paste(item_image, (10, 4), mask=item_image)
-    item_image.close()
+        arrow_img.paste(item_image, (10, 4), mask=item_image)
+        item_image.close()
 
     return arrow_img.rotate(direction)
 
 async def pasteOnImage(backgroundImage, dexNum, positionX, positionY):
-    image = await open_http_image(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dexNum}.png')
+    image = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dexNum}.png')
 
     backgroundImage.paste(image, (positionX, positionY), mask=image)
     image.close()
@@ -1227,33 +1221,43 @@ async def createEvoChainImage(dex_num, type):
 
 #region $sl dex command
 
-async def makePokedexEmbed(mon):
+async def makePokedexEmbed(mon, gameName):
     dex_num = getDexNum(mon)
 
-    if dex_num == -1:
-        return f"The pokemon \'{mon}\' was not recognized!", None
-    
-    mon_data = requests.get(f'https://pokeapi.co/api/v2/pokemon/{dex_num}')
-    mon_data = mon_data.json()
+    versionGroup = getGroup(gameName)
 
-    mon_name = re.split(r'[\s-.]+', mon_data['name'])
+    if dex_num == -1:
+        return f'The pokemon \'{mon}\' was not recognized!', None
+    
+    if gameName is not None and versionGroup is None:
+        return f'\'{gameName}\' was not recognized as a valid game name!', None
+
+    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dex_num}')
+
+    if monData is None:
+        return f'An error occured while checking the api!'
+
+    mon_name = re.split(r'[\s-.]+', monData['name'])
     mon_name = ' '.join(word.capitalize() for word in mon_name)
 
     mon_primary_type = ''
     mon_secondary_type = ''
 
-    if len(mon_data['types']) == 2:
-        mon_primary_type = str(mon_data['types'][0]['type']['name']).capitalize()
-        mon_secondary_type = str(mon_data['types'][1]['type']['name']).capitalize()
+    if len(monData['types']) == 2:
+        mon_primary_type = str(monData['types'][0]['type']['name']).capitalize()
+        mon_secondary_type = str(monData['types'][1]['type']['name']).capitalize()
     else:
-        mon_primary_type = str(mon_data['types'][0]['type']['name']).capitalize()
+        mon_primary_type = str(monData['types'][0]['type']['name']).capitalize()
         mon_secondary_type = ''
 
     type_emojis = [obj for obj in types if obj["Name"] == mon_primary_type][0]["Emoji"]
     if mon_secondary_type != '':
         type_emojis += [obj for obj in types if obj["Name"] == mon_secondary_type.capitalize()][0]["Emoji"]
     
-    moveset, versionGroup = await getMoves(mon_data['moves'], currentRun['VersionGroup'])
+    if versionGroup is None:
+        moveset, versionGroup = await getMoves(monData['moves'], currentRun['VersionGroup'])
+    else:
+        moveset, versionGroup = await getMoves(monData['moves'], versionGroup)
 
     moveset_levels, moveset_names, moveset_types_categories = movesetText(moveset)
 
@@ -1267,7 +1271,9 @@ async def makePokedexEmbed(mon):
 
     file = await createEvoChainImage(dex_num, mon_primary_type)
 
-    embed = discord.Embed(title=f'#{mon_data["species"]["url"][42:].strip("/")} {mon_name} {type_emojis}',
+    stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
+
+    embed = discord.Embed(title=f'#{monData["species"]["url"][42:].strip("/")} {mon_name} {type_emojis}',
                           color=[obj for obj in types if obj['Name'] == mon_primary_type][0]['Colour'])
 
     rand_num = random.randint(1, 100)
@@ -1276,14 +1282,14 @@ async def makePokedexEmbed(mon):
     else: 
         embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dex_num}.png')
 
-    embed.set_author(name='Pokémon Data', url=f'https://www.serebii.net/pokedex{[obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]["Serebii-Link"]}/{str(mon_data["species"]["url"][42:].strip("/")).zfill(3)}.shtml')
+    embed.set_author(name='Pokémon Data', url=f'https://www.serebii.net/pokedex{[obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]["Serebii-Link"]}/{str(monData["species"]["url"][42:].strip("/")).zfill(3)}.shtml')
 
-    embed.add_field(name=f'Stats - {int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "attack"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "defense"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"])} BST',
-                    value=f'HP - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"]}\nAtk - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "attack"][0]["base_stat"]}\nDef - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "defense"][0]["base_stat"]}',
+    embed.add_field(name=f'Stats - {sum(stats.values())} BST',
+                    value=f'HP - {stats["hp"]}\nAtk - {stats["attack"]}\nDef - {stats["defense"]}',
                     inline=True)
     
     embed.add_field(name=f'᲼',
-                    value=f'Speed - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]}\nSp.Atk - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]}\nSp.Def - {[obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"]}',
+                    value=f'Speed - {stats["speed"]}\nSp.Atk - {stats["special-attack"]}\nSp.Def - {stats["special-defense"]}',
                     inline=True)
 
     embed.add_field(name=f'Moveset Data from {version_group_name}',
@@ -1327,7 +1333,7 @@ async def getMoves(moves, versionGroup):
     moveset.sort(reverse=False, key=lambda item: item['Level'])
 
     async with aiohttp.ClientSession() as session:
-        tasks = [fetchMoveDetails(asyncio.Semaphore(15), session, move['URL']) for move in moveset]
+        tasks = [getPokeApiJsonData(move['URL'], session=session) for move in moveset]
         moveDataResponses = await asyncio.gather(*tasks)
 
     for move, response in zip(moveset, moveDataResponses):
@@ -1340,11 +1346,6 @@ async def getMoves(moves, versionGroup):
         return await getMoves(moves, moves[random.randint(0, len(moves) - 1)]['version_group_details'][0]['version_group']['name'])
 
     return moveset, versionGroup
-
-async def fetchMoveDetails(semaphores, session, url):
-    async with semaphores:
-        async with session.get(url) as response:
-            return await response.json()
         
 def movesetText(moveset):
     level_text = ''
@@ -1396,22 +1397,26 @@ async def showMoveSet(mon, level):
     if dex_num == -1:
         return f"The pokemon \'{mon}\' was not recognized!"
     
-    mon_data = requests.get(f'https://pokeapi.co/api/v2/pokemon/{dex_num}')
-    mon_data = mon_data.json()
+    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dex_num}')
 
-    mon_name = re.split(r'[\s-.]+', mon_data['name'])
+    if monData is None:
+        return f'An error occured while checking the api!'
+
+    mon_name = re.split(r'[\s-.]+', monData['name'])
     mon_name = ' '.join(word.capitalize() for word in mon_name)
 
-    moveset, versionGroup = await getMoves(mon_data['moves'], currentRun['VersionGroup'])
+    moveset, versionGroup = await getMoves(monData['moves'], currentRun['VersionGroup'])
 
     moveset_names, moveset_types_categories, moveset_power_accuracy, comment = movesetTextLevel(moveset, level)
 
     version_group_name = re.split(r'[\s-.]+', versionGroup)
     version_group_name = ' '.join(word.capitalize() for word in version_group_name)
 
+    stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
+
     embed = discord.Embed(title=f'Level {level} {mon_name}',
                           description=comment,
-                          color=[obj for obj in types if obj['Name'] == str(mon_data['types'][0]['type']['name']).capitalize()][0]['Colour'])
+                          color=[obj for obj in types if obj['Name'] == str(monData['types'][0]['type']['name']).capitalize()][0]['Colour'])
     
     rand_num = random.randint(1, 100)
     if rand_num == 69:
@@ -1419,14 +1424,14 @@ async def showMoveSet(mon, level):
     else: 
         embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dex_num}.png')
     
-    embed.set_author(name='Moveset Data', url=f'https://www.serebii.net/pokedex{[obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]["Serebii-Link"]}/{str(mon_data["species"]["url"][42:].strip("/")).zfill(3)}.shtml')
+    embed.set_author(name='Moveset Data', url=f'https://www.serebii.net/pokedex{[obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]["Serebii-Link"]}/{str(monData["species"]["url"][42:].strip("/")).zfill(3)}.shtml')
 
     embed.add_field(name=f'31 IVs, 0 EVs, Neutral',
-                    value=f'HP - {calculateHP(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"]), level)}\nAtk - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "attack"][0]["base_stat"]), level)}\nDef - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "defense"][0]["base_stat"]), level)}',
+                    value=f'HP - {calculateHP(int(stats["hp"]), level)}\nAtk - {calculateStat(int(stats["attack"]), level)}\nDef - {calculateStat(int(stats["defense"]), level)}',
                     inline=True)
     
-    embed.add_field(name=f'{int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "attack"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "defense"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]) + int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"])} BST',
-                    value=f'Spd - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "speed"][0]["base_stat"]), level)}\nSp.Atk - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-attack"][0]["base_stat"]), level)}\nSp.Def - {calculateStat(int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "special-defense"][0]["base_stat"]), level)}',
+    embed.add_field(name=f'{sum(stats.values())} BST',
+                    value=f'Spd - {calculateStat(int(stats["speed"]), level)}\nSp.Atk - {calculateStat(int(stats["special-attack"]), level)}\nSp.Def - {calculateStat(int(stats["special-defense"]), level)}',
                     inline=True)
     
     embed.add_field(name=f'Moveset Data from {version_group_name}',
@@ -1518,23 +1523,27 @@ async def calculateCatchRate(mon, level):
     if dex_num == -1:
         return f"The pokemon \'{mon}\' was not recognized!"
     
-    mon_data = requests.get(f'https://pokeapi.co/api/v2/pokemon/{dex_num}')
-    mon_data = mon_data.json()
+    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dex_num}')
 
-    mon_species = requests.get(mon_data['species']['url'])
-    mon_species = mon_species.json()
+    if monData is None:
+        return f'An error occured while checking the api!'
 
-    mon_name = re.split(r'[\s-.]+', mon_data['name'])
+    monSpecies = await getPokeApiJsonData(monData['species']['url'])
+
+    if monSpecies is None:
+        return f'An error occured while checking the api!'
+
+    mon_name = re.split(r'[\s-.]+', monData['name'])
     mon_name = ' '.join(word.capitalize() for word in mon_name)
 
-    capture_rate = mon_species['capture_rate']
+    capture_rate = monSpecies['capture_rate']
 
     gen = [obj for obj in gens if any(group["Name"] == currentRun["VersionGroup"] for group in obj["Version-Groups"])][0]
 
     if dex_num == 292:
         hp_stat = 1
     else:
-        hp_stat = math.floor((((2 * int([obj for obj in mon_data["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"])) + random.randint(0, 31)) * level)/100) + level + 10
+        hp_stat = math.floor((((2 * int([obj for obj in monData["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"])) + random.randint(0, 31)) * level)/100) + level + 10
 
     catch_rate_full_poke = (((3 * hp_stat) - (2 * hp_stat))/(3 * hp_stat)) * capture_rate
     catch_rate_low_poke = (((3 * hp_stat) - 2)/(3 * hp_stat)) * capture_rate
@@ -1555,7 +1564,7 @@ async def calculateCatchRate(mon, level):
     catch_rate_low_ultra = 100 if catch_rate_low_ultra >= 255 else (catch_rate_low_ultra / 255) * 100
 
     embed = discord.Embed(title=f'Catch Rate for {mon_name} at Level {level}',
-                          color=[obj for obj in types if obj['Name'] == str(mon_data['types'][0]['type']['name']).capitalize()][0]['Colour'])
+                          color=[obj for obj in types if obj['Name'] == str(monData['types'][0]['type']['name']).capitalize()][0]['Colour'])
     
     rand_num = random.randint(1, 100)
     if rand_num == 69:

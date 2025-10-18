@@ -39,7 +39,12 @@ defaultModifiers = {
     
     'FriendMultiplier': 1.0,
     'WeatherMultiplier': 1.0,
-    'MegaMultiplier': 1.0,
+
+    'ApplyMegaBoost': False,
+    'MegaTypes': [],
+    'FastMegaMultiplier': 1.0,
+    'ChargedMegaMultiplier': 1.0,
+
     'PartyPowerGain': 0.0,
     'PowerSpotMultiplier': 1.0,
     'MushroomMultiplier': 1.0,
@@ -56,12 +61,20 @@ defaultModifiers = {
 
     'ShowCycleDps': False,
     'CycleWillSwap': False,
-    'CycleSwapMon': [],
-    'CycleSwapMonLevel': 40.0,
-    'CycleSwapMonIvs': {
-        'Attack': 15,
-        'Defence': 15,
-        'Stamina': 15
+    'CycleSwapMon': {
+        'Name': '',
+        'ImageDexNum': -1,
+        'Level': 40.0,
+        'Stats': {
+            'Attack': 0,
+            'Defence': 0,
+            'Stamina': 0
+        },
+        'Ivs': {
+            'Attack': 15,
+            'Defence': 15,
+            'Stamina': 15
+        }
     },
 
     'CyclePlayers': 1.0,
@@ -103,8 +116,11 @@ activeModifiers = {
 
     'FriendMultiplier': 1.1,
     'WeatherMultiplier': 1.2,
-    'MegaMultiplier': 1.3,
-    
+    'MegaMultiplier': {
+        'SameType': 1.3,
+        'DiffType': 1.1
+    },
+
     'PartyPowerReadyAt': 36.0,
     #amount of energy each fast move gives towards party power energy
     'PartyPowerGain': {

@@ -13,7 +13,7 @@ import asyncio
 import subprocess
 import math
 import copy
-import requests
+import aiohttp
 import tarfile
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
@@ -92,9 +92,13 @@ async def mcLocateHelp():
 
 async def checkIp():
     try:
-        externalIp = requests.get('http://api.ipify.org', timeout=5).content.decode('utf8')
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get('http://api.ipify.org') as response:
+                    response.raise_for_status()
 
-        return externalIp
+                    externalIp = await response.text().strip()
+                    return externalIp
     except:
         return '000.000.0.000'
 
