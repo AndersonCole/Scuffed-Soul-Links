@@ -6,6 +6,7 @@ Cole Anderson, Aug 2025
 
 import discord
 import aiohttp
+import json
 import copy
 import random
 import regex as re
@@ -59,8 +60,9 @@ async def retrieveEventsFromAPI(eventFilterList):
             async with session.get('https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.json') as response:
                 response.raise_for_status()
 
-                events = await response.json()
-    except:
+                events = json.loads(await response.text())
+    except Exception as ex:
+        print(ex)
         return None
     
     sortedEvents = sorted(events, key=eventSortKey, reverse=False)
