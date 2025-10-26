@@ -74,9 +74,9 @@ async def help():
 #endregion
 
 #region text parsing functions
-def getMon(dex_num):
+def getMon(dexNum):
     try:
-        return [obj for obj in pokemon if obj['DexNum'] == dex_num][0]
+        return [obj for obj in pokemon if obj['DexNum'] == dexNum][0]
     except:
         return None
 
@@ -86,9 +86,9 @@ def getMonFromName(originalName):
     except:
         return None
 
-def getMonName(dex_num):
+def getMonName(dexNum):
     try:
-        mon = [obj for obj in pokemon if obj['DexNum'] == dex_num][0]['Name']
+        mon = [obj for obj in pokemon if obj['DexNum'] == dexNum][0]['Name']
         return formatTextForDisplay(mon)
     except:
         return None
@@ -105,9 +105,41 @@ def checkDuplicateName(name):
         return True
     return False
 
-def getRun(run_name):
+def formatMonForSerebii(dexNum):
+    hyphenDexNum = [250, 474, 782, 783, 784, 1001, 1002, 1003, 1004]
+    apostropheDexNum = [83, 865]
+    periodDexNum = [122, 866]
+    trailingPeriodDexNum = [439]
+    colonDexNum = [772]
+
+    if dexNum in hyphenDexNum:
+        joinChar = '-'
+    elif dexNum in apostropheDexNum:
+        joinChar = '\''
+    elif dexNum in periodDexNum:
+        joinChar = '.'
+    elif dexNum in colonDexNum:
+        joinChar = ':'
+    else:
+        joinChar = ''
+    
+    if dexNum in trailingPeriodDexNum:
+        trailingChar = '.'
+    else:
+        trailingChar = ''
+
+    mon = getMon(dexNum)
+    if mon is None:
+        return 'pikachu'
+    
+    words = re.split(r'[\s-.]+', mon['Name'])
+    mon = joinChar.join(word.lower() for word in words)
+    mon += trailingChar
+    return mon
+
+def getRun(runName):
     try:
-        return [obj for obj in runs if obj['Name'].lower() == run_name.strip().lower()][0]
+        return [obj for obj in runs if obj['Name'].lower() == runName.strip().lower()][0]
     except:
         return None
     
@@ -1282,14 +1314,26 @@ async def makePokedexEmbed(mon, gameName):
     else: 
         embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dex_num}.png')
 
-    embed.set_author(name='Pokémon Data', url=f'https://www.serebii.net/pokedex{[obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]["Serebii-Link"]}/{str(monData["species"]["url"][42:].strip("/")).zfill(3)}.shtml')
+    if versionGroup != '':
+        gameGen = [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]
+        speciesDexNum = str(monData["species"]["url"][42:].strip("/")).zfill(3)
+
+        serebiiLink = f'https://www.serebii.net/pokedex{gameGen["Serebii-Link"]}/'
+        if gameGen['Name'] >= 8:
+            serebiiLink += f'{formatMonForSerebii(int(speciesDexNum))}'
+        else:
+            serebiiLink += f'{speciesDexNum}.shtml'
+    else:
+        serebiiLink = 'https://www.serebii.net'
+        
+    embed.set_author(name='Pokémon Data', url=serebiiLink)
 
     embed.add_field(name=f'Stats - {sum(stats.values())} BST',
-                    value=f'HP - {stats["hp"]}\nAtk - {stats["attack"]}\nDef - {stats["defense"]}',
+                    value=f'HP: {stats["hp"]}\nAtk: {stats["attack"]}\nDef: {stats["defense"]}',
                     inline=True)
     
     embed.add_field(name=f'᲼',
-                    value=f'Speed - {stats["speed"]}\nSp.Atk - {stats["special-attack"]}\nSp.Def - {stats["special-defense"]}',
+                    value=f'Speed: {stats["speed"]}\nSp.Atk: {stats["special-attack"]}\nSp.Def: {stats["special-defense"]}',
                     inline=True)
 
     embed.add_field(name=f'Moveset Data from {version_group_name}',
@@ -1315,6 +1359,9 @@ async def makePokedexEmbed(mon, gameName):
 
 #region $sl moves command
 async def getMoves(moves, versionGroup):
+    if len(moves) == 0:
+        return [], versionGroup
+
     if versionGroup == '':
         versionGroup = moves[random.randint(0, len(moves) - 1)]['version_group_details'][0]['version_group']['name']
     
@@ -1424,14 +1471,26 @@ async def showMoveSet(mon, level):
     else: 
         embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dex_num}.png')
     
-    embed.set_author(name='Moveset Data', url=f'https://www.serebii.net/pokedex{[obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]["Serebii-Link"]}/{str(monData["species"]["url"][42:].strip("/")).zfill(3)}.shtml')
+    if versionGroup != '':
+        gameGen = [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]
+        speciesDexNum = str(monData["species"]["url"][42:].strip("/")).zfill(3)
 
-    embed.add_field(name=f'31 IVs, 0 EVs, Neutral',
-                    value=f'HP - {calculateHP(int(stats["hp"]), level)}\nAtk - {calculateStat(int(stats["attack"]), level)}\nDef - {calculateStat(int(stats["defense"]), level)}',
+        serebiiLink = f'https://www.serebii.net/pokedex{gameGen["Serebii-Link"]}/'
+        if gameGen >= 8:
+            serebiiLink += f'{formatMonForSerebii(int(speciesDexNum))}'
+        else:
+            serebiiLink += f'{speciesDexNum}.shtml'
+    else:
+        serebiiLink = 'https://www.serebii.net'
+
+    embed.set_author(name='Moveset Data', url=serebiiLink)
+
+    embed.add_field(name=f'Stats - {sum(stats.values())} BST',
+                    value=f'HP: {calculateHP(int(stats["hp"]), level)}\nAtk: {calculateStat(int(stats["attack"]), level)}\nDef: {calculateStat(int(stats["defense"]), level)}',
                     inline=True)
     
-    embed.add_field(name=f'{sum(stats.values())} BST',
-                    value=f'Spd - {calculateStat(int(stats["speed"]), level)}\nSp.Atk - {calculateStat(int(stats["special-attack"]), level)}\nSp.Def - {calculateStat(int(stats["special-defense"]), level)}',
+    embed.add_field(name=f'31 IVs, 0 EVs, Neutral',
+                    value=f'Speed: {calculateStat(int(stats["speed"]), level)}\nSp.Atk: {calculateStat(int(stats["special-attack"]), level)}\nSp.Def: {calculateStat(int(stats["special-defense"]), level)}',
                     inline=True)
     
     embed.add_field(name=f'Moveset Data from {version_group_name}',

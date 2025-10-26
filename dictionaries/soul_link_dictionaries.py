@@ -8,7 +8,7 @@ defaultRun = {
 }
 
 gens = [
-    {'Name': 1, 'Serebii-Link': '', 'Roman-Numeral': 'I', 'Version-Groups': [{'Name': 'red-blue'}, {'Name': 'yellow'}]},
+    {'Name': 1, 'Serebii-Link': '', 'Roman-Numeral': 'I', 'Version-Groups': [{'Name': 'red-blue'}, {'Name': 'yellow'}, {'Name': 'red-green-japan'}, {'Name': 'blue-japan'}]},
     {'Name': 2, 'Serebii-Link': '-gs', 'Roman-Numeral': 'II', 'Version-Groups': [{'Name': 'gold-silver'}, {'Name': 'crystal'}]},
     {'Name': 3, 'Serebii-Link': '-rs', 'Roman-Numeral': 'III', 'Version-Groups': [{'Name': 'ruby-sapphire'}, {'Name': 'emerald'}, {'Name': 'firered-leafgreen'}]},
     {'Name': 4, 'Serebii-Link': '-dp', 'Roman-Numeral': 'IV', 'Version-Groups': [{'Name': 'diamond-pearl'}, {'Name': 'platinum'}, {'Name': 'heartgold-soulsilver'}]},
@@ -16,7 +16,7 @@ gens = [
     {'Name': 6, 'Serebii-Link': '-xy', 'Roman-Numeral': 'VI', 'Version-Groups': [{'Name': 'x-y'}, {'Name': 'omega-ruby-alpha-sapphire'}]},
     {'Name': 7, 'Serebii-Link': '-sm', 'Roman-Numeral': 'VII', 'Version-Groups': [{'Name': 'sun-moon'}, {'Name': 'ultra-sun-ultra-moon'}, {'Name': 'lets-go-pikachu-lets-go-eevee'}]},
     {'Name': 8, 'Serebii-Link': '-swsh', 'Roman-Numeral': 'VIII', 'Version-Groups': [{'Name': 'sword-shield'}, {'Name': 'the-isle-of-armor'}, {'Name': 'the-crown-tundra'}, {'Name': 'brilliant-diamond-and-shining-pearl'}, {'Name': 'legends-arceus'}]},
-    {'Name': 9, 'Serebii-Link': '-swsh', 'Roman-Numeral': 'IX', 'Version-Groups': [{'Name': 'scarlet-violet'}, {'Name': 'the-teal-mask'}, {'Name': 'the-indigo-disk'}]}
+    {'Name': 9, 'Serebii-Link': '-sv', 'Roman-Numeral': 'IX', 'Version-Groups': [{'Name': 'scarlet-violet'}, {'Name': 'the-teal-mask'}, {'Name': 'the-indigo-disk'}, {'Name': 'legends-za'}]}
 ]
 
 games = [
@@ -108,7 +108,8 @@ games = [
     {'Name': 'sword-shield', 'Games': ['Sword', 'Shield'], 'Colour': [44783, 15536485], 'Link-Emoji': ['<:_:1193411092509102130>', '<:_:1193411134577983498>'], 'Mascot': [888, 889], 'Progression': []},
     {'Name': 'brilliant-diamond-and-shining-pearl', 'Games': ['Brilliant Diamond', 'Shining Pearl'], 'Colour': [3048389, 13989256], 'Link-Emoji': ['<:_:1193409792459427962>', '<:_:1193409837476880476>'], 'Mascot': [483, 484], 'Progression': []},
     {'Name': 'legends-arceus', 'Games': ['Legends Arceus'], 'Colour': [15132131], 'Link-Emoji': ['<:_:1193409887955337286>'], 'Mascot': [493], 'Progression': []},
-    {'Name': 'scarlet-violet', 'Games': ['Scarlet', 'Violet'], 'Colour': [14419990, 8465547], 'Link-Emoji': ['<:_:1193409945010450442>', '<:_:1193409983946170479>'], 'Mascot': [1007, 1008], 'Progression': []}
+    {'Name': 'scarlet-violet', 'Games': ['Scarlet', 'Violet'], 'Colour': [14419990, 8465547], 'Link-Emoji': ['<:_:1193409945010450442>', '<:_:1193409983946170479>'], 'Mascot': [1007, 1008], 'Progression': []},
+    {'Name': 'legends-za', 'Games': ['Legends Z-A'], 'Colour': [8702355], 'Link-Emoji': ['<:_:1431931150863175801>'], 'Mascot': [10120], 'Progression': []}
 ]
 
 #Structure for Pokemon, generated from generate_pokemon_file.py
