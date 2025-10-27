@@ -5,7 +5,8 @@ and reads and responds to messages with a certain prefix.
 Cole Anderson, Dec 2023
 """
 import discord
-from functions.shared_functions import assignReactionEmoji
+from functions.shared_functions import assignReactionEmoji, loadDataVariableFromFile
+from dictionaries.shared_dictionaries import sharedFileLocations
 from commands.misc_commands import miscShuckleCommands
 from commands.soul_link_commands import soulLinkCommands
 from commands.routes_commands import routesCommands
@@ -113,6 +114,4 @@ class DiscordClient(discord.Client):
 ## Set up and log in
 if __name__ == "__main__":
     client = DiscordClient()
-    with open('tokens/bot_token.txt') as file:
-        token = file.read()
-    client.run(token)
+    client.run(loadDataVariableFromFile(sharedFileLocations.get('BotToken'), readJson=False))

@@ -5,19 +5,15 @@ Cole Anderson, Sep 2025
 """
 
 import discord
-import random
 from dictionaries.shared_dictionaries import sharedImagePaths
+from functions.shared_functions import rollForShiny
 
 async def pvpHelp():
     embed = discord.Embed(title=f'Shuckle\'s Pvp Commands',
                                 description='```$pvp img``` Gets the pvp rank reqs image',
                                 color=3553598)
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
     return embed
 

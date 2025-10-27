@@ -6,7 +6,6 @@ Cole Anderson, Dec 2024
 
 import discord
 import json
-import random
 import regex as re
 import socket
 import asyncio
@@ -18,7 +17,7 @@ import tarfile
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from mcrcon import MCRcon
-from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
+from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, rollForShiny
 from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths, defaultModifiers
 
 serverPort = int(loadDataVariableFromFile(mcFileLocations.get('ServerPort'), False))
@@ -53,11 +52,7 @@ async def mcHelp():
                                         '```$mc backup``` Backs up the servers world folder', 
                             color=14914576)
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
-    else:
-        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
+    embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
     
     return embed
 
@@ -82,11 +77,7 @@ async def mcLocateHelp():
                                         'Everything should be case insensitive, and it will replace any spaces with underscores.',
                             color=14914576)
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
-    else:
-        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
+    embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
     
     return embed
 
@@ -105,8 +96,6 @@ async def checkIp():
 async def mcSetup():
     embeds = []
 
-    rand_num = random.randint(1, 100)
-
     serverIp = await checkIp()
 
     serverOn = await serverOnline()
@@ -123,10 +112,7 @@ async def mcSetup():
                                         f'Make sure to edit your installation in the Minecraft Launcher! Set the `-Xmx` field to something like 8Gb like so `-Xmx8G` to allow Minecraft to use more RAM!',
                             color=14914576)
     
-    if rand_num == 69:
-        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
-    else:
-        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
+    embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
 
     embeds.append(copy.deepcopy(embed))
 
@@ -161,10 +147,7 @@ async def mcSetup():
                                         'Everything should work as intended like this.',
                             color=14914576)
     
-    if rand_num == 69:
-        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
-    else:
-        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
+    embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
 
     embeds.append(embed)
 
@@ -284,11 +267,7 @@ async def mcInfo():
                     inline=True)
 
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=mcImagePaths.get('ShinyAmberShuckle'))
-    else:
-        embed.set_thumbnail(url=mcImagePaths.get('AmberShuckle'))
+    embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
     
     return embed
     

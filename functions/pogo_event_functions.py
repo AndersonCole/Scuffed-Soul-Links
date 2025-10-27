@@ -8,13 +8,12 @@ import discord
 import aiohttp
 import json
 import copy
-import random
 import regex as re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from dictionaries.shared_dictionaries import sharedImagePaths
 from dictionaries.pogo_event_dictionaries import eventColours, filterLists, timezones
-from functions.shared_functions import formatTextForDisplay
+from functions.shared_functions import formatTextForDisplay, rollForShiny
 
 #region help command
 async def eventsHelp():
@@ -29,11 +28,7 @@ async def eventsHelp():
 
     embed.set_author(name='Data Source', url='https://github.com/bigfoott/ScrapedDuck')
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
     return embed
     
@@ -137,13 +132,8 @@ async def createEventsEmbeds(filterFor):
                                 color=eventColours.get(filterFor.lower().strip(), 3553598))
     firstEmbed.set_author(name='More Info at LeekDuck', url='https://leekduck.com/events')
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        firstEmbed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        firstEmbed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    firstEmbed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
     embeds.append(firstEmbed)
 

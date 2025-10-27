@@ -1,6 +1,8 @@
 sharedFileLocations = {
+    'BotToken': 'tokens/bot_token.txt',
     'ChatGPT': 'tokens/openai_key.txt',
-    'Pokemon': 'text_files/shared/pokemon.txt'
+    'Pokemon': 'text_files/shared/pokemon.txt',
+    'ShinyDays': 'text_files/shared/shiny_days.txt'
 }
 
 sharedImagePaths = {

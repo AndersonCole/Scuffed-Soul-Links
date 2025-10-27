@@ -16,7 +16,10 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 from io import BytesIO
-from functions.shared_functions import *
+from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
+                                        getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
+                                        getDexNum, formatTextForBackend, formatTextForDisplay, 
+                                        loadShucklePersonality, rollForShiny)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, types, categories
 from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
 
@@ -64,11 +67,7 @@ async def help():
                                       'Accessing data for a pokemon\'s default form will always work with their base name',
                           color=3553598)
     
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
     return embed
 #endregion
@@ -364,11 +363,7 @@ async def listEncounters():
     if run['Current-Progress'] <= 1 and run['Version-Group'] == 'heartgold-soulsilver':
         embed.set_author(name='Egg Id Website', url='https://www.pokewiki.de/Spezial:Geheimcode-Generator?uselang=en')
     
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
-    else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
+    embed.set_thumbnail(url=getPokeAPISpriteUrl(game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]))
     
     encounter_string = ''
     player_string = ''
@@ -791,11 +786,7 @@ async def listRuns():
     embed = discord.Embed(title=f'Scuffed Soul Links Runs',
                           color=3553598)
     
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
     name_string = ''
     status_string = ''
@@ -983,11 +974,7 @@ async def seeStats():
                           description=f'{description_string}\n{player_string}',
                           color=game_data['Colour'][[game_name.lower() for game_name in game_data['Games']].index(run['Game'].lower())])
     
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
-    else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]}.png')
+    embed.set_thumbnail(url=getPokeAPISpriteUrl(game_data["Mascot"][[game_name.lower() for game_name in game_data["Games"]].index(run["Game"].lower())]))
     
     for progress_index in range(run['Current-Progress'] + 1):
         embed.title = f'{currentRun["RunName"]} Info\nThe Team vs. {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Battle-Name"]} at Lv. {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Level-Cap"]}!'
@@ -1086,7 +1073,7 @@ async def createArrowImage(direction, type, method, value):
     return arrow_img.rotate(direction)
 
 async def pasteOnImage(backgroundImage, dexNum, positionX, positionY):
-    image = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dexNum}.png')
+    image = await openHttpImage(getPokeAPISpriteUrl(dexNum))
 
     backgroundImage.paste(image, (positionX, positionY), mask=image)
     image.close()
@@ -1298,8 +1285,11 @@ async def makePokedexEmbed(mon, gameName):
 
         moveset_types_categories = moveset_types_categories[:index]
 
-    version_group_name = re.split(r'[\s-.]+', versionGroup)
-    version_group_name = ' '.join(word.capitalize() for word in version_group_name)
+    if versionGroup == 'legends-za':
+        version_group_name = 'Legends Z-A'
+    else:
+        version_group_name = re.split(r'[\s-.]+', versionGroup)
+        version_group_name = ' '.join(word.capitalize() for word in version_group_name)
 
     file = await createEvoChainImage(dex_num, mon_primary_type)
 
@@ -1308,14 +1298,27 @@ async def makePokedexEmbed(mon, gameName):
     embed = discord.Embed(title=f'#{monData["species"]["url"][42:].strip("/")} {mon_name} {type_emojis}',
                           color=[obj for obj in types if obj['Name'] == mon_primary_type][0]['Colour'])
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{dex_num}.png')
-    else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dex_num}.png')
-
     if versionGroup != '':
         gameGen = [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]
+        if gameGen['Name'] <= 4:
+            if versionGroup == 'gold-silver':
+                randNum = random.randint(0,1)
+                if randNum == 0:
+                    oldVerGame = 'gold'
+                else:
+                    oldVerGame = 'silver'
+            else:
+                oldVerGame = versionGroup
+
+            if gameGen['Name'] == 1:
+                rollShiny = False
+            else:
+                rollShiny = True
+
+            embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num, baseUrlAddition=f'/versions/generation-{gameGen["Roman-Numeral"].lower()}/{oldVerGame}/', rollShiny=rollShiny))
+        else:
+            embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
+
         speciesDexNum = str(monData["species"]["url"][42:].strip("/")).zfill(3)
 
         serebiiLink = f'https://www.serebii.net/pokedex{gameGen["Serebii-Link"]}/'
@@ -1324,6 +1327,7 @@ async def makePokedexEmbed(mon, gameName):
         else:
             serebiiLink += f'{speciesDexNum}.shtml'
     else:
+        embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
         serebiiLink = 'https://www.serebii.net'
         
     embed.set_author(name='Pokémon Data', url=serebiiLink)
@@ -1456,8 +1460,11 @@ async def showMoveSet(mon, level):
 
     moveset_names, moveset_types_categories, moveset_power_accuracy, comment = movesetTextLevel(moveset, level)
 
-    version_group_name = re.split(r'[\s-.]+', versionGroup)
-    version_group_name = ' '.join(word.capitalize() for word in version_group_name)
+    if versionGroup == 'legends-za':
+        version_group_name = 'Legends Z-A'
+    else:
+        version_group_name = re.split(r'[\s-.]+', versionGroup)
+        version_group_name = ' '.join(word.capitalize() for word in version_group_name)
 
     stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
 
@@ -1465,22 +1472,36 @@ async def showMoveSet(mon, level):
                           description=comment,
                           color=[obj for obj in types if obj['Name'] == str(monData['types'][0]['type']['name']).capitalize()][0]['Colour'])
     
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{dex_num}.png')
-    else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dex_num}.png')
-    
     if versionGroup != '':
         gameGen = [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]
+        if gameGen['Name'] <= 4:
+            if versionGroup == 'gold-silver':
+                randNum = random.randint(0,1)
+                if randNum == 0:
+                    oldVerGame = 'gold'
+                else:
+                    oldVerGame = 'silver'
+            else:
+                oldVerGame = versionGroup
+
+            if gameGen['Name'] == 1:
+                rollShiny = False
+            else:
+                rollShiny = True
+
+            embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num, baseUrlAddition=f'/versions/generation-{gameGen["Roman-Numeral"].lower()}/{oldVerGame}/', rollShiny=rollShiny))
+        else:
+            embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
+
         speciesDexNum = str(monData["species"]["url"][42:].strip("/")).zfill(3)
 
         serebiiLink = f'https://www.serebii.net/pokedex{gameGen["Serebii-Link"]}/'
-        if gameGen >= 8:
+        if gameGen['Name'] >= 8:
             serebiiLink += f'{formatMonForSerebii(int(speciesDexNum))}'
         else:
             serebiiLink += f'{speciesDexNum}.shtml'
     else:
+        embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
         serebiiLink = 'https://www.serebii.net'
 
     embed.set_author(name='Moveset Data', url=serebiiLink)
@@ -1536,11 +1557,7 @@ async def makeRareCandiesEmbed():
                           description='',
                           color=7441607)
     
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
     embed.add_field(name='For DeSmuME DS Emulator',
                     value=  '\nEven though I\'ve had 151 beers, I remember how to use PKHex to get infinite rare candies... even the shadow people think you\'re a fraud!\n\n' +
@@ -1625,11 +1642,7 @@ async def calculateCatchRate(mon, level):
     embed = discord.Embed(title=f'Catch Rate for {mon_name} at Level {level}',
                           color=[obj for obj in types if obj['Name'] == str(monData['types'][0]['type']['name']).capitalize()][0]['Colour'])
     
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{dex_num}.png')
-    else: 
-        embed.set_thumbnail(url=f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dex_num}.png')
+    embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
     
     embed.set_author(name='Catch Rate Calculator', url='https://www.dragonflycave.com/calculators/gen-v-catch-rate')
 

@@ -13,7 +13,11 @@ import math
 import copy
 from PIL import Image, ImageDraw
 from io import BytesIO
-from functions.shared_functions import *
+from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
+                                        getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
+                                        getDexNum, getOriginalNameFromNickname, verifyMoveType, 
+                                        formatCapitalize, formatTextForBackend, formatTextForDisplay, 
+                                        loadShucklePersonality, rollForShiny)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
 
@@ -54,11 +58,7 @@ async def dpsHelp():
                                         'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order.\nA \'★\' beside a move name indicates its been changed in an update.\nhttps://db.pokemongohub.net is good for checking move data.', 
                             color=3553598)
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
     return embed
 
@@ -69,11 +69,7 @@ async def dynamaxHelp():
                                         'The max commands use all the data added in the Raid DPS side of Shuckle.',
                             color=3553598)
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
     return embed
     
@@ -107,13 +103,7 @@ async def getSharedModifiers(commandText):
                                         'Everything should be case insensitive\nThese modifiers will work for both raid and dynamax dps calculations',
                             color=3553598)
 
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else: 
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
-
-    return embed, rand_num
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
 async def raidModifiers():
     sharedEmbed, rand_num = await getSharedModifiers('$dps check Kartana')
@@ -132,12 +122,7 @@ async def raidModifiers():
                                         'Everything should be case insensitive\nThese modifiers will only work for raid calculations\nDefault check assumes Lv50, Hundo, Not Shadow, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Dps',
                             color=3553598)
 
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else:
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
-
-    embeds.append(embed)
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
     return embeds
 
@@ -959,22 +944,12 @@ async def getEmbedImage(mon, modifiers, embedColour):
         combinedMonImage = await createCombinedMonsImage(mon['ImageDexNum'], imageCycleDexNum, embedColour)
 
         return f'attachment://maxCycle.png', combinedMonImage
-
-    rand_num = random.randint(1, 100)
-
-    if rand_num == 69:
-        return f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{imageDexNum}.png', None
     
-    return f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{imageDexNum}.png', None
+    return getPokeAPISpriteUrl(imageDexNum), None
 
 async def createCombinedMonsImage(chargingMonDex, maxMonDex, embedColour):
-    rand_num = random.randint(1, 100)
-    if rand_num == 69:
-        chargingMonImg = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{chargingMonDex}.png')
-        maxMonImg = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/{maxMonDex}.png')
-    else:
-        chargingMonImg = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{chargingMonDex}.png')
-        maxMonImg = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{maxMonDex}.png')
+    chargingMonImg = await openHttpImage(getPokeAPISpriteUrl(chargingMonDex))
+    maxMonImg = await openHttpImage(getPokeAPISpriteUrl(maxMonDex))
 
     width, height = chargingMonImg.size
 

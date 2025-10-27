@@ -5,6 +5,7 @@ import aiohttp
 from diskcache import Cache
 from PIL import Image
 from io import BytesIO
+from datetime import datetime
 from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, types
 
 pokeApiCache = Cache('./cache/poke_api')
@@ -66,6 +67,32 @@ async def getPokeApiJsonData(url, session=None):
         print(ex)
         return None
 
+def getPokeAPISpriteUrl(dexNum, baseUrlAddition=None, rollShiny=True):
+    baseURL = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'
+    if baseUrlAddition is not None:
+        baseURL += baseUrlAddition
+    sprite = f'{baseURL}{dexNum}.png'
+    shinySprite = f'{baseURL}shiny/{dexNum}.png'
+
+    if rollShiny:
+        return rollForShiny(sprite, shinySprite)
+    return sprite
+
+shinyDays = loadDataVariableFromFile(sharedFileLocations.get('ShinyDays'))
+
+def rollForShiny(normal, shiny, randNum=None):
+    currentDate = datetime.now().date().strftime("%m/%d")
+
+    if currentDate in shinyDays:
+        return shiny
+    
+    if randNum is None:
+        randNum = random.randint(1, 100)
+    
+    if randNum == 69:
+        return shiny
+    return normal
+
 async def openHttpImage(url, bigImg=True):
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -76,7 +103,6 @@ async def openHttpImage(url, bigImg=True):
     if not bigImg:
         return Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
     return Image.open(f'images/evo_helpers/missing_no.png').convert('RGBA')
-
 
 def loadShucklePersonality(variant):
     with open(f'text_files/chat_gpt_instructions/{variant}Shuckle.txt', 'r') as file:
@@ -126,8 +152,4 @@ def getOriginalNameFromNickname(monName):
         return None
     
 def assignReactionEmoji(command):
-    rand_num = random.randint(1, 100)
-
-    if rand_num == 69:
-        return reactionEmojis.get(command).get('Shiny')
-    return reactionEmojis.get(command).get('Normal')
+    return rollForShiny(reactionEmojis.get(command).get('Normal'), reactionEmojis.get(command).get('Shiny'))

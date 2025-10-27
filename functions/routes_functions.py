@@ -8,7 +8,7 @@ Cole Anderson, Apr 2024
 import discord
 import copy
 from datetime import datetime
-from functions.shared_functions import *
+from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
 from dictionaries.routes_dictionaries import routesFileLocations, routesImagePaths
 
 routes = loadDataVariableFromFile(routesFileLocations.get('Routes'))
