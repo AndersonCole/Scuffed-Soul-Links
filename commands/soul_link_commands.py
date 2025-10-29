@@ -2,8 +2,6 @@ import regex as re
 from functions.soul_link_functions import *
 
 async def soulLinkCommands(userInput, author, guild):
-    file = None
-
     if userInput == 'help':
         response = await help()
 
@@ -108,9 +106,9 @@ async def soulLinkCommands(userInput, author, guild):
     elif userInput.startswith('dex '):
         if ',' in userInput:
             splitInput = re.split(r'[,]+', userInput[4:])
-            response, file = await makePokedexEmbed(splitInput[0].strip(), splitInput[1].strip())
+            response = await makePokedexEmbed(splitInput[0].strip(), splitInput[1].strip())
         else:
-            response, file = await makePokedexEmbed(userInput[4:], None)
+            response = await makePokedexEmbed(userInput[4:], None)
 
     elif userInput.startswith('catch '):
         splitInput = re.split(r'[\s-.]+', userInput[6:])
@@ -143,4 +141,4 @@ async def soulLinkCommands(userInput, author, guild):
     else:
         response = 'Command not recognized. Try using ```$sl help```'
 
-    return response, file
+    return response

@@ -18,7 +18,7 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from mcrcon import MCRcon
 from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, rollForShiny
-from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths, defaultModifiers
+from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths, mcEmbedColour, defaultModifiers
 
 serverPort = int(loadDataVariableFromFile(mcFileLocations.get('ServerPort'), False))
 
@@ -50,7 +50,7 @@ async def mcHelp():
                                         '```$mc stop``` Stops the server\n' +
                                         '```$mc restart``` Stops then restarts the server\n' +
                                         '```$mc backup``` Backs up the servers world folder', 
-                            color=14914576)
+                            color=mcEmbedColour)
 
     embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
     
@@ -75,7 +75,7 @@ async def mcLocateHelp():
                                         'For Biomes You\'ll Go, check: https://docs.google.com/spreadsheets/d/10dvK3h40V1CqCo-doVsI-Cnkxag5ac3nwyS95c-TPSE/edit?gid=0#gid=0 \n' +
                                         'Modded wikis may not be as good as the Vanilla wiki, so just go in game and try out /locate and /locatebiome and take a look at the options in a singleplayer world.\n' +
                                         'Everything should be case insensitive, and it will replace any spaces with underscores.',
-                            color=14914576)
+                            color=mcEmbedColour)
 
     embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
     
@@ -110,7 +110,7 @@ async def mcSetup():
                                         f'Check the other embed pages for info on what mods are actually included.\n' + 
                                         f'If you don\'t care, download Fabric, then grab the recommended.zip from the Google Drive and throw it in your mods folder.\n\n' +
                                         f'Make sure to edit your installation in the Minecraft Launcher! Set the `-Xmx` field to something like 8Gb like so `-Xmx8G` to allow Minecraft to use more RAM!',
-                            color=14914576)
+                            color=mcEmbedColour)
     
     embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
 
@@ -145,7 +145,7 @@ async def mcSetup():
                                         'I find it works best to have the Travelers Backpack Dark Mode at the top(ignore the incompatability warning), ' +
                                         'with FA Dark Mode right under, then the Waxed Backport Copper pack, then Vanilla Tweaks, then the two included continuity resource packs under that.\n\n' +
                                         'Everything should work as intended like this.',
-                            color=14914576)
+                            color=mcEmbedColour)
     
     embed.set_thumbnail(url=rollForShiny(mcImagePaths.get('AmberShuckle'), mcImagePaths.get('ShinyAmberShuckle')))
 
@@ -251,7 +251,7 @@ async def mcInfo():
 
     embed = discord.Embed(title=f'Fossils Server Info',
                           description=f'Players Online: {len(players)}\nCurrent Overworld Time: **{timeText}**',
-                          color=14914576)
+                          color=mcEmbedColour)
 
     if len(players) > 0:
         embed.add_field(name='Players',
@@ -405,7 +405,7 @@ async def unlootedMoais():
 
     embed = discord.Embed(title=f'Unlooted Moai\'s',
                             description='Copy paste the line of text to mark it as looted',
-                            color=14914576)
+                            color=mcEmbedColour)
     
     locationText = ''
 
@@ -439,7 +439,7 @@ async def unlootedBoats():
 
     embed = discord.Embed(title=f'Unlooted Hell Boats',
                             description='Copy paste the line of text to mark it as looted',
-                            color=14914576)
+                            color=mcEmbedColour)
     
     locationText = ''
 

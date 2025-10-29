@@ -14,6 +14,8 @@ mcImagePaths = {
     'ShinyAmberShuckle': 'https://i.imgur.com/Np0NjY2.png'
 }
 
+mcEmbedColour = 14914576
+
 dimensions = [
     {'Name': 'Overworld', 'CmdName': 'minecraft:overworld'}, 
     {'Name': 'Nether', 'CmdName': 'minecraft:the_nether'}, 

@@ -37,6 +37,8 @@ async def getPokeApiJsonData(url, session=None):
         label = 'species'
     elif '/move/' in url:
         label = 'move'
+    elif '/machine/' in url:
+        label = 'tm'
     else:
         return None
     
@@ -67,12 +69,12 @@ async def getPokeApiJsonData(url, session=None):
         print(ex)
         return None
 
-def getPokeAPISpriteUrl(dexNum, baseUrlAddition=None, rollShiny=True):
+def getPokeAPISpriteUrl(dexNum, baseUrlAddition=None, extension='.png', rollShiny=True):
     baseURL = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'
     if baseUrlAddition is not None:
         baseURL += baseUrlAddition
-    sprite = f'{baseURL}{dexNum}.png'
-    shinySprite = f'{baseURL}shiny/{dexNum}.png'
+    sprite = f'{baseURL}{dexNum}{extension}'
+    shinySprite = f'{baseURL}shiny/{dexNum}{extension}'
 
     if rollShiny:
         return rollForShiny(sprite, shinySprite)
@@ -124,6 +126,19 @@ def formatCapitalize(text):
     text = text.capitalize()
     return text
 
+def getTypeEmoji(type, moveCategory=None):
+    category = 'Physical'
+    if moveCategory is not None:
+        category = moveCategory
+
+    return f'<:_:{[obj for obj in types if obj["Name"] == type][0]["Emoji"][category]}>'
+
+def getTypeColour(type):
+    try:
+        return [obj for obj in types if obj['Name'] == type][0]['Colour']
+    except:
+        return None
+    
 def verifyMoveType(moveType):
     moveType = formatCapitalize(moveType)
     temp = [obj for obj in types if obj['Name'] == moveType]

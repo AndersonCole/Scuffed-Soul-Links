@@ -10,3 +10,5 @@ routesImagePaths = {
     'SilverBadge': 'https://i.imgur.com/UQVgqzX.png',
     'GoldBadge': 'https://i.imgur.com/fOtlgwX.png'
 }
+
+routesEmbedColour = 9029154

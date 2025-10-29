@@ -5,13 +5,13 @@ Cole Anderson, Sep 2025
 """
 
 import discord
-from dictionaries.shared_dictionaries import sharedImagePaths
+from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours
 from functions.shared_functions import rollForShiny
 
 async def pvpHelp():
     embed = discord.Embed(title=f'Shuckle\'s Pvp Commands',
                                 description='```$pvp img``` Gets the pvp rank reqs image',
-                                color=3553598)
+                                color=sharedEmbedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     

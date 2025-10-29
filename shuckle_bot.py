@@ -14,7 +14,7 @@ from commands.dps_commands import dpsCommands, maxCommands
 from commands.pogo_event_commands import pogoEventCommands
 from commands.pvp_commands import pvpCommands
 from commands.mc_commands import minecraftCommands
-import Paginator
+from util.shuckle_paginator import ShucklePaginator
 
 class DiscordClient(discord.Client):
     """Class to represent the Client (bot user)"""
@@ -50,7 +50,7 @@ class DiscordClient(discord.Client):
         elif message.content.startswith('$sl '):
             await message.add_reaction(assignReactionEmoji('Soul Links'))
 
-            response, file = await soulLinkCommands(message.content[4:], message.author, message.guild)
+            response = await soulLinkCommands(message.content[4:], message.author, message.guild)
 
         elif message.content.startswith('$routes '):
             await message.add_reaction(assignReactionEmoji('Routes'))
@@ -109,7 +109,8 @@ class DiscordClient(discord.Client):
                 else:
                     await message.channel.send(embed=response)
             elif (isinstance(response, list)):
-                await Paginator.Simple().start(message.channel, pages=response)
+                #handles list[discord.Embed] and list[tuple(discord.Embed, bytes, str, str)]
+                await ShucklePaginator().start(message.channel, pages=response)
 
 ## Set up and log in
 if __name__ == "__main__":

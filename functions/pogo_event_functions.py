@@ -11,7 +11,7 @@ import copy
 import regex as re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from dictionaries.shared_dictionaries import sharedImagePaths
+from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours
 from dictionaries.pogo_event_dictionaries import eventColours, filterLists, timezones
 from functions.shared_functions import formatTextForDisplay, rollForShiny
 
@@ -24,7 +24,7 @@ async def eventsHelp():
                                         '```$pogo raids``` Shows upcoming raid boss changovers, and other raid events\n' +
                                         '```$pogo gbl``` Shows upcoming GBL league rotations\n\n' +
                                         'All data is scraped from LeekDuck', 
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
 
     embed.set_author(name='Data Source', url='https://github.com/bigfoott/ScrapedDuck')
 
@@ -129,7 +129,7 @@ async def createEventsEmbeds(filterFor):
     embed = discord.Embed()
 
     firstEmbed = discord.Embed(title='Upcoming PoGo Events',
-                                color=eventColours.get(filterFor.lower().strip(), 3553598))
+                                color=eventColours.get(filterFor.lower().strip(), sharedEmbedColours.get('Default')))
     firstEmbed.set_author(name='More Info at LeekDuck', url='https://leekduck.com/events')
 
     firstEmbed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
@@ -150,7 +150,7 @@ async def createEventsEmbeds(filterFor):
         if not event['start'].endswith('Z'):
             embed.description += f'\n\nNZ Start Time: {formatTimeZoneForDisplay(event["start"], timezones.get("NZ"))}\nHawaii End Time: {formatTimeZoneForDisplay(event["end"], timezones.get("Hawaii"))}'
 
-        embed.colour = eventColours.get(event['eventType'], 3553598)
+        embed.colour = eventColours.get(event['eventType'], sharedEmbedColours.get('Default'))
 
         embed.set_image(url=event['image'])
 

@@ -16,9 +16,10 @@ from io import BytesIO
 from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
                                         getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
                                         getDexNum, getOriginalNameFromNickname, verifyMoveType, 
-                                        formatCapitalize, formatTextForBackend, formatTextForDisplay, 
+                                        formatCapitalize, formatTextForBackend, formatTextForDisplay,
+                                        getTypeColour,
                                         loadShucklePersonality, rollForShiny)
-from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, types
+from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
@@ -56,7 +57,7 @@ async def dpsHelp():
                                         '```$dps delete-notes``` Deletes all saved notes.\n' +
                                         '```$dps check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n\n' +
                                         'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order.\nA \'★\' beside a move name indicates its been changed in an update.\nhttps://db.pokemongohub.net is good for checking move data.', 
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
@@ -67,7 +68,7 @@ async def dynamaxHelp():
                             description='```$max check Charizard``` Calcs the dps and max eps for the moveset for the mon\n' +
                                         '```$max modifiers``` Lists out all the available modifers\n\n' +
                                         'The max commands use all the data added in the Raid DPS side of Shuckle.',
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
@@ -101,12 +102,16 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
                                         f'```{commandText}, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will work for both raid and dynamax dps calculations',
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
 
-    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
+    randNum = random.randint(0, 100)
+
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
+
+    return embed, randNum
 
 async def raidModifiers():
-    sharedEmbed, rand_num = await getSharedModifiers('$dps check Kartana')
+    sharedEmbed, randNum = await getSharedModifiers('$dps check Kartana')
 
     embeds = []
 
@@ -120,14 +125,16 @@ async def raidModifiers():
                                         '```$dps check Kartana, ShowOldDps``` ShowOldDps: Additionally shows the dps as it was June 2024 and prior\n' +
                                         '```$dps check Kartana, SortByOldDps``` SortByOldDps: Orders the output by the old dps\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for raid calculations\nDefault check assumes Lv50, Hundo, Not Shadow, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Dps',
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
 
-    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
+
+    embeds.append(embed)
 
     return embeds
 
 async def dynamaxModifiers():
-    sharedEmbed, rand_num = await getSharedModifiers('$max check Charizard')
+    sharedEmbed, randNum = await getSharedModifiers('$max check Charizard')
 
     embeds = []
 
@@ -150,12 +157,9 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n' +
                                         '```$max check Charizard, SortByCycleTime``` SortByCycleTime: Orders the output by the cycle time\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for dynamax calculations\nDefault check assumes Lv40, Hundo, calculates STAB, Assumes STAB on max moves, Neutral effectiveness, No Special Boosts, Sorted by Max Eps',
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
 
-    if rand_num == 69:
-        embed.set_thumbnail(url=sharedImagePaths.get('ShinyShuckle'))
-    else:
-        embed.set_thumbnail(url=sharedImagePaths.get('Shuckle'))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
 
     embeds.append(embed)
 
@@ -399,7 +403,7 @@ async def listDPSMoves():
 
     embed = discord.Embed(title=f'Registered Moves',
                             description='',
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
     
     moveText = ''
     dmgEnergyText = ''
@@ -479,7 +483,7 @@ async def listDPSMoveChanges():
 
     embed = discord.Embed(title=f'Changed Moves',
                             description='These move changes happened in October 2024\n\'-\' means it was unchanged\nOld -> New',
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
 
     moveText = ''
     dmgText = ''
@@ -539,7 +543,7 @@ async def listDPSMons():
 
     embed = discord.Embed(title=f'Registered Pokemon',
                             description='',
-                            color=3553598)
+                            color=sharedEmbedColours.get('Default'))
     
     monText = ''
     statsText = ''
@@ -639,8 +643,6 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
     monTypes = await getMonTypes(mon['ImageDexNum'])
     bossTypes = await getMonTypes(modifiers['BossDexNum'])
 
-    embedColour = [obj for obj in types if obj['Name'] == monTypes[0]][0]['Colour']
-
     monAttack, monDefence, monStamina, monCP = getCalculatedStats(mon, modifiers)
 
     fastMoves = []
@@ -673,7 +675,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
     embed = discord.Embed(title=getEmbedTitle(mon, modifiers, battleSystem),
                           description=f'{monCP} CP\nAttack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["Ivs"]["Attack"]}/{modifiers["Ivs"]["Defence"]}/{modifiers["Ivs"]["Stamina"]}',
-                          color=embedColour)
+                          color=getTypeColour(monTypes[0]))
     
     if battleSystem == 'dmax':
         maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], monAttack, modifiers)
@@ -863,7 +865,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
     embed.description += f'\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}'
 
-    embedImg, embedImgFile = await getEmbedImage(mon, modifiers, embedColour)
+    embedImg, embedImgFile = await getEmbedImage(mon, modifiers, getTypeColour(monTypes[0]))
 
     embed.set_thumbnail(url=embedImg)
 

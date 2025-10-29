@@ -9,7 +9,7 @@ import discord
 import copy
 from datetime import datetime
 from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
-from dictionaries.routes_dictionaries import routesFileLocations, routesImagePaths
+from dictionaries.routes_dictionaries import routesFileLocations, routesImagePaths, routesEmbedColour
 
 routes = loadDataVariableFromFile(routesFileLocations.get('Routes'))
 
@@ -30,7 +30,7 @@ async def routesHelp():
                                       '```$routes list``` Lists all the routes you\'ve added\n' +
                                       '```$routes today``` Lists out all the routes you completed today\n' +
                                       '```$routes stats``` Lists out all the stats for every route you\'ve made', 
-                          color=9029154)
+                          color=routesEmbedColour)
     
     embed.set_thumbnail(url=routesImagePaths.get('ZygardeCell'))
     
@@ -123,7 +123,7 @@ async def listRoutes(user):
 
     embed = discord.Embed(title=f'Routes',
                           description=f'{user}',
-                          color=9029154)
+                          color=routesEmbedColour)
     
     routes_string = ''
 
@@ -146,7 +146,7 @@ async def printoutDay(user):
 
     embed = discord.Embed(title=f'Today\'s Routes',
                           description=f'{user}',
-                          color=9029154)
+                          color=routesEmbedColour)
     
     routes_string = ''
 
@@ -180,7 +180,7 @@ async def printoutRoutes(user):
     for route in sortedRoutes:
         embed = discord.Embed(title=f'{route["Name"]}',
                         description=f'Stats for {route["User"]}',
-                        color=9029154)
+                        color=routesEmbedColour)
         
         no_badge_walked = 0
         no_badge_cells = 0

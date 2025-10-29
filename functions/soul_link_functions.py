@@ -19,8 +19,9 @@ from io import BytesIO
 from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
                                         getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
                                         getDexNum, formatTextForBackend, formatTextForDisplay, 
+                                        getTypeEmoji, getTypeColour,
                                         loadShucklePersonality, rollForShiny)
-from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, types, categories
+from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types, categories
 from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
@@ -65,7 +66,7 @@ async def help():
                                       '```$sl rare-candies``` Shuckle explains how to aquire rare candies using PKHex\n\n' +
                                       'For Data on forms, type the pokemon\'s name like giratina origin, vulpix alola, charizard mega y, appletun gmax\n' +
                                       'Accessing data for a pokemon\'s default form will always work with their base name',
-                          color=3553598)
+                          color=sharedEmbedColours.get('Default'))
     
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
@@ -103,6 +104,29 @@ def checkDuplicateName(name):
     if len(temp) >= 1:
         return True
     return False
+
+def formatVersionGroupName(versionGroup):
+    if versionGroup == '':
+        versionGroupName = 'Unknown'
+    elif versionGroup == 'legends-za':
+        versionGroupName = 'Legends Z-A'
+    else:
+        versionGroupName = re.split(r'[\s-.]+', versionGroup)
+        versionGroupName = ' '.join(word.capitalize() for word in versionGroupName)
+
+    return versionGroupName
+
+def getSerebiiLink(gameGen, monData):
+    serebiiLink = f'https://www.serebii.net/pokedex{gameGen["Serebii-Link"]}/'
+
+    zeroFilledDexNum = str(monData["species"]["url"][42:].strip("/")).zfill(3)
+
+    if gameGen['Name'] >= 8:
+        serebiiLink += formatMonForSerebii(int(zeroFilledDexNum))
+    else:
+        serebiiLink += f'{zeroFilledDexNum}.shtml'
+
+    return serebiiLink
 
 def formatMonForSerebii(dexNum):
     hyphenDexNum = [250, 474, 782, 783, 784, 1001, 1002, 1003, 1004]
@@ -183,6 +207,50 @@ def tryAddRunData(run, name_string):
     if len(name_string) > 1024:
         return False
     return True
+
+def determineGenSpecificSprite(gameGen, versionGroup):
+    baseUrlAddition = ''
+    extension = '.png'
+    rollShiny = True
+
+    if gameGen['Name'] <= 5:
+        if versionGroup == 'gold-silver':
+            randNum = random.randint(0,1)
+            if randNum == 0:
+                versionName = 'gold'
+            else:
+                versionName = 'silver'
+        elif versionGroup == 'black-2-white-2':
+            versionName = 'black-white'
+        else:
+            versionName = versionGroup
+
+        if gameGen['Name'] == 1:
+            rollShiny = False
+
+        baseUrlAddition += f'/versions/generation-{gameGen["Roman-Numeral"].lower()}/{versionName}/'
+        
+        if gameGen['Name'] == 5:
+            baseUrlAddition += 'animated/'
+            extension = '.gif'
+
+    return baseUrlAddition, extension, rollShiny
+
+def addMoveData(moveset, moveData):
+    for move, data in zip(moveset, moveData):
+        move['Type'] = str(data['type']['name']).capitalize()
+        move['Category'] = str(data['damage_class']['name']).capitalize()
+        move['Power'] = '᲼\-᲼' if data['power'] is None else str(data['power']).rjust(3, '᲼')
+        move['Accuracy'] = '᲼\-' if data['accuracy'] is None else str(data['accuracy']).rjust(3, '᲼')
+
+    return moveset
+
+def truncateTypeCategoryEmojis(typeCategoryText):
+    if len(typeCategoryText) > 1024:
+        index = typeCategoryText.rfind('\n', 0 , 1024)
+
+        return typeCategoryText[:index]
+    return typeCategoryText
 #endregion
 
 #region $sl new-sl command and createRole func
@@ -784,7 +852,7 @@ async def listRuns():
     embeds = []
 
     embed = discord.Embed(title=f'Scuffed Soul Links Runs',
-                          color=3553598)
+                          color=sharedEmbedColours.get('Default'))
     
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
@@ -1227,29 +1295,34 @@ async def createEvoChainImage(dex_num, type):
 
                     background_image = await pasteArrowImage(background_image, 275, 90, 0, type, middle_pokemon_3['Evolves-Into'][0]['Method'], middle_pokemon_3['Evolves-Into'][0]['Value'])
         
-    image_in_memory = BytesIO()
+    imageBuffer = BytesIO()
 
-    background_image.save(image_in_memory, format='PNG')
+    background_image.save(imageBuffer, format='PNG')
 
     background_image.close()
 
-    image_in_memory.seek(0)
+    imageBuffer.seek(0)
 
-    return discord.File(image_in_memory, filename=f'{type}.png')
+    return imageBuffer.getvalue()
+    #return discord.File(imageBuffer, filename=f'{type}.png')
 #endregion
 
 #region $sl dex command
-
 async def makePokedexEmbed(mon, gameName):
     dex_num = getDexNum(mon)
 
     versionGroup = getGroup(gameName)
 
+    if versionGroup is None:
+        versionGroup = copy.deepcopy(currentRun['VersionGroup'])
+
+    embeds = []
+
     if dex_num == -1:
-        return f'The pokemon \'{mon}\' was not recognized!', None
+        return f'The pokemon \'{mon}\' was not recognized!'
     
     if gameName is not None and versionGroup is None:
-        return f'\'{gameName}\' was not recognized as a valid game name!', None
+        return f'\'{gameName}\' was not recognized as a valid game name!'
 
     monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dex_num}')
 
@@ -1259,79 +1332,73 @@ async def makePokedexEmbed(mon, gameName):
     mon_name = re.split(r'[\s-.]+', monData['name'])
     mon_name = ' '.join(word.capitalize() for word in mon_name)
 
-    mon_primary_type = ''
-    mon_secondary_type = ''
+    monTypes = []
+    typeEmojis = ''
 
-    if len(monData['types']) == 2:
-        mon_primary_type = str(monData['types'][0]['type']['name']).capitalize()
-        mon_secondary_type = str(monData['types'][1]['type']['name']).capitalize()
-    else:
-        mon_primary_type = str(monData['types'][0]['type']['name']).capitalize()
-        mon_secondary_type = ''
-
-    type_emojis = [obj for obj in types if obj["Name"] == mon_primary_type][0]["Emoji"]
-    if mon_secondary_type != '':
-        type_emojis += [obj for obj in types if obj["Name"] == mon_secondary_type.capitalize()][0]["Emoji"]
+    for type in monData['types']:
+        typeName = type['type']['name'].capitalize()
+        monTypes.append(typeName)
+        typeEmojis += getTypeEmoji(typeName)
     
-    if versionGroup is None:
-        moveset, versionGroup = await getMoves(monData['moves'], currentRun['VersionGroup'])
-    else:
-        moveset, versionGroup = await getMoves(monData['moves'], versionGroup)
+    movesets, versionGroup = await getMoves(monData['moves'], versionGroup)
 
-    moveset_levels, moveset_names, moveset_types_categories = movesetText(moveset)
+    movesetLevels, lvlMovesetNames, lvlMovesetTypesCategories = levelUpMovesetText(movesets['Level-Up'])
 
-    if len(moveset_types_categories) > 1024:
-        index = moveset_types_categories.rfind(' ', 0 , 1024)
+    lvlMovesetTypesCategories = truncateTypeCategoryEmojis(lvlMovesetTypesCategories)
 
-        moveset_types_categories = moveset_types_categories[:index]
-
-    if versionGroup == 'legends-za':
-        version_group_name = 'Legends Z-A'
-    else:
-        version_group_name = re.split(r'[\s-.]+', versionGroup)
-        version_group_name = ' '.join(word.capitalize() for word in version_group_name)
-
-    file = await createEvoChainImage(dex_num, mon_primary_type)
+    imageBuffer = await createEvoChainImage(dex_num, monTypes[0])
 
     stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
 
-    embed = discord.Embed(title=f'#{monData["species"]["url"][42:].strip("/")} {mon_name} {type_emojis}',
-                          color=[obj for obj in types if obj['Name'] == mon_primary_type][0]['Colour'])
+    embed = discord.Embed(title=f'#{monData["species"]["url"][42:].strip("/")} {mon_name} {typeEmojis}',
+                          color=getTypeColour(monTypes[0]))
 
     if versionGroup != '':
         gameGen = [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]
-        if gameGen['Name'] <= 4:
-            if versionGroup == 'gold-silver':
-                randNum = random.randint(0,1)
-                if randNum == 0:
-                    oldVerGame = 'gold'
-                else:
-                    oldVerGame = 'silver'
-            else:
-                oldVerGame = versionGroup
 
-            if gameGen['Name'] == 1:
-                rollShiny = False
-            else:
-                rollShiny = True
+        baseUrlAddition, extension, rollShiny = determineGenSpecificSprite(gameGen, versionGroup)
 
-            embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num, baseUrlAddition=f'/versions/generation-{gameGen["Roman-Numeral"].lower()}/{oldVerGame}/', rollShiny=rollShiny))
-        else:
-            embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
+        embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num, baseUrlAddition=baseUrlAddition, extension=extension, rollShiny=rollShiny))
 
-        speciesDexNum = str(monData["species"]["url"][42:].strip("/")).zfill(3)
-
-        serebiiLink = f'https://www.serebii.net/pokedex{gameGen["Serebii-Link"]}/'
-        if gameGen['Name'] >= 8:
-            serebiiLink += f'{formatMonForSerebii(int(speciesDexNum))}'
-        else:
-            serebiiLink += f'{speciesDexNum}.shtml'
+        serebiiLink = getSerebiiLink(gameGen, monData)
     else:
         embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
         serebiiLink = 'https://www.serebii.net'
         
     embed.set_author(name='Pokémon Data', url=serebiiLink)
 
+    embed = addCommonDexEmbedFields(embed, stats, versionGroup)
+    
+    embed.add_field(name='Level',
+                    value=movesetLevels,
+                    inline=True)
+    
+    embed.add_field(name='Name',
+                    value=lvlMovesetNames,
+                    inline=True)
+    
+    embed.add_field(name='Type',
+                    value=lvlMovesetTypesCategories,
+                    inline=True)
+
+    embed.set_image(url=f"attachment://{monTypes[0]}.png")
+
+    embeds.append((copy.deepcopy(embed), imageBuffer, f'{monTypes[0]}', 'png'))
+
+    embed.clear_fields()
+    
+    if len(movesets['Machine']) > 0:
+        embeds = addPaginatedLearnsetEmbeds(embed, embeds, movesets, 'Machine', 'TM #', stats, versionGroup, imageBuffer, monTypes)
+
+    if len(movesets['Tutor']) > 0:
+        embeds = addPaginatedLearnsetEmbeds(embed, embeds, movesets, 'Tutor', 'Tutor', stats, versionGroup, imageBuffer, monTypes, uniqueFieldTextOverride='-')
+    
+    if len(movesets['Egg']) > 0:
+        embeds = addPaginatedLearnsetEmbeds(embed, embeds, movesets, 'Egg', 'Egg Move', stats, versionGroup, imageBuffer, monTypes, uniqueFieldTextOverride='-')
+
+    return embeds
+
+def addCommonDexEmbedFields(embed, stats, versionGroup):
     embed.add_field(name=f'Stats - {sum(stats.values())} BST',
                     value=f'HP: {stats["hp"]}\nAtk: {stats["attack"]}\nDef: {stats["defense"]}',
                     inline=True)
@@ -1340,31 +1407,91 @@ async def makePokedexEmbed(mon, gameName):
                     value=f'Speed: {stats["speed"]}\nSp.Atk: {stats["special-attack"]}\nSp.Def: {stats["special-defense"]}',
                     inline=True)
 
-    embed.add_field(name=f'Moveset Data from {version_group_name}',
+    embed.add_field(name=f'Moveset Data from {formatVersionGroupName(versionGroup)}',
                     value='',
                     inline=False)
     
-    embed.add_field(name='Level',
-                    value=moveset_levels,
-                    inline=True)
-    
-    embed.add_field(name='Name',
-                    value=moveset_names,
-                    inline=True)
-    
-    embed.add_field(name='Type ᲼ Cat.',
-                    value=moveset_types_categories,
-                    inline=True)
+    return embed
 
-    embed.set_image(url=f"attachment://{mon_primary_type}.png")
+def addPaginatedLearnsetEmbeds(embed, embeds, movesets, movesetKey, uniqueFieldHeader, stats, versionGroup, imageBuffer, monTypes, uniqueFieldTextOverride=None):
+    maxPageCount = 25
+    if len(movesets[movesetKey]) > 0:
+        uniqueFieldText = ''
+        nameText = ''
+        typeCategoryText = ''
+        pageCount = maxPageCount
+        for move in movesets[movesetKey]:
+            if pageCount > 0:
+                if uniqueFieldTextOverride is not None:
+                    uniqueFieldText += f'{uniqueFieldTextOverride}\n'
+                else:
+                    uniqueFieldText += f'{move[movesetKey]}\n'
+                nameText += f'{move["Name"]}\n'
+                typeCategoryText += f'᲼{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
+                pageCount -= 1
+            else:
+                embed = addCommonDexEmbedFields(embed, stats, versionGroup)
+                
+                embed.add_field(name=uniqueFieldHeader,
+                                value=uniqueFieldText,
+                                inline=True)
+                
+                embed.add_field(name='Name',
+                                value=nameText,
+                                inline=True)
+                
+                embed.add_field(name='Type',
+                                value=typeCategoryText,
+                                inline=True)
 
-    return embed, file
+                embeds.append((copy.deepcopy(embed), imageBuffer, f'{monTypes[0]}', 'png'))
+
+                embed.clear_fields()
+                uniqueFieldText = ''
+                nameText = ''
+                typeCategoryText = ''
+                pageCount = maxPageCount
+
+        if pageCount < maxPageCount:
+            embed = addCommonDexEmbedFields(embed, stats, versionGroup)
+            
+            embed.add_field(name=uniqueFieldHeader,
+                            value=uniqueFieldText,
+                            inline=True)
+            
+            embed.add_field(name='Name',
+                            value=nameText,
+                            inline=True)
+            
+            embed.add_field(name='Type',
+                            value=typeCategoryText,
+                            inline=True)
+            
+            embeds.append((copy.deepcopy(embed), imageBuffer, f'{monTypes[0]}', 'png'))
+
+    embed.clear_fields()
+
+    return embeds
 #endregion
 
 #region $sl moves command
+def machineSortKey(move):
+    machineName = move['Machine']
+
+    if machineName.startswith('TM'):
+        rank = 0
+    elif machineName.startswith('TR'):
+        rank = 1
+    else:
+        rank = 2
+
+    machineNum = int(re.search(r"\d+", machineName).group())
+
+    return (rank, machineNum)
+
 async def getMoves(moves, versionGroup):
     if len(moves) == 0:
-        return [], versionGroup
+        return [], [], versionGroup
 
     if versionGroup == '':
         versionGroup = moves[random.randint(0, len(moves) - 1)]['version_group_details'][0]['version_group']['name']
@@ -1379,63 +1506,96 @@ async def getMoves(moves, versionGroup):
                 name = ' '.join(word.capitalize() for word in words)
                 moveset.append({'Name': name, 'Level': version['level_learned_at'], 'Method': version['move_learn_method']['name'], 'URL': move['move']['url']})
     
-    moveset = [obj for obj in moveset if obj["Method"] == "level-up"]
-
-    moveset.sort(reverse=False, key=lambda item: item['Level'])
-
-    async with aiohttp.ClientSession() as session:
-        tasks = [getPokeApiJsonData(move['URL'], session=session) for move in moveset]
-        moveDataResponses = await asyncio.gather(*tasks)
-
-    for move, response in zip(moveset, moveDataResponses):
-        move["Type"] = str(response['type']['name']).capitalize()
-        move["Category"] = str(response['damage_class']['name']).capitalize()
-        move["Power"] = '᲼\-᲼' if response['power'] is None else str(response['power']).rjust(3, '᲼')
-        move["Accuracy"] = '᲼\-' if response['accuracy'] is None else str(response['accuracy']).rjust(3, '᲼')
-
     if not moveset and moves:
         return await getMoves(moves, moves[random.randint(0, len(moves) - 1)]['version_group_details'][0]['version_group']['name'])
+    
+    levelUpMoveset = [obj for obj in moveset if obj['Method'] == 'level-up']
+    machineMoveset = [obj for obj in moveset if obj['Method'] == 'machine']
+    tutorMoveset = [obj for obj in moveset if obj['Method'] == 'tutor']
+    eggMoveset = [obj for obj in moveset if obj['Method'] == 'egg']
 
-    return moveset, versionGroup
+    async with aiohttp.ClientSession() as session:
+        levelUpTasks = [getPokeApiJsonData(move['URL'], session=session) for move in levelUpMoveset]
+        levelUpMoveData = await asyncio.gather(*levelUpTasks)
+
+        machineTasks = [getPokeApiJsonData(move['URL'], session=session) for move in machineMoveset]
+        machineMoveData = await asyncio.gather(*machineTasks)
+
+        tutorTasks = [getPokeApiJsonData(move['URL'], session=session) for move in tutorMoveset]
+        tutorMoveData = await asyncio.gather(*tutorTasks)
+
+        eggTasks = [getPokeApiJsonData(move['URL'], session=session) for move in eggMoveset]
+        eggMoveData = await asyncio.gather(*eggTasks)
+
+        machineUrls = []
+
+        for move in machineMoveData:
+            for machine in move['machines']:
+                if machine['version_group']['name'] == versionGroup:
+                    machineUrls.append(machine['machine']['url'])
         
-def movesetText(moveset):
-    level_text = ''
-    move_name_text = ''
-    move_type_category_text = ''
+        machineDataTasks = [getPokeApiJsonData(url, session=session) for url in machineUrls]
+        machineItemData = await asyncio.gather(*machineDataTasks)
+
+    levelUpMoveset = addMoveData(levelUpMoveset, levelUpMoveData)
+    machineMoveset = addMoveData(machineMoveset, machineMoveData)
+    tutorMoveset = addMoveData(tutorMoveset, tutorMoveData)
+    eggMoveset = addMoveData(eggMoveset, eggMoveData)
+
+    for move, data in zip(machineMoveset, machineItemData):
+        move['Machine'] = str(data['item']['name']).upper()
+
+    levelUpMoveset.sort(reverse=False, key=lambda item: item['Level'])
+    machineMoveset.sort(key=machineSortKey)
+
+    movesets = {
+        'Level-Up': levelUpMoveset,
+        'Machine': machineMoveset,
+        'Tutor': tutorMoveset,
+        'Egg': eggMoveset
+    }
+
+    return movesets, versionGroup
+        
+def levelUpMovesetText(moveset):
+    levelText = ''
+    moveNameText = ''
+    moveTypeCategoryText = ''
 
     for move in moveset:
-        level_text += f'{move["Level"]}\n'
-        move_name_text += f'{move["Name"]}\n'
-        move_type_category_text += f'᲼{[obj for obj in types if obj["Name"] == move["Type"]][0]["Emoji"]} ᲼᲼ {[obj for obj in categories if obj["Name"] == move["Category"]][0]["Emoji"]}\n'
+        levelText += f'{move["Level"]}\n'
+        moveNameText += f'{move["Name"]}\n'
+        moveTypeCategoryText += f'᲼{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
+        
 
-    return level_text, move_name_text, move_type_category_text
+    return levelText, moveNameText, moveTypeCategoryText
 
 def movesetTextLevel(moveset, level):
-    move_name_text = ''
-    move_type_category_text = ''
-    move_power_accuracy_text = ''
+    moveNameText = ''
+    moveTypeCategoryText = ''
+    movePowerAccuracyText = ''
     comment = ''
 
-    temp_moveset = []
+    tempMoveset = []
     for move in moveset:
         if move['Level'] > level:
             break
-        elif move['Name'] in [temp_move['Name'] for temp_move in temp_moveset]:
+        elif move['Name'] in [temp_move['Name'] for temp_move in tempMoveset]:
             continue
-        temp_moveset.append(move)
-        if len(temp_moveset) > 4:
-            temp_moveset.pop(0)
-    moveset = temp_moveset
+        tempMoveset.append(move)
+        if len(tempMoveset) > 4:
+            tempMoveset.pop(0)
+    moveset = tempMoveset
 
 
     for move in moveset:
         if move['Level'] <= 1:
             comment = 'This moveset contains level 1 moves!\nDouble check the moveset with $sl dex or Serebii!'
-        move_name_text += f'{move["Name"]}\n'
-        move_type_category_text += f'᲼{[obj for obj in types if obj["Name"] == move["Type"]][0]["Emoji"]} ᲼᲼ {[obj for obj in categories if obj["Name"] == move["Category"]][0]["Emoji"]}\n'
-        move_power_accuracy_text += f'{move["Power"]}᲼᲼{"   " if move["Power"] == "᲼-᲼" and move["Accuracy"] == "100" else ""}{move["Accuracy"]}\n'
+        moveNameText += f'{move["Name"]}\n'
+        moveTypeCategoryText += f'᲼{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
+        movePowerAccuracyText += f'{move["Power"]}᲼᲼{"   " if move["Power"] == "᲼-᲼" and move["Accuracy"] == "100" else ""}{move["Accuracy"]}\n'
 
-    return move_name_text, move_type_category_text, move_power_accuracy_text, comment
+    return moveNameText, moveTypeCategoryText, movePowerAccuracyText, comment
 
 async def showMoveSet(mon, level):
     if not level.isnumeric() or int(level) > 100 or int(level) < 0:
@@ -1456,50 +1616,24 @@ async def showMoveSet(mon, level):
     mon_name = re.split(r'[\s-.]+', monData['name'])
     mon_name = ' '.join(word.capitalize() for word in mon_name)
 
-    moveset, versionGroup = await getMoves(monData['moves'], currentRun['VersionGroup'])
+    movesets, versionGroup = await getMoves(monData['moves'], currentRun['VersionGroup'])
 
-    moveset_names, moveset_types_categories, moveset_power_accuracy, comment = movesetTextLevel(moveset, level)
-
-    if versionGroup == 'legends-za':
-        version_group_name = 'Legends Z-A'
-    else:
-        version_group_name = re.split(r'[\s-.]+', versionGroup)
-        version_group_name = ' '.join(word.capitalize() for word in version_group_name)
+    moveset_names, moveset_types_categories, moveset_power_accuracy, comment = movesetTextLevel(movesets['Level-Up'], level)
 
     stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
 
     embed = discord.Embed(title=f'Level {level} {mon_name}',
                           description=comment,
-                          color=[obj for obj in types if obj['Name'] == str(monData['types'][0]['type']['name']).capitalize()][0]['Colour'])
+                          color=getTypeColour(monData['types'][0]['type']['name'].capitalize()))
     
     if versionGroup != '':
         gameGen = [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]
-        if gameGen['Name'] <= 4:
-            if versionGroup == 'gold-silver':
-                randNum = random.randint(0,1)
-                if randNum == 0:
-                    oldVerGame = 'gold'
-                else:
-                    oldVerGame = 'silver'
-            else:
-                oldVerGame = versionGroup
 
-            if gameGen['Name'] == 1:
-                rollShiny = False
-            else:
-                rollShiny = True
+        baseUrlAddition, extension, rollShiny = determineGenSpecificSprite(gameGen, versionGroup)
 
-            embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num, baseUrlAddition=f'/versions/generation-{gameGen["Roman-Numeral"].lower()}/{oldVerGame}/', rollShiny=rollShiny))
-        else:
-            embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
+        embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num, baseUrlAddition=baseUrlAddition, extension=extension, rollShiny=rollShiny))
 
-        speciesDexNum = str(monData["species"]["url"][42:].strip("/")).zfill(3)
-
-        serebiiLink = f'https://www.serebii.net/pokedex{gameGen["Serebii-Link"]}/'
-        if gameGen['Name'] >= 8:
-            serebiiLink += f'{formatMonForSerebii(int(speciesDexNum))}'
-        else:
-            serebiiLink += f'{speciesDexNum}.shtml'
+        serebiiLink = getSerebiiLink(gameGen, monData)
     else:
         embed.set_thumbnail(url=getPokeAPISpriteUrl(dex_num))
         serebiiLink = 'https://www.serebii.net'
@@ -1514,7 +1648,7 @@ async def showMoveSet(mon, level):
                     value=f'Speed: {calculateStat(int(stats["speed"]), level)}\nSp.Atk: {calculateStat(int(stats["special-attack"]), level)}\nSp.Def: {calculateStat(int(stats["special-defense"]), level)}',
                     inline=True)
     
-    embed.add_field(name=f'Moveset Data from {version_group_name}',
+    embed.add_field(name=f'Moveset Data from {formatVersionGroupName(versionGroup)}',
                     value='',
                     inline=False)
     
@@ -1522,7 +1656,7 @@ async def showMoveSet(mon, level):
                     value=moveset_names,
                     inline=True)
     
-    embed.add_field(name='Type ᲼ Cat.',
+    embed.add_field(name='Type',
                     value=moveset_types_categories,
                     inline=True)
     
@@ -1686,7 +1820,7 @@ async def seeNicknames():
     embeds = []
 
     embed = discord.Embed(title='Shuckles Nicknames', 
-                          color=3553598)
+                          color=sharedEmbedColours.get('Default'))
 
     allNicknames = [obj for obj in pokemon if obj['Nickname'] is True]
 
