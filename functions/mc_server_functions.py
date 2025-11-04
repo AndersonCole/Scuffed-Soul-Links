@@ -88,7 +88,7 @@ async def checkIp():
             async with session.get('http://api.ipify.org') as response:
                     response.raise_for_status()
 
-                    externalIp = await response.text().strip()
+                    externalIp = (await response.text(encoding='ascii')).strip()
                     return externalIp
     except:
         return '000.000.0.000'
