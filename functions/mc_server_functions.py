@@ -73,7 +73,7 @@ async def mcLocateHelp():
                                         'For Vanilla Structures, check: https://minecraft.wiki/w/Structure#Data_values \n'
                                         'For Fossils, check: https://fossilsarcheology.wiki.gg/wiki/Fossils_and_Archeology_Wiki \n'
                                         'For Biomes You\'ll Go, check: https://docs.google.com/spreadsheets/d/10dvK3h40V1CqCo-doVsI-Cnkxag5ac3nwyS95c-TPSE/edit?gid=0#gid=0 \n' +
-                                        'Modded wikis may not be as good as the Vanilla wiki, so just go in game and try out /locate and /locatebiome and take a look at the options in a singleplayer world.\n' +
+                                        'Modded wikis may not be as good as the Vanilla wiki, so just go in game and try out /locate and take a look at the options in a singleplayer world.\n' +
                                         'Everything should be case insensitive, and it will replace any spaces with underscores.',
                             color=mcEmbedColour)
 
@@ -104,7 +104,7 @@ async def mcSetup():
                             description=f'Server Ip: **{serverIp}:{serverPort}**\n' +
                                         f'World Seed: **923372312397535711**\n' +
                                         f'Server Status: {"Online" if serverOn else "Offline"}\n\n'
-                                        f'The server is run on Minecraft 1.18.2 using Fabric.\n' +
+                                        f'The server is run on Minecraft 1.19.4 using Fabric.\n' +
                                         f'Download Fabric here: https://fabricmc.net/use/installer/ \n\n'
                                         f'Modpack Downloads: {googleDriveLink} \n\n'
                                         f'Check the other embed pages for info on what mods are actually included.\n' + 
@@ -128,7 +128,6 @@ async def mcSetup():
                        f'**Resource Packs**: Pages {modCount+datapackCount+3}-{modCount+datapackCount+resourcepackCount+3}')
     
     embeds.append(copy.deepcopy(embed))
-
     
     for mod in serverMods:
         embed.title = f'{"★ " if mod["Required"] == "Req" else ("☆ " if mod["Required"] == "Rec" else "")}{mod["Name"]} {mod["Type"]}'
@@ -143,7 +142,7 @@ async def mcSetup():
                             description='Resource packs should stay zipped inside of the resource packs folder\n\n' +
                                         'Assuming you\'re using the recommended mod pack,\n' +
                                         'I find it works best to have the Travelers Backpack Dark Mode at the top(ignore the incompatability warning), ' +
-                                        'with FA Dark Mode right under, then the Waxed Backport Copper pack, then Vanilla Tweaks, then the two included continuity resource packs under that.\n\n' +
+                                        'with FA Dark Mode right under, then the Waxed Shuckle Copper pack, then Vanilla Tweaks, then the two included continuity resource packs under that.\n\n' +
                                         'Everything should work as intended like this.',
                             color=mcEmbedColour)
     
@@ -168,13 +167,13 @@ def getDimensionName(dimension):
         return [obj for obj in dimensions if obj['CmdName'] == dimension][0]['Name']
     except:
         return None
-    
-def formatPlayerCoordinates(coordinates):
+
+def getPlayerCoordinates(coordinates):
     if ',' in coordinates:
         splitCoords = re.split(',', coordinates)
         splitCoords = [int(math.floor(float(obj.strip()[:-1]))) for obj in splitCoords]
 
-        return f'{splitCoords[0]} {splitCoords[1]} {splitCoords[2]}'
+        return splitCoords
     else:
         return None
 
@@ -209,12 +208,6 @@ def getTimeText(daytime):
     else:
         return 'Sunrise'
 
-def getSearchTargetType(searchFor):
-    if searchFor == 'biome':
-        return 'Biome'
-    else:
-        return 'Structure'
-
 async def mcInfo():
     with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
         daytime = rcon.command('time query daytime')
@@ -238,14 +231,13 @@ async def mcInfo():
                 coordinates = rcon.command(f'execute as {player} run data get entity @s Pos')
 
                 if '"' in dimension:
-                    dimensionData = re.split('"', dimension)[1]
-                    playerDimensionText += f'{getDimensionName(dimensionData.strip())}\n'
+                    playerDimensionText += f'{getDimensionName(re.split('"', dimension)[1].strip())}\n'
                 else:
                     return f'Couldn\'t get data on {player}!'
                 
                 if ':' in coordinates:
-                    coordinateData = re.split(':', coordinates)[1]
-                    playerCoordinateText += f'{formatPlayerCoordinates(coordinateData.strip()[1:-1])}\n'
+                    playerCoordinates = getPlayerCoordinates(re.split(':', coordinates)[1].strip()[1:-1])
+                    playerCoordinateText += f'{playerCoordinates[0]} {playerCoordinates[1]} {playerCoordinates[2]}\n'
                 else:
                     return f'Couldn\'t get data on {player}!'
 
@@ -309,7 +301,7 @@ def getLocateModifiers(inputs):
         elif str(input).strip().lower() == 'biome':
             modifiers['SearchFor'] = 'biome'
         elif str(input).strip().lower() == 'structure':
-            modifiers['SearchFor'] = ''
+            modifiers['SearchFor'] = 'structure'
 
         elif str(input).strip().lower() == 'gridsearch':
             modifiers['GridSearch'] = True
@@ -369,10 +361,10 @@ async def mcLocate(author, inputs):
         with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
             for xOffset in [-modifiers['GridRange'], modifiers['GridRange']]:
                 for zOffset in [-modifiers['GridRange'], modifiers['GridRange']]:
-                    response = rcon.command(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"] + xOffset} 0 {modifiers["ZCoordinate"] + zOffset} run locate{modifiers["SearchFor"]} {modifiers["Target"]}')
+                    response = rcon.command(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"] + xOffset} 0 {modifiers["ZCoordinate"] + zOffset} run locate {modifiers["SearchFor"]} {modifiers["Target"]}')
                     
                     if response[:9] == 'Could not':
-                        return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
+                        return f'Could not find a {modifiers["Target"]} {modifiers["SearchFor"].capitalize()} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
                     responseCoords = re.search(r'\[([^\]]+)\]', response).group(1).split(',')
                     targetCoords.append([int(responseCoords[0].strip()), responseCoords[1].strip(), int(responseCoords[2].strip())])
 
@@ -387,10 +379,10 @@ async def mcLocate(author, inputs):
         
     else:
         with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
-            response = rcon.command(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"]} 0 {modifiers["ZCoordinate"]} run locate{modifiers["SearchFor"]} {modifiers["Target"]}')
+            response = rcon.command(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"]} 0 {modifiers["ZCoordinate"]} run locate {modifiers["SearchFor"]} {modifiers["Target"]}')
 
             if response[:9] == 'Could not':
-                return f'Could not find a {modifiers["Target"]} {getSearchTargetType(modifiers["SearchFor"])} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
+                return f'Could not find a {modifiers["Target"]} {modifiers["SearchFor"].capitalize()} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
 
             targetCoords = (re.search(r'\[([^\]]+)\]', response)).group(1).split(',')
 
@@ -511,6 +503,53 @@ async def mcLoot(structure, location):
 
     return 'Structure marked as looted!'
 
+#endregion
+
+#region area lockdown
+def getLockdownDimensionCoord(playerDimension, coord):
+    if playerDimension == 'Nether':
+        return coord / 8
+    return coord
+
+def checkOutsideLockdownArea(lockdownOrigin, playerCoordinates, playerDimension):
+    lockdownRange = defaultModifiers.get([f'{playerDimension}LockDownRange'])
+    if (playerCoordinates[0] > getLockdownDimensionCoord(playerDimension, lockdownOrigin[0]) + lockdownRange 
+        or playerCoordinates[0] < getLockdownDimensionCoord(playerDimension, lockdownOrigin[0]) -  lockdownRange
+        or playerCoordinates[2] > getLockdownDimensionCoord(playerDimension, lockdownOrigin[2]) +  lockdownRange
+        or playerCoordinates[2] < getLockdownDimensionCoord(playerDimension, lockdownOrigin[2]) -  lockdownRange):
+        return True
+    return False
+            
+async def mcBeginLockdown():
+    asyncio.create_task(mcLockdownArea([-19400, 100, 19400]))
+
+async def mcLockdownArea(lockdownOrigin):
+    if await serverOnline():
+        with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
+            playersOnline = rcon.command('list')
+
+            players = getPlayers(playersOnline)
+            
+            if len(players) > 0:
+                for player in players:
+                    dimension = rcon.command(f'execute as {player} run data get entity @s Dimension')
+
+                    coordinates = rcon.command(f'execute as {player} run data get entity @s Pos')
+
+                    playerDimension = getDimensionName(re.split('"', dimension)[1].strip())
+
+                    playerCoordinates = getPlayerCoordinates(re.split(':', coordinates)[1].strip()[1:-1])
+
+                    if checkOutsideLockdownArea(lockdownOrigin, playerCoordinates, playerDimension):
+                        await mcSay(f'Thought you could sneak away eh {player}? Shuckle is always watching! Teleporting you back now! Craft my block and maybe you can go back home safely...')
+
+                        rcon.command(f'execute in minecraft:overworld run tp {player} {lockdownOrigin[0]} {lockdownOrigin[1]} {lockdownOrigin[2]}')
+
+        await asyncio.sleep(120)
+
+        asyncio.create_task(mcLockdownArea(lockdownOrigin))
+    else:
+        print('Server Offline! Ending lockdown loop!')
 #endregion
 
 #region server processes

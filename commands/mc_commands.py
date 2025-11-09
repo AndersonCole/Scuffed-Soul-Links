@@ -56,6 +56,17 @@ async def minecraftCommands(userInput, author):
         else:
             response = 'The server\'s offline!'
     
+    elif userInput == 'lockdown':
+        if author.mention[2:-1] == '341722760852013066':
+            if await serverOnline():
+                response = 'Beginning area lockdown! Collect my block!'
+
+                await mcBeginLockdown()
+            else:
+                response = 'The server\'s offline!'
+        else:
+            response = 'Get outta here, Anderson only!'
+
     elif userInput == 'start':
         if not await serverOnline():
             response = await mcStart()
