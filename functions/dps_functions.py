@@ -15,10 +15,10 @@ from PIL import Image, ImageDraw
 from io import BytesIO
 from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
                                         getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
-                                        getDexNum, getOriginalNameFromNickname, verifyMoveType, 
+                                        getDexNum, checkForNickname, verifyMoveType, 
                                         formatCapitalize, formatTextForBackend, formatTextForDisplay,
-                                        getTypeColour,
-                                        loadShucklePersonality, rollForShiny)
+                                        getTypesFromPokeAPI, getTypeColour,
+                                        loadShucklePersonality, rollForShiny, pokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
 
@@ -31,8 +31,6 @@ moves = loadDataVariableFromFile(dpsFileLocations.get('Moves'))
 changedMoves = loadDataVariableFromFile(dpsFileLocations.get('ChangedMoves'))
 
 loadedMons = loadDataVariableFromFile(dpsFileLocations.get('Pokemon'))
-
-pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
 
 
 #dev command $dps symbol {num}
@@ -91,7 +89,7 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to all attacks\n' +
                                         f'```{commandText}, MegaBoost``` MegaBoost: Adds a 1.3x boost to all attacks\n' +
                                         f'```{commandText}, PrimalBoost``` PrimalBoost: Adds a 1.1x boost to all attacks\n' +
-                                        f'```{commandText}, Rayquaza MegaBoost``` MegaBoost: Adds a 1.3x or 1.1x boost to all attacks\n' +
+                                        f'```{commandText}, Rayquaza MegaBoost``` MegaBoost: Adds a 1.3x or 1.1x boost to all attacks, depending on type.\n' +
                                         f'```{commandText}, BehemothBlade``` BehemothBlade: Adds a boost to all attacks\n' +
                                         f'```{commandText}, BehemothBash``` BehemothBash: Adds a boost to your defence\n\n' +
                                         f'```{commandText}, BossAtk200``` BossAtk: Sets the enemy boss attack to the specified value. The default is 200\n' +
@@ -99,6 +97,8 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, BossKyogre``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
                                         f'```{commandText}, Tier3``` Tier: Sets the tier of the battle. Also sets the CPM value\n' +
                                         f'```{commandText}, NoCPM``` NoCPM: If the tier is set, ignores the CPM values\n\n' +
+                                        f'```{commandText}, FunnyMove``` FunnyMove: Adds a 50 energy STAB funny move, just for the one dps check.\n' +
+                                        f'```{commandText}, VeryFunnyMove``` VeryFunnyMove: Adds a 100 energy STAB funny move, just for the one dps check\n\n' +
                                         f'```{commandText}, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
                                         f'```{commandText}, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will work for both raid and dynamax dps calculations',
@@ -118,7 +118,7 @@ async def raidModifiers():
     embeds.append(sharedEmbed)
 
     embed = discord.Embed(title='Shuckles PoGo Raid Specific Modifiers',
-                            description='```$dps check Kartana, PartySize2``` PartySize: Calculates the party power boost based on the trainers in the party.\n2 = Every 18 Attacks, 3 = Every 10 Attacks, 4 = Every 3 Attacks\n' +
+                            description='```$dps check Kartana, PartySize2``` PartySize: Calculates the party power boost based on the trainers in the party.\n2 = Every 18 Attacks, 3 = Every 9 Attacks, 4 = Every 6 Attacks\n' +
                                         '```$dps check Kartana, ShowMoveTimings``` ShowMoveTimings: Shows the timing difference when the moves got rounded to the nearest 0.5s\n' +
                                         '```$dps check Kartana, ShowMoveChanges``` ShowMoveChanges: Adds a star beside the moves that were changed in the Oct 2024 re-balance\n' +
                                         '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n' +
@@ -166,17 +166,17 @@ async def dynamaxModifiers():
     return embeds
 
 #region parsing funcs
-def checkDuplicateMon(mon_name):
-    mon_name = formatTextForBackend(mon_name)
-    temp = [obj for obj in loadedMons if obj['Name'] == mon_name]
-    if len(temp) >= 1:
+def checkDuplicateMon(monName):
+    monName = formatTextForBackend(monName)
+
+    if len([obj for obj in loadedMons if obj['Name'] == monName]) >= 1:
         return True
     return False
 
-def checkDuplicateMove(move_name):
-    move_name = formatTextForBackend(move_name)
-    temp = [obj for obj in moves if obj['Name'] == move_name]
-    if len(temp) >= 1:
+def checkDuplicateMove(moveName):
+    moveName = formatTextForBackend(moveName)
+
+    if len([obj for obj in moves if obj['Name'] == moveName]) >= 1:
         return True
     return False
 
@@ -217,42 +217,35 @@ def getChangedMoveStats(moveName, oldPower, oldEnergy, applyChanges):
                 break
     return power, energy
 
-async def getMonTypes(dexNum):
-    monTypes = []
-
-    try:
-        if dexNum < 0:
-            raise Exception
-        
-        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-
-        if monData is None:
-            raise Exception
-        
-        monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
-        if len(monData['types']) > 1:
-            monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
-    except:
-        monTypes.append('???')
-
-    return monTypes
-
+def determineSTAB(forcedNone, forced, move, monTypes):
+    if move['Name'].startswith('funny-move'):
+        return activeModifiers.get('STABMultiplier').get('active')
+    
+    if forcedNone:
+        return activeModifiers.get('STABMultiplier').get('inactive')
+    elif forced:
+        return activeModifiers.get('STABMultiplier').get('active')
+    else:
+        if move['MoveType'] in monTypes:
+            return activeModifiers.get('STABMultiplier').get('active')
+        else:
+            return activeModifiers.get('STABMultiplier').get('inactive')
 #endregion
 
 #region dps commands
 async def dpsAddMon(monName, attack, defence, stamina):
+    monName = checkForNickname(monName)
+
     if checkDuplicateMon(monName):
         return 'That pokemon is already registered!'
-    
+
     if (1000 < attack or attack <= 0) or (1000 < defence or defence <= 0) or (1000 < stamina or stamina <= 0):
         return 'Make sure the stats are greater than 0 or less than 1000!'
     
     dexNum = getDexNum(monName)
 
     if dexNum == -1:
-        return f'The pokemon \'{monName}\' was not recognized!'
-
-    monName = formatTextForBackend(monName)
+        return f'The pokemon \'{formatTextForDisplay(monName)}\' was not recognized!'
 
     loadedMons.append({
         'Name': monName,
@@ -331,6 +324,8 @@ async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindo
     return f'Charged move \'{formatTextForDisplay(moveName)}\' added successfully!'
 
 async def dpsAddMoveset(monName, newMoves):
+    monName = checkForNickname(monName)
+
     if not checkDuplicateMon(monName):
         return 'That pokemon is not registered!'
     
@@ -341,6 +336,10 @@ async def dpsAddMoveset(monName, newMoves):
     for move in newMoves:
         moveName = formatTextForBackend(move)
 
+        if moveName == 'dynamax-cannon':
+            output += 'There\'s a new modifier for testing funny moves! Go check it out!\n'
+            continue
+    
         if not checkDuplicateMove(move):
             output += f'The move \'{formatTextForDisplay(moveName)}\' has not been registered!\n'
             continue
@@ -363,10 +362,12 @@ async def dpsAddMoveset(monName, newMoves):
     return output
 
 async def dpsRemoveMoveset(monName, delMoves):
+    monName = checkForNickname(monName)
+
     if not checkDuplicateMon(monName):
         return 'That pokemon is not registered!'
     
-    mon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(monName)][0]
+    mon = [obj for obj in loadedMons if obj['Name'] == monName][0]
 
     output = ''
 
@@ -605,10 +606,10 @@ async def deleteDPSMove(moveName):
     return 'Move deleted successfully!'
 
 async def deleteDPSMon(monName):
+    monName = checkForNickname(monName)
+
     if not checkDuplicateMon(monName):
         return 'That pokemon is not even registered yet!'
-    
-    monName = formatTextForBackend(monName)
 
     for mon in loadedMons:
         if mon['Name'] == monName:
@@ -629,19 +630,15 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
         if errorText != '':
             return errorText, None
     
-    if not checkDuplicateMon(monName):
-        baseMonName = getOriginalNameFromNickname(monName)
-        if baseMonName is not None:
-            monName = baseMonName
-            if not checkDuplicateMon(monName):
-                return 'That pokemon is not registered!', None
-        else:
-            return 'That pokemon is not registered!', None
-    
-    mon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(monName)][0]
+    monName = checkForNickname(monName)
 
-    monTypes = await getMonTypes(mon['ImageDexNum'])
-    bossTypes = await getMonTypes(modifiers['BossDexNum'])
+    if not checkDuplicateMon(monName):
+        return 'That pokemon is not registered!', None
+    
+    mon = [obj for obj in loadedMons if obj['Name'] == monName][0]
+
+    monTypes = await getTypesFromPokeAPI(mon['ImageDexNum'])
+    bossTypes = await getTypesFromPokeAPI(modifiers['BossDexNum'])
 
     monAttack, monDefence, monStamina, monCP = getCalculatedStats(mon, modifiers)
 
@@ -661,6 +658,11 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
         else:
             chargedMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
             chargedMovesText += f'{formatTextForDisplay(move["Name"])}{changedIndicator}, '
+
+    if modifiers['UsingFunnyMove50']:
+        chargedMoves.append(activeModifiers.get('ModeratelyFunnyMove'))
+    if modifiers['UsingFunnyMove100']:
+        chargedMoves.append(activeModifiers.get('VeryFunnyMove'))
 
     if len(fastMoves) == 0:
         return 'This pokemon doesn\'t have any fast moves registered to it!', None
@@ -684,15 +686,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
         copiedFastMove = copy.deepcopy(fastMove)
         copiedFastMove['Damage'], copiedFastMove['Energy'] = getChangedMoveStats(copiedFastMove['Name'], copiedFastMove['Damage'], copiedFastMove['Energy'], modifiers['ApplyMoveChanges'])
         
-        if modifiers['ForceNoFastSTAB']:
-            modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
-        elif modifiers['ForceFastSTAB']:
-            modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
-        else:
-            if fastMove['MoveType'] in monTypes:
-                modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
-            else:
-                modifiers['FastSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
+        modifiers['FastSTABMultiplier'] = determineSTAB(modifiers['ForceNoFastSTAB'], modifiers['ForceFastSTAB'], fastMove, monTypes)
 
         if modifiers['CalculateFastEffectiveness']:
             modifiers['FastEffectiveness'] = calculateMoveEffectiveness(fastMove['MoveType'], bossTypes)
@@ -729,15 +723,7 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
             copiedChargedMove = copy.deepcopy(chargedMove)
             copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], modifiers['ApplyMoveChanges'])
 
-            if modifiers['ForceNoChargedSTAB']:
-                modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
-            elif modifiers['ForceChargedSTAB']:
-                modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
-            else:
-                if chargedMove['MoveType'] in monTypes:
-                    modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('active')
-                else:
-                    modifiers['ChargedSTABMultiplier'] = activeModifiers.get('STABMultiplier').get('inactive')
+            modifiers['ChargedSTABMultiplier'] = determineSTAB(modifiers['ForceNoChargedSTAB'], modifiers['ForceChargedSTAB'], chargedMove, monTypes)
 
             if modifiers['CalculateChargedEffectiveness']:
                 modifiers['ChargedEffectiveness'] = calculateMoveEffectiveness(chargedMove['MoveType'], bossTypes)
@@ -993,11 +979,12 @@ def getDefaultModifiers(battleSystem):
     return modifiers
 
 #region shared basic modifiers
-#Level, IVs, Shadow, FastEffective, ChargedEffective, NoEnergyPenalty
+#Level, IVs, Shadow, FastEffective, ChargedEffective, NoEnergyPenalty,
 #NoFastSTAB, NoChargedSTAB, ForceFastSTAB, ForceChargedSTAB,
 #FriendBoost, WeatherBoost, MegaBoost,
-#BehemothBlade, BehemothBash
-#BossAtk, BossDef, Boss{name}, NoCPM
+#BehemothBlade, BehemothBash,
+#BossAtk, BossDef, Boss{name}, NoCPM,
+#FunnyMove, VeryFunnyMove,
 #SortByFastMoves, SortByChargedMoves
 async def determineModifierValues(extraInputs, battleSystem):
     modifiers = getDefaultModifiers(battleSystem)
@@ -1072,7 +1059,7 @@ async def determineModifierValues(extraInputs, battleSystem):
                 modifiers['ApplyMegaBoost'] = True
             else:
                 try:
-                    megaMon = input[:-5]
+                    megaMon = checkForNickname(input[:-5])
                     if not checkDuplicateMon(megaMon):
                         raise Exception
                     megaMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(megaMon)][0]
@@ -1084,7 +1071,7 @@ async def determineModifierValues(extraInputs, battleSystem):
                         case 'rayquaza-mega':
                             megaTypes = ['Flying', 'Psychic', 'Dragon']
                         case _:
-                            megaTypes = await getMonTypes(megaMon['ImageDexNum'])
+                            megaTypes = await getTypesFromPokeAPI(megaMon['ImageDexNum'])
 
                     modifiers['MegaTypes'] = megaTypes
                     modifiers['ApplyMegaBoost'] = True
@@ -1120,7 +1107,7 @@ async def determineModifierValues(extraInputs, battleSystem):
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!\n'
         elif input.startswith('boss'):
             try:
-                bossMon = input[4:]
+                bossMon = checkForNickname(input[4:])
                 if not checkDuplicateMon(bossMon):
                     raise Exception
                 bossMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(bossMon)][0]
@@ -1131,6 +1118,10 @@ async def determineModifierValues(extraInputs, battleSystem):
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss name! Make sure it\'s registered!\n'
         elif input == 'nocpm':
             modifiers['UseCpmMultiplier'] = False
+        elif input == 'funnymove':
+            modifiers['UsingFunnyMove50'] = True
+        elif input == 'veryfunnymove':
+            modifiers['UsingFunnyMove100'] = True
         elif input == 'sortbyfastmoves':
             modifiers['ResultSortOrder'] = 'ByFast'
         elif input == 'sortbychargedmoves':
@@ -1245,7 +1236,7 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
             modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
         elif input.startswith('cycleswapto'):
             try:
-                swapMon = input[11:]
+                swapMon = checkForNickname(input[11:])
                 if not checkDuplicateMon(swapMon):
                     raise Exception
                 swapMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(swapMon)][0]

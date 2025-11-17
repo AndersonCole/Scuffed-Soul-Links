@@ -122,16 +122,6 @@ async def soulLinkCommands(userInput, author, guild):
 
         response = await showMoveSet(mon, splitInput[-1])
 
-    elif userInput.startswith('add-nickname '):
-        splitInput = re.split(r'[,]+', userInput[13:])
-        if len(splitInput) == 2:
-            response = await addNickname(splitInput[0], splitInput[1])
-        else:
-            response = 'Invalid input! Use commas \',\' in between values!'
-
-    elif userInput == 'nicknames':
-        response = await seeNicknames()
-
     elif userInput == 'reset':
         response = resetFocus()
 

@@ -20,13 +20,11 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
                                         getDexNum, formatTextForBackend, formatTextForDisplay, 
                                         getTypeEmoji, getTypeColour,
-                                        loadShucklePersonality, rollForShiny)
+                                        loadShucklePersonality, rollForShiny, pokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types, categories
 from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
-
-pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
 
 runs = loadDataVariableFromFile(soulLinksFileLocations.get('Runs'))
 
@@ -60,8 +58,6 @@ async def help():
                                       '```$sl dex Bulbasaur``` Shows data on selected pokemon\n' +
                                       '```$sl dex Bulbasaur, HeartGold``` Shows data on selected pokemon in HearGold\n' +
                                       '```$sl moves Bulbasaur 24``` Shows the four moves the mon has at a specific level\n' +
-                                      '```$sl add-nickname Ttar, Tyranitar``` Adds nicknames to link to original names\n' +
-                                      '```$sl nicknames``` Prints out all nicknames\n' +
                                       '```$sl catch Bulbasaur 5``` Caclulates the catch rate for the selected gen given the pokemon and level\n' +
                                       '```$sl rare-candies``` Shuckle explains how to aquire rare candies using PKHex\n\n' +
                                       'For Data on forms, type the pokemon\'s name like giratina origin, vulpix alola, charizard mega y, appletun gmax\n' +
@@ -77,12 +73,6 @@ async def help():
 def getMon(dexNum):
     try:
         return [obj for obj in pokemon if obj['DexNum'] == dexNum][0]
-    except:
-        return None
-
-def getMonFromName(originalName):
-    try:
-        return [obj for obj in pokemon if obj['Name'] == originalName][0]
     except:
         return None
 
@@ -1789,76 +1779,4 @@ async def calculateCatchRate(mon, level):
                     inline=True)
 
     return embed
-#endregion
-
-#region nicknames
-#region $sl add-nickname command
-async def addNickname(nickname, originalName):
-    global pokemon
-    originalName = re.sub(r'\s', '-', str(originalName).lower().strip())
-    mon = getMonFromName(originalName)
-
-    if mon is None:
-        return f'\'{originalName}\' is not a valid mon!'
-
-    pokemon.append({
-        'Name': re.sub(r'\s', '-', str(nickname).lower().strip()),
-        'DexNum': mon['DexNum'],
-        'Nickname': True,
-        'Evolves-Into': mon['Evolves-Into'],
-        'Evolves-From': mon['Evolves-From']
-    })
-
-    await saveDataVariableToFile(sharedFileLocations.get('Pokemon'), pokemon)
-
-    return f'Nickname \'{nickname}\' successfully added for {formatTextForDisplay(mon["Name"])}'
-
-#endregion
-        
-#region $sl nicknames command
-async def seeNicknames():
-    embeds = []
-
-    embed = discord.Embed(title='Shuckles Nicknames', 
-                          color=sharedEmbedColours.get('Default'))
-
-    allNicknames = [obj for obj in pokemon if obj['Nickname'] is True]
-
-    originalNames = ''
-    nicknames = ''
-    
-    pageCount = 15
-    for mon in allNicknames:
-        if pageCount > 0:
-            originalNames += f'{formatTextForDisplay([obj for obj in pokemon if obj["DexNum"] == mon["DexNum"]][0]["Name"])}\n'
-            nicknames += f'{formatTextForDisplay(mon["Name"])}\n'
-            pageCount -= 1
-        else:
-            embed.add_field(name='Nickname',
-                            value=nicknames,
-                            inline=True)
-            
-            embed.add_field(name='Original',
-                            value=originalNames,
-                            inline=True)
-            embeds.append(copy.deepcopy(embed))
-
-            embed.clear_fields()
-            originalNames = ''
-            nicknames = ''
-            pageCount = 15
-        
-    embed.add_field(name='Nickname',
-                        value=nicknames,
-                        inline=True)
-        
-    embed.add_field(name='Original',
-                    value=originalNames,
-                    inline=True)
-    embeds.append(embed)
-        
-    return embeds
-
-#endregion
-        
 #endregion

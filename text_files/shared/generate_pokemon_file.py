@@ -156,7 +156,7 @@ def generatePokemonGen(gen):
                 pokemon.append({
                     'Name': varieties['pokemon']['name'],
                     'DexNum': int(varieties['pokemon']['url'][34:].strip("/")),
-                    'Nickname': False,
+                    'Nicknames': [],
                     'Evolves-Into': evolves_into,
                     'Evolves-From': evolves_from
                 })
@@ -164,7 +164,7 @@ def generatePokemonGen(gen):
             pokemon.append({
                 'Name': species['name'],
                 'DexNum': int(species['id']),
-                'Nickname': False,
+                'Nicknames': [],
                 'Evolves-Into': evolves_into,
                 'Evolves-From': evolves_from
             })
@@ -264,7 +264,7 @@ async def generateNewMegaPokemon(offset, limit):
                 pokemon.append({
                     'Name': mon['name'],
                     'DexNum': int(mon['url'][34:].strip('/')),
-                    'Nickname': False,
+                    'Nicknames': [],
                     'Evolves-Into': [],
                     'Evolves-From': None
                 })
@@ -357,7 +357,7 @@ def fixRunTeams():
 #Structure for Pokemon, generated from generate_pokemon_file.py
 '''
 pokemon = [
-    {'Name': 'Bulbasaur', DexNum: 1, Nickname: False, Evolves-Into: [{DexNum: 2, Method: 'level-up', Value: '16'}], Evolves-From: None},
+    {'Name': 'Bulbasaur', DexNum: 1, Nicknames: [], Evolves-Into: [{DexNum: 2, Method: 'level-up', Value: '16'}], Evolves-From: None},
     Evolves-Into: [{DexNum: 2, Method: 'use-item', Value: 'water-stone'}]
 ]
 

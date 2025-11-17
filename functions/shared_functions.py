@@ -30,6 +30,8 @@ async def saveAndLoadDataVariable(filePath, content, readWriteJson=True):
     await saveDataVariableToFile(filePath, content, readWriteJson)
     return loadDataVariableFromFile(filePath, readWriteJson)
 
+pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
+
 async def getPokeApiJsonData(url, session=None):
     if '/pokemon/' in url:
         label = 'pokemon'
@@ -69,16 +71,38 @@ async def getPokeApiJsonData(url, session=None):
         print(ex)
         return None
 
-def getPokeAPISpriteUrl(dexNum, baseUrlAddition=None, extension='.png', rollShiny=True):
+def getPokeAPISpriteUrl(dexNum, baseUrlAddition=None, extension='.png', rollShiny=True, forceShiny=False):
     baseURL = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'
     if baseUrlAddition is not None:
         baseURL += baseUrlAddition
     sprite = f'{baseURL}{dexNum}{extension}'
     shinySprite = f'{baseURL}shiny/{dexNum}{extension}'
 
+    if forceShiny:
+        return shinySprite
     if rollShiny:
         return rollForShiny(sprite, shinySprite)
     return sprite
+
+async def getTypesFromPokeAPI(dexNum):
+    monTypes = []
+
+    try:
+        if dexNum < 0:
+            raise Exception
+        
+        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+
+        if monData is None:
+            raise Exception
+        
+        monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
+        if len(monData['types']) > 1:
+            monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
+    except:
+        monTypes.append('???')
+
+    return monTypes
 
 shinyDays = loadDataVariableFromFile(sharedFileLocations.get('ShinyDays'))
 
@@ -113,8 +137,8 @@ def loadShucklePersonality(variant):
     return systemContent
 
 def formatTextForBackend(text):
-    formatted_text = re.sub(r'\s', '-', str(text).strip().lower())
-    return formatted_text
+    formattedText = re.sub(r'\s', '-', str(text).strip().lower())
+    return formattedText
 
 def formatTextForDisplay(text):
     words = re.split(r'[\s-.]+', text)
@@ -123,8 +147,7 @@ def formatTextForDisplay(text):
 
 def formatCapitalize(text):
     text = text.lower()
-    text = text.capitalize()
-    return text
+    return text.capitalize()
 
 def getTypeEmoji(type, moveCategory=None):
     category = 'Physical'
@@ -146,25 +169,36 @@ def verifyMoveType(moveType):
         return True
     return False
 
-def getDexNum(monName):
-    pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
-
+def checkForNickname(monName):
     monName = formatTextForBackend(monName)
+
+    return nicknameLookup.get(monName)
+
+def getMonFromName(monName):
+    monName = checkForNickname(monName)
+
     try:
-        return [obj for obj in pokemon if obj['Name'] == monName][0]['DexNum']
+        return [obj for obj in pokemon if obj['Name'] == monName][0]
+    except:
+        return None
+
+def getDexNum(monName):
+    try:
+        return getMonFromName(monName)['DexNum']
     except:
         return -1
 
-def getOriginalNameFromNickname(monName):
-    pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
-        
-    monName = formatTextForBackend(monName)
+def buildNicknameLookupTable():
+    global nicknameLookup
 
-    try:
-        dexNum = [obj for obj in pokemon if obj['Name'] == monName and obj['Nickname']][0]['DexNum']
-        return [obj for obj in pokemon if obj['DexNum'] == dexNum][0]['Name']
-    except:
-        return None
-    
+    nicknameLookup = {}
+    for mon in pokemon:
+        baseName = mon['Name']
+        nicknameLookup[baseName] = baseName
+        for nickname in mon['Nicknames']:
+            nicknameLookup[nickname] = baseName
+
+buildNicknameLookupTable()
+
 def assignReactionEmoji(command):
     return rollForShiny(reactionEmojis.get(command).get('Normal'), reactionEmojis.get(command).get('Shiny'))

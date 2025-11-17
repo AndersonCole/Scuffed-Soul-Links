@@ -32,3 +32,16 @@ filterLists = {
     'raids': ['raid-day', 'raid-battles', 'raid-weekend', 'max-battles'],
     'gbl': ['go-battle-league']
 }
+
+defaultOddsModifiers = {
+    'Ivs': {
+        'Attack': 15,
+        'Defence': 15,
+        'Stamina': 15,
+    },
+    'Floor': 10,
+
+    'ShinyChance': None,
+    'BackgroundChance': None,
+    'ExtraChance': None
+}

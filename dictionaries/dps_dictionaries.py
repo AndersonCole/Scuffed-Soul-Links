@@ -89,6 +89,9 @@ defaultModifiers = {
     'SimFastAlone': True,
     'ApplyMaxOrb': True,
 
+    'UsingFunnyMove50': False,
+    'UsingFunnyMove100': False,
+
     'ShowMoveTimings': False,
     'ShowMoveChanges': False,
     'ApplyMoveChanges': True,
@@ -163,6 +166,27 @@ activeModifiers = {
     'ZamazentaMultiplier': {
         'raids': 1.1,
         'dmax': 1.05
+    },
+
+    #beak blast clone
+    "ModeratelyFunnyMove": {
+        "Name": "funny-move-50",
+        "Type": "Charged",
+        "Damage": 125,
+        "Energy": 50,
+        "Duration": 2.5,
+        "DamageWindow": 1.5,
+        "MoveType": "???"
+    },
+    #dynamax cannon clone
+    "VeryFunnyMove": {
+        "Name": "funny-move-100",
+        "Type": "Charged",
+        "Damage": 215,
+        "Energy": 100,
+        "Duration": 1.5,
+        "DamageWindow": 0.9,
+        "MoveType": "???"
     }
 }
 

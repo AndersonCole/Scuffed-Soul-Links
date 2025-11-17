@@ -11,7 +11,7 @@ from commands.misc_commands import miscShuckleCommands
 from commands.soul_link_commands import soulLinkCommands
 from commands.routes_commands import routesCommands
 from commands.dps_commands import dpsCommands, maxCommands
-from commands.pogo_event_commands import pogoEventCommands
+from commands.pogo_commands import pogoMiscCommands
 from commands.pvp_commands import pvpCommands
 from commands.mc_commands import minecraftCommands
 from util.shuckle_paginator import ShucklePaginator
@@ -70,7 +70,7 @@ class DiscordClient(discord.Client):
         elif message.content.startswith('$pogo '):
             await message.add_reaction(assignReactionEmoji('PoGo'))
 
-            response = await pogoEventCommands(message.content[6:])
+            response = await pogoMiscCommands(message.content[6:])
 
         elif message.content.startswith('$pvp '):
             await message.add_reaction(assignReactionEmoji('PVP'))
