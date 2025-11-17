@@ -231,7 +231,8 @@ async def mcInfo():
                 coordinates = rcon.command(f'execute as {player} run data get entity @s Pos')
 
                 if '"' in dimension:
-                    playerDimensionText += f'{getDimensionName(re.split('"', dimension)[1].strip())}\n'
+                    dimensionName = getDimensionName(re.split('"', dimension)[1].strip())
+                    playerDimensionText += f'{dimensionName}\n'
                 else:
                     return f'Couldn\'t get data on {player}!'
                 
@@ -521,7 +522,7 @@ def checkOutsideLockdownArea(lockdownOrigin, playerCoordinates, playerDimension)
     return False
             
 async def mcBeginLockdown():
-    asyncio.create_task(mcLockdownArea([-19400, 100, 19400]))
+    asyncio.create_task(mcLockdownArea([-19400, 112, 19400]))
 
 async def mcLockdownArea(lockdownOrigin):
     if await serverOnline():
@@ -542,10 +543,11 @@ async def mcLockdownArea(lockdownOrigin):
 
                     if checkOutsideLockdownArea(lockdownOrigin, playerCoordinates, playerDimension):
                         await mcSay(f'Thought you could sneak away eh {player}? Shuckle is always watching! Teleporting you back now! Craft my block and maybe you can go back home safely...')
+                        print(f'Teleporting {player}!')
 
                         rcon.command(f'execute in minecraft:overworld run tp {player} {lockdownOrigin[0]} {lockdownOrigin[1]} {lockdownOrigin[2]}')
 
-        await asyncio.sleep(120)
+        await asyncio.sleep(60)
 
         asyncio.create_task(mcLockdownArea(lockdownOrigin))
     else:

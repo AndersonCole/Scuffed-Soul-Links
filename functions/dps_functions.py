@@ -1079,7 +1079,7 @@ async def determineModifierValues(extraInputs, battleSystem):
                     match megaMon['Name']:
                         case 'groudon-primal':
                             megaTypes = ['Ground', 'Grass', 'Fire']
-                        case 'kyogre=primal':
+                        case 'kyogre-primal':
                             megaTypes = ['Bug', 'Water', 'Electric']
                         case 'rayquaza-mega':
                             megaTypes = ['Flying', 'Psychic', 'Dragon']
