@@ -87,6 +87,7 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, Shadow``` Shadow: Gives the mon a 1.2x atk boost and def nerf\n' +
                                         f'```{commandText}, FriendBoost``` FriendBoost: Adds a 1.1x boost to all attacks\n' +
                                         f'```{commandText}, WeatherBoost``` WeatherBoost: Adds a 1.2x boost to all attacks\n' +
+                                        f'```{commandText}, WindyWeatherBoost``` WeatherBoost: Adds a 1.2x boost to all attacks matching the weather\n' +
                                         f'```{commandText}, MegaBoost``` MegaBoost: Adds a 1.3x boost to all attacks\n' +
                                         f'```{commandText}, PrimalBoost``` PrimalBoost: Adds a 1.1x boost to all attacks\n' +
                                         f'```{commandText}, Rayquaza MegaBoost``` MegaBoost: Adds a 1.3x or 1.1x boost to all attacks, depending on type.\n' +
@@ -1067,7 +1068,7 @@ async def determineModifierValues(extraInputs, battleSystem):
             if input == 'weatherboost':
                 modifiers['WeatherTypes'] = [obj['Name'] for obj in types]
             else:
-                weatherTypes = weather.get(input[:-12], None)
+                weatherTypes = weather.get(formatTextForBackend(input[:-12]), None)
                 if weatherTypes is not None:
                     modifiers['WeatherTypes'] = weatherTypes
                 else:
