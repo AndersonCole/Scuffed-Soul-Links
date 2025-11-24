@@ -41,7 +41,9 @@ defaultOddsModifiers = {
     },
     'Floor': 10,
 
+    'BottleCap': False,
     'ShinyChance': None,
     'BackgroundChance': None,
-    'ExtraChance': None
+    'ExtraChance': None,
+    'LuckyChance': None
 }

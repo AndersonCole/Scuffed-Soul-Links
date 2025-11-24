@@ -20,7 +20,7 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getTypesFromPokeAPI, getTypeColour,
                                         loadShucklePersonality, rollForShiny, pokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
-from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, cpMultipliers
+from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, weather, cpMultipliers
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
 
@@ -230,6 +230,16 @@ def determineSTAB(forcedNone, forced, move, monTypes):
             return activeModifiers.get('STABMultiplier').get('active')
         else:
             return activeModifiers.get('STABMultiplier').get('inactive')
+        
+def determineWeatherMultiplier(weatherTypes, fastMove):
+    if fastMove['MoveType'] in weatherTypes:
+        return activeModifiers.get('WeatherMultiplier').get('active')
+    return activeModifiers.get('WeatherMultiplier').get('inactive')
+
+def determineMegaMultiplier(megaTypes, fastMove):
+    if fastMove['MoveType'] in megaTypes:
+        return activeModifiers.get('MegaMultiplier').get('SameType')
+    return activeModifiers.get('MegaMultiplier').get('DiffType')
 #endregion
 
 #region dps commands
@@ -690,6 +700,11 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
 
         if modifiers['CalculateFastEffectiveness']:
             modifiers['FastEffectiveness'] = calculateMoveEffectiveness(fastMove['MoveType'], bossTypes)
+        
+        modifiers['FastWeatherMultiplier'] = determineWeatherMultiplier(modifiers['WeatherTypes'], fastMove)
+
+        if modifiers['ApplyMegaBoost']:
+            modifiers['FastMegaMultiplier'] = determineMegaMultiplier(modifiers['MegaTypes'], fastMove)
 
         if modifiers['ApplyMegaBoost']:
             if fastMove['MoveType'] in modifiers['MegaTypes']:
@@ -728,11 +743,10 @@ async def dpsCheck(monName, battleSystem, extraInputs=None):
             if modifiers['CalculateChargedEffectiveness']:
                 modifiers['ChargedEffectiveness'] = calculateMoveEffectiveness(chargedMove['MoveType'], bossTypes)
 
+            modifiers['ChargedWeatherMultiplier'] = determineWeatherMultiplier(modifiers['WeatherTypes'], chargedMove)
+
             if modifiers['ApplyMegaBoost']:
-                if chargedMove['MoveType'] in modifiers['MegaTypes']:
-                    modifiers['ChargedMegaMultiplier'] = activeModifiers.get('MegaMultiplier').get('SameType')
-                else:
-                    modifiers['ChargedMegaMultiplier'] = activeModifiers.get('MegaMultiplier').get('DiffType')
+                modifiers['ChargedMegaMultiplier'] = determineMegaMultiplier(modifiers['MegaTypes'], chargedMove)
 
             newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
             
@@ -1049,8 +1063,15 @@ async def determineModifierValues(extraInputs, battleSystem):
             modifiers['ApplyEnergyPenalty'] = False
         elif input == 'friendboost':
             modifiers['FriendMultiplier'] = activeModifiers.get('FriendMultiplier')
-        elif input == 'weatherboost':
-            modifiers['WeatherMultiplier'] = activeModifiers.get('WeatherMultiplier')
+        elif 'weatherboost' in input:
+            if input == 'weatherboost':
+                modifiers['WeatherTypes'] = [obj['Name'] for obj in types]
+            else:
+                weatherTypes = weather.get(input[:-12], None)
+                if weatherTypes is not None:
+                    modifiers['WeatherTypes'] = weatherTypes
+                else:
+                    errorText += f'\'{input[:-12]}\' wasn\'t understood as a valid weather type!\n'
         elif 'megaboost' in input or 'primalboost' in input:
             if input == 'megaboost':
                 modifiers['MegaTypes'] = [obj['Name'] for obj in types]
@@ -1065,11 +1086,11 @@ async def determineModifierValues(extraInputs, battleSystem):
                     megaMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(megaMon)][0]
                     match megaMon['Name']:
                         case 'groudon-primal':
-                            megaTypes = ['Ground', 'Grass', 'Fire']
+                            megaTypes = weather.get('sunny')
                         case 'kyogre-primal':
-                            megaTypes = ['Bug', 'Water', 'Electric']
+                            megaTypes = weather.get('rainy')
                         case 'rayquaza-mega':
-                            megaTypes = ['Flying', 'Psychic', 'Dragon']
+                            megaTypes = weather.get('windy')
                         case _:
                             megaTypes = await getTypesFromPokeAPI(megaMon['ImageDexNum'])
 
@@ -1389,18 +1410,23 @@ async def calcSurvivalTime(dpsBoss, stamina):
 '''
 
 async def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
+    weatherMultiplier = 1.0
     megaMultiplier = 1.0
     partyPower = 1.0
     if moveType == 'Fast':
+        weatherMultiplier = modifiers['FastWeatherMultiplier']
         megaMultiplier = modifiers['FastMegaMultiplier']
     elif moveType == 'Charged':
+        weatherMultiplier = modifiers['ChargedWeatherMultiplier']
         megaMultiplier = modifiers['ChargedMegaMultiplier']
         partyPower = calculatePartyPowerMultiplier(fastMovesPerCharged, modifiers)
     elif moveType == 'Max':
+        if len(modifiers['WeatherTypes']) > 0:
+            weatherMultiplier = activeModifiers.get('WeatherMultiplier').get('active')
         if modifiers['ApplyMegaBoost']:
             megaMultiplier = activeModifiers.get('MegaMultiplier').get('SameType')
     
-    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * modifiers['WeatherMultiplier'] * megaMultiplier * modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * modifiers['ZacianMultiplier'] * partyPower
+    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * weatherMultiplier * megaMultiplier * modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * modifiers['ZacianMultiplier'] * partyPower
 
     return modifierVal
 

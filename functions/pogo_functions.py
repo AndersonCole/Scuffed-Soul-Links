@@ -198,12 +198,27 @@ def getIvText(ivs):
 def getExtraText(extraText):
     if extraText == '':
         return ''
-    return f'{extraText} and '
+    return f'{extraText}with '
+
+def getTargetText(extraText, ivs, floor, bottleCap):
+    if bottleCap:
+        return f'{getExtraText(extraText)}a **{floor} IV Floor**'
+    return f'{getExtraText(extraText)}{getIvText(ivs)}, and a **{floor} IV Floor**'
 
 def tryingForShiny(shinyChance):
     if shinyChance is not None:
         return True
     return False
+
+def raiseIvsToFloor(ivs, floor):
+    if floor > ivs['Attack']:
+        ivs['Attack'] = floor
+    if floor > ivs['Defence']:
+        ivs['Defence'] = floor
+    if floor > ivs['Stamina']:
+        ivs['Stamina'] = floor
+
+    return ivs
 
 async def calculateOdds(monName, extraInputs=None):
     modifiers = copy.deepcopy(defaultOddsModifiers)
@@ -219,19 +234,40 @@ async def calculateOdds(monName, extraInputs=None):
         return f'\'{monName}\' was not recognized as a valid pokemon! Don\'t you want the embed to look good?'
     
     totalIvCombos = (16 - modifiers['Floor']) ** 3
+
+    if modifiers['BottleCap']:
+        acceptableIvCombos = ((15 - modifiers['Floor']) * 3) + 1
+
+    else:
+        acceptableAttackIvs = 16 - modifiers['Ivs']['Attack']
+        acceptableDefenceIvs = 16 - modifiers['Ivs']['Defence']
+        acceptableStaminaIvs = 16 - modifiers['Ivs']['Stamina']
+
+        acceptableIvCombos = acceptableAttackIvs * acceptableDefenceIvs * acceptableStaminaIvs
     
-    acceptableAttackIvs = 16 - modifiers['Ivs']['Attack']
-    acceptableDefenceIvs = 16 - modifiers['Ivs']['Defence']
-    acceptableStaminaIvs = 16 - modifiers['Ivs']['Stamina']
-
-    acceptableIvCombos = acceptableAttackIvs * acceptableDefenceIvs * acceptableStaminaIvs
-
     totalProbability = acceptableIvCombos / totalIvCombos
 
     inverseProbability = totalIvCombos / acceptableIvCombos
+    
+    if modifiers['LuckyChance'] is not None:
+        luckyChance = 1 / modifiers['LuckyChance']
+
+        if modifiers['BottleCap']:
+            acceptableLuckyIvCombos = ((15 - 12) * 3) + 1
+        else:
+            luckyIvs = raiseIvsToFloor(copy.copy(modifiers['Ivs']), 12)
+            acceptableLuckyIvCombos = (16 - luckyIvs['Attack']) * (16 - luckyIvs['Defence']) * (16 - luckyIvs['Stamina'])
+
+        luckyProbability = acceptableLuckyIvCombos / 64
+
+        totalProbability = ((1 - luckyChance) * totalProbability) + (luckyChance * luckyProbability)
+
+        inverseProbability = 1 / totalProbability
 
     extraOddsText = ''
 
+    if modifiers['BottleCap']:
+        extraOddsText += '**Silver Cappable**, '
     if modifiers['ShinyChance'] is not None:
         extraOddsText += '**Shiny**, '
         totalProbability *=  (1 / modifiers['ShinyChance'])
@@ -244,6 +280,8 @@ async def calculateOdds(monName, extraInputs=None):
         extraOddsText += '**Special Move**, '
         totalProbability *= (1 / modifiers['ExtraChance'])
         inverseProbability *=  modifiers['ExtraChance']
+    if modifiers['LuckyChance'] is not None:
+        extraOddsText += '**Potentially Lucky** '
 
     try:
         attemptsFor50 = math.ceil(math.log(0.5) / math.log(1 - totalProbability))
@@ -254,7 +292,7 @@ async def calculateOdds(monName, extraInputs=None):
         attemptsFor95 = 1
 
     embed = discord.Embed(title=f'PoGo Odds Calulation for {formatTextForDisplay(mon["Name"])}',
-                          description=(f'Target: {getExtraText(extraOddsText)}{getIvText(modifiers["Ivs"])}\n' +
+                          description=(f'Target: {getTargetText(extraOddsText, modifiers["Ivs"], modifiers["Floor"], modifiers["BottleCap"])}\n' +
                                        f'**1/{(inverseProbability):.1f}**\n\n' +
                                        f'{attemptsFor50} attempts for a 50% chance\n' +
                                        f'{attemptsFor95} attempts for a 95% chance'),
@@ -290,32 +328,53 @@ def determineModifierValues(extraInputs, modifiers):
                 errorText += f'\'{input}\' wasn\'t understood as a valid floor iv! Keep it between 0-15!\n'
         elif input.startswith('shiny'):
             try:
-                shinyChance = int(input[11:])
+                shinyChance = int(input[5:])
+                if shinyChance <= 0:
+                    raise Exception
                 modifiers['ShinyChance'] = shinyChance
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid shiny chance!\n'
         elif input.startswith('background'):
             try:
-                backgroundChance = int(input[16:])
+                backgroundChance = int(input[10:])
+                if backgroundChance <= 0:
+                    raise Exception
                 modifiers['BackgroundChance'] = backgroundChance
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid background chance!\n'
         elif input.startswith('extra'):
             try:
-                extraChance = int(input[11:])
+                extraChance = int(input[5:])
+                if extraChance <= 0:
+                    raise Exception
                 modifiers['ExtraChance'] = extraChance
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid extra chance!\n'
+        elif input.startswith('lucky'):
+            try:
+                luckyChance = int(input[5:])
+                if luckyChance <= 0:
+                    raise Exception
+                modifiers['LuckyChance'] = luckyChance
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid lucky chance!\n'
+        elif input == 'bottlecap':
+            modifiers['BottleCap'] = True
         
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
 
-    if modifiers['Floor'] > modifiers['Ivs']['Attack']:
-        modifiers['Ivs']['Attack'] = modifiers['Floor']
-    if modifiers['Floor'] > modifiers['Ivs']['Defence']:
-        modifiers['Ivs']['Defence'] = modifiers['Floor']
-    if modifiers['Floor'] > modifiers['Ivs']['Stamina']:
-        modifiers['Ivs']['Stamina'] = modifiers['Floor']
+    if modifiers['LuckyChance'] is not None and (modifiers['ShinyChance'] is not None or
+                                                 modifiers['BackgroundChance'] is not None or
+                                                 modifiers['ExtraChance'] is not None):
+        errorText += f'You can\'t specify extra conditions when trading!'
+
+    if modifiers['BottleCap'] and (modifiers['Ivs']['Attack'] != 15 or
+                                   modifiers['Ivs']['Defence'] != 15 or
+                                   modifiers['Ivs']['Stamina'] != 15):
+        errorText += f'You can\'t specify custom IVs when looking to bottle cap something! Don\'t be so picky, enjoy the timegate!'
+
+    modifiers['Ivs'] = raiseIvsToFloor(modifiers['Ivs'], modifiers['Floor'])
 
     return modifiers, errorText
 #endregion

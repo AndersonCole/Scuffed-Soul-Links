@@ -38,7 +38,10 @@ defaultModifiers = {
     'ShadowText': '',
     
     'FriendMultiplier': 1.0,
-    'WeatherMultiplier': 1.0,
+
+    'WeatherTypes': [],
+    'FastWeatherMultiplier': 1.0,
+    'ChargedWeatherMultiplier': 1.0,
 
     'ApplyMegaBoost': False,
     'MegaTypes': [],
@@ -118,7 +121,10 @@ activeModifiers = {
     'ShadowMultiplier': 1.2,
 
     'FriendMultiplier': 1.1,
-    'WeatherMultiplier': 1.2,
+    'WeatherMultiplier': {
+        'active': 1.2,
+        'inactive': 1.0
+    },
     'MegaMultiplier': {
         'SameType': 1.3,
         'DiffType': 1.1
@@ -169,24 +175,24 @@ activeModifiers = {
     },
 
     #beak blast clone
-    "ModeratelyFunnyMove": {
-        "Name": "funny-move-50",
-        "Type": "Charged",
-        "Damage": 125,
-        "Energy": 50,
-        "Duration": 2.5,
-        "DamageWindow": 1.5,
-        "MoveType": "???"
+    'ModeratelyFunnyMove': {
+        'Name': 'funny-move-50',
+        'Type': 'Charged',
+        'Damage': 125,
+        'Energy': 50,
+        'Duration': 2.5,
+        'DamageWindow': 1.5,
+        'MoveType': '???'
     },
     #dynamax cannon clone
-    "VeryFunnyMove": {
-        "Name": "funny-move-100",
-        "Type": "Charged",
-        "Damage": 215,
-        "Energy": 100,
-        "Duration": 1.5,
-        "DamageWindow": 0.9,
-        "MoveType": "???"
+    'VeryFunnyMove': {
+        'Name': 'funny-move-100',
+        'Type': 'Charged',
+        'Damage': 215,
+        'Energy': 100,
+        'Duration': 1.5,
+        'DamageWindow': 0.9,
+        'MoveType': '???'
     }
 }
 
@@ -259,6 +265,21 @@ battleTierStats = {
             'cpmMultiplier': 0.85
         }
     }
+}
+
+weather = {
+    'sunny': ['Ground', 'Grass', 'Fire'],
+    'clear': ['Ground', 'Grass', 'Fire'],
+    'partly-cloudy': ['Normal', 'Rock'],
+    'cloudy': ['Fighting', 'Poison', 'Fairy'],
+    'wind': ['Flying', 'Psychic', 'Dragon'],
+    'windy': ['Flying', 'Psychic', 'Dragon'],
+    'rain': ['Bug', 'Water', 'Electric'],
+    'rainy': ['Bug', 'Water', 'Electric'],
+    'fog': ['Ghost', 'Dark'],
+    'foggy': ['Ghost', 'Dark'],
+    'snow': ['Ice', 'Steel'],
+    'snowy': ['Ice', 'Steel']
 }
 
 cpMultipliers = {
