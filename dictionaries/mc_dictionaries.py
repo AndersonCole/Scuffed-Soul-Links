@@ -31,8 +31,8 @@ defaultModifiers = {
     'GridSearch': False,
     'GridRange': 250,
     
-    'OverworldLockdownRange': 1000,
-    'NetherLockdownRange': 500,
+    'OverworldLockdownRange': 1200,
+    'NetherLockdownRange': 600,
 
     'SearchFor': 'biome',
     'Target': ''

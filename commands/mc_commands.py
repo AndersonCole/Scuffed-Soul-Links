@@ -59,7 +59,7 @@ async def minecraftCommands(userInput, author):
     elif userInput == 'lockdown':
         if author.mention[2:-1] == '341722760852013066':
             if await serverOnline():
-                response = 'Beginning area lockdown! Collect my block!'
+                response = 'Beginning area lockdown!'
 
                 await mcBeginLockdown()
             else:

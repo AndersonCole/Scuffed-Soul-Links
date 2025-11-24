@@ -179,9 +179,9 @@ def oddsModifiers():
     embed = discord.Embed(title='Shuckles PoGo Odds Modifiers',
                             description='```$pogo odds Shuckle, 15/15/15``` IVs: Sets the minimum acceptable IVs\n' +
                                         '```$pogo odds Shuckle, Floor10``` Floor: Sets the iv floor of the encounter\n\n' +
-                                        '```$pogo odds Shuckle, ShinyChance20``` ShinyChance: Sets the odds of getting a shiny\n' +
-                                        '```$pogo odds Shuckle, BackgroundChance10``` BackgroundChance: Sets the odds of getting a background\n' +
-                                        '```$pogo odds Shuckle, ExtraChance10``` ExtraChance: Sets the odds of getting something extra, like a special move\n\n' +
+                                        '```$pogo odds Shuckle, Shiny20``` Shiny: Sets the odds of getting a shiny\n' +
+                                        '```$pogo odds Shuckle, Background10``` Background: Sets the odds of getting a background\n' +
+                                        '```$pogo odds Shuckle, Extra10``` Extra: Sets the odds of getting something extra, like a special move\n\n' +
                                         'Everything should be case insensitive.\nThe denominator of the odds fraction should be entered for shiny, background and extra chances',
                             color=sharedEmbedColours.get('Default'))
 
@@ -245,9 +245,13 @@ async def calculateOdds(monName, extraInputs=None):
         totalProbability *= (1 / modifiers['ExtraChance'])
         inverseProbability *=  modifiers['ExtraChance']
 
-    attemptsFor50 = math.ceil(math.log(0.5) / math.log(1 - totalProbability))
+    try:
+        attemptsFor50 = math.ceil(math.log(0.5) / math.log(1 - totalProbability))
 
-    attemptsFor95 = math.ceil(math.log(0.05) / math.log(1 - totalProbability))
+        attemptsFor95 = math.ceil(math.log(0.05) / math.log(1 - totalProbability))
+    except:
+        attemptsFor50 = 1
+        attemptsFor95 = 1
 
     embed = discord.Embed(title=f'PoGo Odds Calulation for {formatTextForDisplay(mon["Name"])}',
                           description=(f'Target: {getExtraText(extraOddsText)}{getIvText(modifiers["Ivs"])}\n' +
@@ -284,19 +288,19 @@ def determineModifierValues(extraInputs, modifiers):
                 modifiers['Floor'] = floorIv
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid floor iv! Keep it between 0-15!\n'
-        elif input.startswith('shinychance'):
+        elif input.startswith('shiny'):
             try:
                 shinyChance = int(input[11:])
                 modifiers['ShinyChance'] = shinyChance
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid shiny chance!\n'
-        elif input.startswith('backgroundchance'):
+        elif input.startswith('background'):
             try:
                 backgroundChance = int(input[16:])
                 modifiers['BackgroundChance'] = backgroundChance
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid background chance!\n'
-        elif input.startswith('extrachance'):
+        elif input.startswith('extra'):
             try:
                 extraChance = int(input[11:])
                 modifiers['ExtraChance'] = extraChance

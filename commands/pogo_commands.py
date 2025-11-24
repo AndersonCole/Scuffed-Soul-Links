@@ -7,7 +7,7 @@ async def pogoMiscCommands(userInput):
     elif userInput == 'odds modifiers':
         response = oddsModifiers()
 
-    elif userInput.startswith('odds '):
+    elif userInput.startswith('odds'):
         if ',' in userInput:
             splitInput = re.split(r'[,]+', userInput[5:])
             if len(splitInput) >= 2:

@@ -513,7 +513,7 @@ def getLockdownDimensionCoord(playerDimension, coord):
     return coord
 
 def checkOutsideLockdownArea(lockdownOrigin, playerCoordinates, playerDimension):
-    lockdownRange = defaultModifiers.get([f'{playerDimension}LockDownRange'])
+    lockdownRange = defaultModifiers.get(f'{playerDimension}LockdownRange')
     if (playerCoordinates[0] > getLockdownDimensionCoord(playerDimension, lockdownOrigin[0]) + lockdownRange 
         or playerCoordinates[0] < getLockdownDimensionCoord(playerDimension, lockdownOrigin[0]) -  lockdownRange
         or playerCoordinates[2] > getLockdownDimensionCoord(playerDimension, lockdownOrigin[2]) +  lockdownRange
@@ -542,8 +542,8 @@ async def mcLockdownArea(lockdownOrigin):
                     playerCoordinates = getPlayerCoordinates(re.split(':', coordinates)[1].strip()[1:-1])
 
                     if checkOutsideLockdownArea(lockdownOrigin, playerCoordinates, playerDimension):
-                        await mcSay(f'Thought you could sneak away eh {player}? Shuckle is always watching! Teleporting you back now! Craft my block and maybe you can go back home safely...')
-                        print(f'Teleporting {player}!')
+                        await mcSay(f'Thought you could sneak away eh {player}? Shuckle is always watching! Teleporting you back now!')
+                        print(f'[{datetime.now().strftime("%H:%M:%S")}]: Teleporting {player} from {playerCoordinates[0]}, {playerCoordinates[2]}!')
 
                         rcon.command(f'execute in minecraft:overworld run tp {player} {lockdownOrigin[0]} {lockdownOrigin[1]} {lockdownOrigin[2]}')
 
