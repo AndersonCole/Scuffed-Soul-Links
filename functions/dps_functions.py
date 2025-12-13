@@ -423,12 +423,13 @@ async def listDPSMoves():
 
     pageCount = 15
     for fastMove in fastMoves:
-        if pageCount > 0:
-            moveText += f'{formatTextForDisplay(fastMove["Name"])}\n'
-            dmgEnergyText += f'{fastMove["Damage"]} | {fastMove["Energy"]}\n'
-            durationText += f'{fastMove["Duration"]}\n'
-            pageCount -= 1
-        else:
+        
+        moveText += f'{formatTextForDisplay(fastMove["Name"])}\n'
+        dmgEnergyText += f'{fastMove["Damage"]} | {fastMove["Energy"]}\n'
+        durationText += f'{fastMove["Duration"]}\n'
+        pageCount -= 1
+        
+        if pageCount <= 0:
             embed.add_field(name='Move',
                             value=moveText,
                             inline=True)
@@ -449,12 +450,13 @@ async def listDPSMoves():
             pageCount = 15
 
     for chargedMove in chargedMoves:
-        if pageCount > 0:
-            moveText += f'{formatTextForDisplay(chargedMove["Name"])}\n'
-            dmgEnergyText += f'{chargedMove["Damage"]} | {chargedMove["Energy"]}\n'
-            durationText += f'{chargedMove["Duration"]} | {chargedMove["DamageWindow"]}\n'
-            pageCount -= 1
-        else:
+        
+        moveText += f'{formatTextForDisplay(chargedMove["Name"])}\n'
+        dmgEnergyText += f'{chargedMove["Damage"]} | {chargedMove["Energy"]}\n'
+        durationText += f'{chargedMove["Duration"]} | {chargedMove["DamageWindow"]}\n'
+        pageCount -= 1
+
+        if pageCount <= 0:
             embed.add_field(name='Move',
                             value=moveText,
                             inline=True)
@@ -503,18 +505,19 @@ async def listDPSMoveChanges():
 
     pageCount = 15
     for move in changedMoves:
-        if pageCount > 0:
-            moveText += f'{formatTextForDisplay(move["Name"])}\n'
-            if move['PowerChanged']:
-                dmgText += f'{move["OldPower"]} -> {move["NewPower"]}\n'
-            else:
-                dmgText += f'-\n'
-            if move['EnergyChanged']:
-                energyText += f'{move["OldEnergy"]} -> {move["NewEnergy"]}\n'
-            else:
-                energyText += f'-\n'
-            pageCount -= 1
+
+        moveText += f'{formatTextForDisplay(move["Name"])}\n'
+        if move['PowerChanged']:
+            dmgText += f'{move["OldPower"]} -> {move["NewPower"]}\n'
         else:
+            dmgText += f'-\n'
+        if move['EnergyChanged']:
+            energyText += f'{move["OldEnergy"]} -> {move["NewEnergy"]}\n'
+        else:
+            energyText += f'-\n'
+        pageCount -= 1
+
+        if pageCount <= 0:
             embed.add_field(name='Move',
                             value=moveText,
                             inline=True)
@@ -562,11 +565,10 @@ async def listDPSMons():
 
     pageCount = 15
     for mon in loadedMons:
-        if pageCount > 0:
-            monText += f'{formatTextForDisplay(mon["Name"])}\n'
-            statsText += f'{mon["Attack"]} | {mon["Defence"]} | {mon["Stamina"]}\n'
-            pageCount -= 1
-        else:
+        monText += f'{formatTextForDisplay(mon["Name"])}\n'
+        statsText += f'{mon["Attack"]} | {mon["Defence"]} | {mon["Stamina"]}\n'
+        pageCount -= 1
+        if pageCount <= 0:
             embed.add_field(name='Mon',
                             value=monText,
                             inline=True)

@@ -342,7 +342,7 @@ def fixRunTeams():
 
 
 #generatePokemonGen()
-#asyncio.run(generateNewMegaPokemon(1302, 50))
+asyncio.run(generateNewMegaPokemon(1328, 50))
 
 #fixRunTeams()
 #fixEvolvesInto()
