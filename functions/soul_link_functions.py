@@ -745,7 +745,11 @@ async def undoDeath(encounter_name):
 
 #region $sl ask-shuckle command
 async def askShuckle(user_input):
-    systemContent = loadShucklePersonality('original')
+    randNum = random.randint(0, 1)
+    if randNum == 0:
+        systemContent = loadShucklePersonality('original')
+    else:
+        systemContent = loadShucklePersonality('merry')
         
     messages = [
         {'role':'system', 'content': systemContent},

@@ -65,7 +65,7 @@ class DiscordClient(discord.Client):
         elif message.content.startswith('$max '):
             await message.add_reaction(assignReactionEmoji('Max'))
 
-            response, file = await maxCommands(message.content[5:])
+            response, file = await maxCommands(message.content[5:], message.author)
 
         elif message.content.startswith('$pogo '):
             await message.add_reaction(assignReactionEmoji('PoGo'))

@@ -69,6 +69,7 @@ async def retrieveEventsFromAPI(eventFilterList):
 
     filteredEvents = []
     for event in sortedEvents:
+        event['eventType'] = event['eventType'].replace(' skeleton-loading', '')
         if event['eventType'] in eventFilterList:
             if event['eventType'] == 'go-battle-league':
                 splitName = re.split(r'[\|]+', event['name'])

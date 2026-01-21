@@ -2,7 +2,8 @@ dpsFileLocations = {
     'Pokemon': 'text_files/dps/pokemon.txt',
     'Moves': 'text_files/dps/moves.txt',
     'ChangedMoves': 'text_files/dps/move_changes.txt',
-    'Notes': 'text_files/dps/notes.txt'
+    'Notes': 'text_files/dps/notes.txt',
+    'UserModifiers': 'text_files/dps/user_modifiers.txt'
 }
 
 defaultModifiers = {

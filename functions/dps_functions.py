@@ -32,12 +32,17 @@ changedMoves = loadDataVariableFromFile(dpsFileLocations.get('ChangedMoves'))
 
 loadedMons = loadDataVariableFromFile(dpsFileLocations.get('Pokemon'))
 
+userModifiers = loadDataVariableFromFile(dpsFileLocations.get('UserModifiers'))
 
 #dev command $dps symbol {num}
 async def dpsHelp():
     embed = discord.Embed(title='Shuckles PoGo DPS Commands',
-                            description='```$dps check Kartana``` Calcs the dps for the moveset for the mon at level 50\n' +
+                            description='```$dps check Kartana``` Calcs the dps based on the mons moveset\n' +
+                                        '```$dps batch-check Kartana, Meowscarada, Abomasnow``` Calcs the dps for all the listed mons, with the default modifiers\n' +
                                         '```$dps modifiers``` Lists out all the available modifers\n' +
+                                        '```$dps set-modifiers``` Allows you to set default modifiers that will be used for every raid dps check\n' +
+                                        '```$dps reset-modifiers``` Resets your custom modifiers back to default\n' +
+                                        '```$dps add-move Razor Leaf, 13, 7, 1000, Grass``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
                                         '```$dps add-move Razor Leaf, 13, 7, 1000, Grass``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
                                         '```$dps add-move Leaf Blade, 70, 33, 2400, 1250, Grass``` For charged moves, list their damage, energy cost, duration, and damage window start, with the times in milliseconds.\n' +
                                         '```$dps add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order.\n' +
@@ -64,7 +69,10 @@ async def dpsHelp():
 async def dynamaxHelp():
     embed = discord.Embed(title=f'Shuckles PoGo Dynamax Commands',
                             description='```$max check Charizard``` Calcs the dps and max eps for the moveset for the mon\n' +
-                                        '```$max modifiers``` Lists out all the available modifers\n\n' +
+                                        '```$max batch-check Charizard, Zacian, Zamazenta``` Calcs the dps and max eps for all the listed mons, with the default modifiers\n' +
+                                        '```$max modifiers``` Lists out all the available modifers\n' +
+                                        '```$max set-modifiers``` Allows you to set default modifiers that will be used for every max dps check\n' +
+                                        '```$max reset-modifiers``` Resets your custom modifiers back to default\n\n' +
                                         'The max commands use all the data added in the Raid DPS side of Shuckle.',
                             color=sharedEmbedColours.get('Default'))
 
@@ -635,11 +643,30 @@ async def deleteDPSMon(monName):
 #endregion
 
 #region dps calculations
-async def dpsCheck(monName, battleSystem, extraInputs=None):
-    modifiers = getDefaultModifiers(battleSystem)
+async def batchDpsCheck(monNames, battleSystem, author):
+    embeds = []
+    errorText = ''
+
+    for mon in monNames:
+        embed, file = await dpsCheck(mon, battleSystem, author)
+
+        if (isinstance(embed, str)):
+            errorText += f'{embed}\n'
+        else:
+            embeds.append(embed)
+    
+    if errorText != '':
+        return f'An error occured while dps checking!\n{errorText}'
+    
+    return embeds
+
+
+
+async def dpsCheck(monName, battleSystem, author, extraInputs=None):
+    modifiers = getDefaultModifiers(battleSystem, author)
 
     if extraInputs != None:
-        modifiers, errorText = await determineModifierValues([str(i).strip().lower() for i in extraInputs], battleSystem)
+        modifiers, errorText = await determineModifierValues([str(i).strip().lower() for i in extraInputs], battleSystem, author)
         if errorText != '':
             return errorText, None
     
@@ -989,10 +1016,75 @@ async def createCombinedMonsImage(chargingMonDex, maxMonDex, embedColour):
 #endregion
 
 #region modifiers
-def getDefaultModifiers(battleSystem):
-    modifiers = copy.deepcopy(defaultModifiers)
-    modifiers['Level'] = defaultModifiers.get('Level').get(battleSystem)
-    modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get(battleSystem)
+def getModifierTitle(battleSystem, author):
+    if battleSystem == 'raids':
+        return f'Default Raid Modifiers for {author.mention}'
+    elif battleSystem == 'dmax':
+        return f'Default Max Modifiers for {author.mention}'
+
+async def getUserModifiers(battleSystem, author):
+    try:
+        modifiers = copy.deepcopy([obj for obj in userModifiers if obj['User'] == author][0][battleSystem])
+
+        if modifiers == []:
+            raise Exception
+    except:
+        return 'You haven\'t specified any default modifiers yet!'
+    
+    embed = discord.Embed(title=getModifierTitle(battleSystem, author),
+                          description='',
+                          color=sharedEmbedColours.get('Default'))
+    
+    
+
+    return embed
+
+async def setUserModifiers(extraInputs, battleSystem, author):
+    if len([obj for obj in userModifiers if obj['User'] == author]) == 0:
+        userModifiers.append({
+            'User': author,
+            'raids': {},
+            'dmax': {}
+        })
+
+    modifiers, errorText = await determineModifierValues([str(i).strip().lower() for i in extraInputs], battleSystem, author)
+    if errorText != '':
+        return errorText
+    
+    [obj for obj in userModifiers if obj['User'] == author][0][battleSystem] = modifiers
+
+    await saveDataVariableToFile(dpsFileLocations.get('UserModifiers'), userModifiers)
+
+    return 'Default Modifiers set!'
+
+async def resetUserModifiers(battleSystem, author):
+    try:
+        modifiers = copy.deepcopy([obj for obj in userModifiers if obj['User'] == author][0][battleSystem])
+
+        if modifiers == []:
+            raise Exception
+    except:
+        return 'You haven\'t even specified any default modifiers yet! So in a sense, they\'ve been reset already!'
+    
+    [obj for obj in userModifiers if obj['User'] == author][0][battleSystem] = {}
+
+    await saveDataVariableToFile(dpsFileLocations.get('UserModifiers'), userModifiers)
+
+    return 'Default Modifiers reset!'
+
+
+def getDefaultModifiers(battleSystem, author):
+    try:
+        modifiers = copy.deepcopy([obj for obj in userModifiers if obj['User'] == author][0][battleSystem])
+
+        if modifiers == {}:
+            raise Exception
+        
+    except:
+        modifiers = copy.deepcopy(defaultModifiers)
+        modifiers['Level'] = defaultModifiers.get('Level').get(battleSystem)
+        modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get(battleSystem)
+
     return modifiers
 
 #region shared basic modifiers
@@ -1003,8 +1095,8 @@ def getDefaultModifiers(battleSystem):
 #BossAtk, BossDef, Boss{name}, NoCPM,
 #FunnyMove, VeryFunnyMove,
 #SortByFastMoves, SortByChargedMoves
-async def determineModifierValues(extraInputs, battleSystem):
-    modifiers = getDefaultModifiers(battleSystem)
+async def determineModifierValues(extraInputs, battleSystem, author):
+    modifiers = getDefaultModifiers(battleSystem, author)
 
     errorText = ''
     systemSpecificInputs = []
