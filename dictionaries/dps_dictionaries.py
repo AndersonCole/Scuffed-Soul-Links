@@ -84,9 +84,11 @@ defaultModifiers = {
     'CyclePlayers': 1.0,
 
     'BossDexNum': -1,
+    'BossTier': -1,
     'BossAttack': 200,
     'BossDefence': 70,
     'BossHealth': 15_000.0,
+    'BossAttackMultiplier': 1.0,
 
     'CpmMultiplier': 1.0,
     'UseCpmMultiplier': True,
@@ -121,7 +123,7 @@ activeModifiers = {
     
     'ShadowMultiplier': 1.2,
 
-    'FriendMultiplier': 1.1,
+    'FriendMultiplier': 1.12,
     'WeatherMultiplier': {
         'active': 1.2,
         'inactive': 1.0
@@ -201,69 +203,187 @@ battleTierStats = {
     '1': {
         'raids':  {
             'bossHealth': 600.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.5974
         },
         'dmax': {
             'bossHealth': 1700.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.15
         }
     },
     '2': {
         'dmax': {
             'bossHealth': 5000.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.38
         }
     },
     '3': {
         'raids':  {
             'bossHealth': 3600.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.73
         },
         'dmax': {
             'bossHealth': 10_000.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.5
         }
     },
     '4': {
         'raids':  {
             'bossHealth': 9000.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.79
         },
         'dmax': {
             'bossHealth': 20_000.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.6
         }
     },
     '5': {
         'raids':  {
             'bossHealth': 15_000.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.79
         },
         'dmax': {
-            'bossHealth': 17_500.0,
+            'bossHealth': 20_000.0,
+            'attackMultiplier': 2.0,
             'cpmMultiplier': 0.699
         }
     },
     '6': {
         'raids':  {
             'bossHealth': 22_500.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.79
         },
         'dmax': {
             'bossHealth': 60_000.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.85
         }
     },
     'mega': {
         'raids':  {
             'bossHealth': 9000.0,
+            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.79
         }
     },
     'gmax': {
         'dmax': {
             'bossHealth': 90_000.0,
+            'attackMultiplier': 0.9,
             'cpmMultiplier': 0.85
+        }
+    }
+}
+
+battleStatOverrides = {
+    '5': {
+        'dmax': {
+            144: {
+                'bossHealth': 17_500.0
+            },
+            145: {
+                'bossHealth': 13_000.0
+            },
+            243: {
+                'cpmMultiplier': 0.8
+            },
+            244: {
+                'bossHealth': 27_000.0,
+                'cpmMultiplier': 0.75
+            },
+            245: {
+                'bossHealth': 22_000.0,
+                'cpmMultiplier': 0.9
+            },
+            249: {
+                'bossHealth': 18_000.0,
+                'cpmMultiplier': 0.75
+            },
+            250: {
+                'bossHealth': 25_000.0
+            },
+            280: {
+                'bossHealth': 25_000.0
+            },
+            281: {
+                'bossHealth': 23_000.0,
+                'cpmMultiplier': 0.75
+            }
+        }
+    },
+    'gmax': {
+        'dmax': {
+            6: {
+                'bossHealth': 70_000.0
+            },
+            9: {
+                'bossHealth': 75_000.0
+            },
+            12: {
+                'bossHealth': 100_000.0
+            },
+            25: {
+                'bossHealth': 80_000.0,
+                'cpmMultiplier': 3.0
+            },
+            52: {
+                'bossHealth': 80_000.0,
+                'cpmMultiplier': 3.0
+            },
+            68: {
+                'bossHealth': 100_000.0,
+                'cpmMultiplier': 0.8
+            },
+            94: {
+                'bossHealth': 70_000.0
+            },
+            99: {
+                'bossHealth': 100_000.0
+            },
+            143: {
+                'bossHealth': 135_000.0,
+                'cpmMultiplier': 0.65
+            },
+            569: {
+                'bossHealth': 100_000.0,
+                'cpmMultiplier': 1.4
+            },
+            812: {
+                'bossHealth': 120_000.0,
+                'cpmMultiplier': 1.0
+            },
+            815: {
+                'bossHealth': 80_000.0,
+                'cpmMultiplier': 0.8
+            },
+            818: {
+                'bossHealth': 100_000.0,
+                'cpmMultiplier': 0.9
+            },
+            849: {
+                'bossHealth': 100_000.0,
+                'cpmMultiplier': 0.9
+            },
+            861: {
+                'bossHealth': 120_000.0,
+                'cpmMultiplier': 1.2
+            },
+            890: {
+                'bossHealth': 60_000.0,
+                'cpmMultiplier': 0.75
+            },
+            10190: {
+                'bossHealth': 60_000.0,
+                'cpmMultiplier': 0.75
+            }
         }
     }
 }
@@ -384,5 +504,13 @@ cpMultipliers = {
     49.5:	0.83779999,
     50.0:	0.84029999,
     50.5:	0.84279999,
-    51.0:	0.84529999
+    51.0:	0.84529999,
+    51.5:   0.84783689,
+    52.0:   0.8503,
+    52.5:   0.85280366,
+    53.0:   0.8553,
+    53.5:   0.85780364,
+    54.0:   0.8603,
+    54.5:   0.86280362,
+    55.0:   0.8653
 }

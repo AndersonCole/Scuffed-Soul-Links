@@ -20,7 +20,7 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getTypesFromPokeAPI, getTypeColour,
                                         loadShucklePersonality, rollForShiny, pokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
-from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, weather, cpMultipliers
+from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather, cpMultipliers
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
 
@@ -1105,7 +1105,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
         if re.fullmatch(r'\d+(\.5|\.0)?', input):
             try:
                 val = float(input)
-                if 1.0 > val or val > 51.0:
+                if 1.0 > val or val > 55.0:
                     raise Exception
                 modifiers['Level'] = float(input)
             except:
@@ -1134,7 +1134,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 modifiers['FastEffectiveness'] = val
                 modifiers['CalculateFastEffectiveness'] = False
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
+                errorText += f'\'{input[13:]}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif input.startswith('chargedeffective'):
             try:
                 if input[-1:] != 'x':
@@ -1145,7 +1145,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 modifiers['ChargedEffectiveness'] = val
                 modifiers['CalculateChargedEffectiveness'] = False
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
+                errorText += f'\'{input[16:]}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif input == 'nofaststab':
             modifiers['ForceNoFastSTAB'] = True
         elif input == 'nochargedstab':
@@ -1232,6 +1232,14 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 modifiers['BossDefence'] = bossMon['Defence']
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss name! Make sure it\'s registered!\n'
+        elif input.startswith('tier'):
+            modifiers['BossTier'] = input[4:].lower()
+            modifiers['BossHealth'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('bossHealth', None)
+            modifiers['BossAttackMultiplier'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('attackMultiplier', None)
+            modifiers['CpmMultiplier'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('cpmMultiplier', None)
+
+            if modifiers['BossHealth'] is None or modifiers['CpmMultiplier'] is None:
+                errorText += f'\'{input}\' wasn\'t understood as a valid raid battle tier!\n'
         elif input == 'nocpm':
             modifiers['UseCpmMultiplier'] = False
         elif input == 'funnymove':
@@ -1250,6 +1258,24 @@ async def determineModifierValues(extraInputs, battleSystem, author):
     elif battleSystem == 'dmax':
         modifiers, errorText = await determineMaxModifierValues(modifiers, systemSpecificInputs, errorText)
 
+    if modifiers['BossDexNum'] != -1:
+        hpOverride = battleStatOverrides.get(modifiers['BossTier'], {}).get(battleSystem, {}).get(modifiers['BossDexNum'], {}).get('bossHealth', None)
+        attackOverride = battleStatOverrides.get(modifiers['BossTier'], {}).get(battleSystem, {}).get(modifiers['BossDexNum'], {}).get('attackMultiplier', None)
+        cpmOverride = battleStatOverrides.get(modifiers['BossTier'], {}).get(battleSystem, {}).get(modifiers['BossDexNum'], {}).get('cpmMultiplier', None)
+
+        if hpOverride is not None:
+            modifiers['BossHealth'] = hpOverride
+
+        if attackOverride is not None:
+            modifiers['BossAttackMultiplier'] = attackOverride
+
+        if cpmOverride is not None:
+            modifiers['CpmMultiplier'] = cpmOverride
+
+    if modifiers['UseCpmMultiplier'] and modifiers['CpmMultiplier'] is not None:
+        modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['BossAttackMultiplier'] * modifiers['CpmMultiplier']
+        modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
+
     return modifiers, errorText
 #endregion
 
@@ -1264,12 +1290,6 @@ async def determineRaidModifierValues(modifiers, raidInputs, errorText):
 
             if modifiers['PartyPowerGain'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid amount of trainers in a party! Keep it between 2 and 4!\n'
-        elif input.startswith('tier'):
-            modifiers['BossHealth'] = battleTierStats.get(input[4:], {}).get('raids', {}).get('bossHealth', None)
-            modifiers['CpmMultiplier'] = battleTierStats.get(input[4:], {}).get('raids', {}).get('cpmMultiplier', None)
-
-            if modifiers['BossHealth'] is None or modifiers['CpmMultiplier'] is None:
-                errorText += f'\'{input}\' wasn\'t understood as a valid raid battle tier!\n'
         elif input == 'showmovetimings':
             modifiers['ShowMoveTimings'] = True
         elif input == 'showmovechanges':
@@ -1290,11 +1310,7 @@ async def determineRaidModifierValues(modifiers, raidInputs, errorText):
         errorText += 'You have to add ShowOldDps to be able to sort by it!\n'
 
     if errorText != '':
-        errorText += '\nCheck `$dps modifiers` to see all valid modifiers!'
-    
-    if modifiers['UseCpmMultiplier'] and modifiers['CpmMultiplier'] is not None:
-        modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['CpmMultiplier']
-        modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
+        errorText += '\nCheck `$dps modifiers` to see all valid modifiers!' 
 
     return modifiers, errorText
 #endregion
@@ -1341,12 +1357,6 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                     modifiers['UsingAdventureEffect'] = True
                 else:
                     errorText += 'You can only use one adventure effect at a time!'
-        elif input.startswith('tier'):
-            modifiers['BossHealth'] = battleTierStats.get(input[4:], {}).get('dmax', {}).get('bossHealth', None)
-            modifiers['CpmMultiplier'] = battleTierStats.get(input[4:], {}).get('dmax', {}).get('cpmMultiplier', None)
-
-            if modifiers['BossHealth'] is None or modifiers['CpmMultiplier'] is None:
-                errorText += f'\'{input}\' wasn\'t understood as a valid dynamax battle tier!\n'
         elif input == 'showcycledps':
             modifiers['ShowCycleDps'] = True
             modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
@@ -1370,7 +1380,7 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
             try:
                 if re.fullmatch(r'\d+(\.5|\.0)?', input[14:]):
                     val = float(input[14:])
-                    if 1.0 > val or val > 51.0:
+                    if 1.0 > val or val > 55.0:
                         raise Exception
                     modifiers['CycleSwapMon']['Level'] = float(input[14:])
                 else:
@@ -1418,10 +1428,6 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
 
     if errorText != '':
         errorText += '\n\nCheck `$max modifiers` to see all valid modifiers!'
-    
-    if modifiers['UseCpmMultiplier'] and modifiers['CpmMultiplier'] is not None:
-        modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['CpmMultiplier']
-        modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
 
     return modifiers, errorText
 #endregion
@@ -1494,8 +1500,8 @@ async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsB
         chargedEnergy = chargedEnergyDelta
     return int(chargedEnergy)
     
-async def calcBossDPS(dpsScaling, bossAttack, defence, SHADOW_MULTIPLIER, ZAMA_BOOST):
-    dpsBoss = dpsScaling*bossAttack/(defence * ZAMA_BOOST * (2.0 - SHADOW_MULTIPLIER))
+async def calcBossDPS(enemyScaling, bossAttack, defence, SHADOW_MULTIPLIER, ZAMA_BOOST):
+    dpsBoss = enemyScaling*bossAttack/(defence * ZAMA_BOOST * (2.0 - SHADOW_MULTIPLIER))
     return dpsBoss
 
 '''
@@ -1728,28 +1734,15 @@ def getNerfText(nerfAmount):
     return ''
 
 def calcPoGoStatsFromBaseStats(hp, attack, defence, spAttack, spDefence, speed, nerfAmount):
-    if attack >= spAttack:
-        highestAttack = attack
-        lowestAttack = spAttack
-    else:
-        highestAttack = spAttack
-        lowestAttack = attack
-
-    if defence >= spDefence:
-        highestDefence = defence
-        lowestDefence = spDefence
-    else:
-        highestDefence = spDefence
-        lowestDefence = defence
 
     staminaGo = math.floor((1.75*hp) + 50)
-    attackScaled = round(2 * (((7/8)*highestAttack) + (1/8)*lowestAttack))
-    defenceScaled = round(2 * (((5/8)*highestDefence) + (3/8)*lowestDefence))
+    attackScaled = round(((7/4)*max(attack, spAttack)) + ((1/4)*min(attack, spAttack)))
+    defenceScaled = round(((5/4)*max(defence, spDefence)) + ((3/4)*min(defence, spDefence)))
 
     speedMult = ((speed-75)/500) + 1
 
-    attackGo = round(attackScaled * speedMult)
-    defenceGo = round(defenceScaled * speedMult)
+    attackGo = attackScaled * speedMult
+    defenceGo = defenceScaled * speedMult
 
     if nerfAmount is None:
         lv40CP = determineCPFromBaseStat(attackGo, defenceGo, staminaGo, 40)
