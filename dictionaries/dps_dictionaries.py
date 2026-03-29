@@ -63,6 +63,7 @@ defaultModifiers = {
     'GMaxText': '',
     'MaxMoveText': 'Lv 2 DMax ',
 
+    'CyclePlayers': 1.0,
     'ShowCycleDps': False,
     'CycleWillSwap': False,
     'CycleSwapMon': {
@@ -81,17 +82,22 @@ defaultModifiers = {
         }
     },
 
-    'CyclePlayers': 1.0,
+    'Boss': {
+        'DexNum': -1,
+        'Tier': -1,
+        
+        'Stats': {
+            'Attack': 200,
+            'Defence': 70,
+            'Health': 15_000.0
+        },
 
-    'BossDexNum': -1,
-    'BossTier': -1,
-    'BossAttack': 200,
-    'BossDefence': 70,
-    'BossHealth': 15_000.0,
-    'BossAttackMultiplier': 1.0,
+        'Cpm': 1.0,
+        'UseCpmMultiplier': True,
+        'AttackMultiplier': 1.0,
+        'EnergyMultiplier': 1.0
+    },
 
-    'CpmMultiplier': 1.0,
-    'UseCpmMultiplier': True,
     'SimFastAlone': True,
     'ApplyMaxOrb': True,
 
@@ -103,6 +109,8 @@ defaultModifiers = {
     'ApplyMoveChanges': True,
 
     'ShowOldDps': False,
+    'UseNewMaxFormula': True,
+
     'ResultSortOrder': {
         'raids': 'ByNewDps',
         'dmax': 'ByMaxEps',
@@ -203,74 +211,64 @@ battleTierStats = {
     '1': {
         'raids':  {
             'bossHealth': 600.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.5974
         },
         'dmax': {
             'bossHealth': 1700.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.15
         }
     },
     '2': {
         'dmax': {
             'bossHealth': 5000.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.38
         }
     },
     '3': {
         'raids':  {
             'bossHealth': 3600.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.73
         },
         'dmax': {
             'bossHealth': 10_000.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.5
         }
     },
     '4': {
         'raids':  {
             'bossHealth': 9000.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.79
         },
         'dmax': {
             'bossHealth': 20_000.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.6
         }
     },
     '5': {
         'raids':  {
             'bossHealth': 15_000.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.79
         },
         'dmax': {
             'bossHealth': 20_000.0,
             'attackMultiplier': 2.0,
+            'energyMultiplier': 2.0,
             'cpmMultiplier': 0.699
         }
     },
     '6': {
         'raids':  {
             'bossHealth': 22_500.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.79
         },
         'dmax': {
             'bossHealth': 60_000.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.85
         }
     },
     'mega': {
         'raids':  {
             'bossHealth': 9000.0,
-            'attackMultiplier': 1.0,
             'cpmMultiplier': 0.79
         }
     },
@@ -278,6 +276,7 @@ battleTierStats = {
         'dmax': {
             'bossHealth': 90_000.0,
             'attackMultiplier': 0.9,
+            'energyMultiplier': 15.0,
             'cpmMultiplier': 0.85
         }
     }
@@ -286,34 +285,34 @@ battleTierStats = {
 battleStatOverrides = {
     '5': {
         'dmax': {
-            144: {
+            'articuno': {
                 'bossHealth': 17_500.0
             },
-            145: {
+            'zapdos': {
                 'bossHealth': 13_000.0
             },
-            243: {
+            'raikou': {
                 'cpmMultiplier': 0.8
             },
-            244: {
+            'entei': {
                 'bossHealth': 27_000.0,
                 'cpmMultiplier': 0.75
             },
-            245: {
+            'suicune': {
                 'bossHealth': 22_000.0,
                 'cpmMultiplier': 0.9
             },
-            249: {
+            'lugia': {
                 'bossHealth': 18_000.0,
                 'cpmMultiplier': 0.75
             },
-            250: {
+            'ho-oh': {
                 'bossHealth': 25_000.0
             },
-            280: {
+            'latias': {
                 'bossHealth': 25_000.0
             },
-            281: {
+            'latios': {
                 'bossHealth': 23_000.0,
                 'cpmMultiplier': 0.75
             }
@@ -321,66 +320,66 @@ battleStatOverrides = {
     },
     'gmax': {
         'dmax': {
-            6: {
+            'charizard': {
                 'bossHealth': 70_000.0
             },
-            9: {
+            'blastoise': {
                 'bossHealth': 75_000.0
             },
-            12: {
+            'butterfree': {
                 'bossHealth': 100_000.0
             },
-            25: {
+            'pikachu': {
+                'bossHealth': 80_000.0,
+                'cpmMultiplier': 1.7
+            },
+            'meowth': {
                 'bossHealth': 80_000.0,
                 'cpmMultiplier': 3.0
             },
-            52: {
-                'bossHealth': 80_000.0,
-                'cpmMultiplier': 3.0
-            },
-            68: {
+            'machamp': {
                 'bossHealth': 100_000.0,
                 'cpmMultiplier': 0.8
             },
-            94: {
+            'gengar': {
                 'bossHealth': 70_000.0
             },
-            99: {
+            'kingler': {
                 'bossHealth': 100_000.0
             },
-            143: {
+            'snorlax': {
                 'bossHealth': 135_000.0,
                 'cpmMultiplier': 0.65
             },
-            569: {
+            'garbodor': {
                 'bossHealth': 100_000.0,
                 'cpmMultiplier': 1.4
             },
-            812: {
+            'rillaboom': {
                 'bossHealth': 120_000.0,
                 'cpmMultiplier': 1.0
             },
-            815: {
+            'cinderace': {
                 'bossHealth': 80_000.0,
                 'cpmMultiplier': 0.8
             },
-            818: {
+            'inteleon': {
                 'bossHealth': 100_000.0,
                 'cpmMultiplier': 0.9
             },
-            849: {
+            'toxtricity': {
                 'bossHealth': 100_000.0,
                 'cpmMultiplier': 0.9
             },
-            861: {
+            'grimmsnarl': {
                 'bossHealth': 120_000.0,
                 'cpmMultiplier': 1.2
             },
-            890: {
+            'eternatus': {
                 'bossHealth': 60_000.0,
                 'cpmMultiplier': 0.75
             },
-            10190: {
+            'eternatus-eternamax': {
                 'bossHealth': 60_000.0,
                 'cpmMultiplier': 0.75
             }

@@ -161,6 +161,7 @@ async def dynamaxModifiers():
                                         '```$max check Charizard, Players2``` Players: Only for max cycles, increases the calculated stats as if there were multiple players using the same setups\n' +
                                         '```$max check Charizard, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentage\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
                                         '```$max check Charizard, MushroomBoost``` MushroomBoost: Adds the 2x max mushroom damage multiplier\n' +
+                                        '```$max check Charizard, OldEnergyCalc``` OldEnergyCalc: Uses the old max energy formula\n' +
                                         '```$max check Charizard, NoFastMoveCalc``` NoFastMoveCalc: Turns off the fast move only calcs\n' +
                                         '```$max check Charizard, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
                                         '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n' +
@@ -678,7 +679,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     mon = [obj for obj in loadedMons if obj['Name'] == monName][0]
 
     monTypes = await getTypesFromPokeAPI(mon['ImageDexNum'])
-    bossTypes = await getTypesFromPokeAPI(modifiers['BossDexNum'])
+    bossTypes = await getTypesFromPokeAPI(modifiers['Boss']['DexNum'])
 
     monAttack, monDefence, monStamina, monCP = getCalculatedStats(mon, modifiers)
 
@@ -1210,7 +1211,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 atkVal = int(input[7:])
                 if 1 > atkVal or atkVal > 1000:
                     raise Exception
-                modifiers['BossAttack'] = atkVal
+                modifiers['Boss']['Stats']['Attack'] = atkVal
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss attack value! Keep it between 1 and 1000!\n'
         elif input.startswith('bossdef'):
@@ -1218,7 +1219,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 defVal = int(input[7:])
                 if 1 > defVal or defVal > 1000:
                     raise Exception
-                modifiers['BossDefence'] = defVal
+                modifiers['Boss']['Stats']['Defence'] = defVal
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!\n'
         elif input.startswith('boss'):
@@ -1227,21 +1228,28 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 if not checkDuplicateMon(bossMon):
                     raise Exception
                 bossMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(bossMon)][0]
-                modifiers['BossDexNum'] = bossMon['ImageDexNum']
-                modifiers['BossAttack'] = bossMon['Attack']
-                modifiers['BossDefence'] = bossMon['Defence']
+                modifiers['Boss']['DexNum'] = bossMon['ImageDexNum']
+                modifiers['Boss']['Stats']['Attack'] = bossMon['Attack']
+                modifiers['Boss']['Stats']['Defence'] = bossMon['Defence']
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss name! Make sure it\'s registered!\n'
         elif input.startswith('tier'):
-            modifiers['BossTier'] = input[4:].lower()
-            modifiers['BossHealth'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('bossHealth', None)
-            modifiers['BossAttackMultiplier'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('attackMultiplier', None)
-            modifiers['CpmMultiplier'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('cpmMultiplier', None)
+            modifiers['Boss']['Tier'] = input[4:].lower()
+            modifiers['Boss']['Stats']['Health'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('bossHealth', None)
+            modifiers['Boss']['Cpm'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('cpmMultiplier', None)
+            attackMultiplier = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('attackMultiplier', None)
+            energyMultiplier = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('energyMultiplier', None)
 
-            if modifiers['BossHealth'] is None or modifiers['CpmMultiplier'] is None:
+            if attackMultiplier is not None:
+                modifiers['Boss']['AttackMultiplier'] = attackMultiplier
+
+            if energyMultiplier is not None:
+                modifiers['Boss']['EnergyMultiplier'] = energyMultiplier
+
+            if modifiers['Boss']['Stats']['Health'] is None or modifiers['Boss']['Cpm'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid raid battle tier!\n'
         elif input == 'nocpm':
-            modifiers['UseCpmMultiplier'] = False
+            modifiers['Boss']['UseCpmMultiplier'] = False
         elif input == 'funnymove':
             modifiers['UsingFunnyMove50'] = True
         elif input == 'veryfunnymove':
@@ -1258,23 +1266,28 @@ async def determineModifierValues(extraInputs, battleSystem, author):
     elif battleSystem == 'dmax':
         modifiers, errorText = await determineMaxModifierValues(modifiers, systemSpecificInputs, errorText)
 
-    if modifiers['BossDexNum'] != -1:
-        hpOverride = battleStatOverrides.get(modifiers['BossTier'], {}).get(battleSystem, {}).get(modifiers['BossDexNum'], {}).get('bossHealth', None)
-        attackOverride = battleStatOverrides.get(modifiers['BossTier'], {}).get(battleSystem, {}).get(modifiers['BossDexNum'], {}).get('attackMultiplier', None)
-        cpmOverride = battleStatOverrides.get(modifiers['BossTier'], {}).get(battleSystem, {}).get(modifiers['BossDexNum'], {}).get('cpmMultiplier', None)
+    if modifiers['Boss']['DexNum'] != -1:
+        bossName = [obj for obj in pokemon if obj['DexNum'] == modifiers['Boss']['DexNum']][0]['Name']
+        hpOverride = battleStatOverrides.get(modifiers['Boss']['Tier'], {}).get(battleSystem, {}).get(bossName, {}).get('bossHealth', None)
+        attackOverride = battleStatOverrides.get(modifiers['Boss']['Tier'], {}).get(battleSystem, {}).get(bossName, {}).get('attackMultiplier', None)
+        energyOverride = battleStatOverrides.get(modifiers['Boss']['Tier'], {}).get(battleSystem, {}).get(bossName, {}).get('energyMultiplier', None)
+        cpmOverride = battleStatOverrides.get(modifiers['Boss']['Tier'], {}).get(battleSystem, {}).get(bossName, {}).get('cpmMultiplier', None)
 
         if hpOverride is not None:
-            modifiers['BossHealth'] = hpOverride
+            modifiers['Boss']['Stats']['Health'] = hpOverride
 
         if attackOverride is not None:
-            modifiers['BossAttackMultiplier'] = attackOverride
+            modifiers['Boss']['AttackMultiplier'] = attackOverride
+
+        if energyOverride is not None:
+            modifiers['Boss']['EnergyMultiplier'] = energyOverride
 
         if cpmOverride is not None:
-            modifiers['CpmMultiplier'] = cpmOverride
+            modifiers['Boss']['Cpm'] = cpmOverride
 
-    if modifiers['UseCpmMultiplier'] and modifiers['CpmMultiplier'] is not None:
-        modifiers['BossAttack'] = modifiers['BossAttack'] * modifiers['BossAttackMultiplier'] * modifiers['CpmMultiplier']
-        modifiers['BossDefence'] = modifiers['BossDefence'] * modifiers['CpmMultiplier']
+    if modifiers['Boss']['UseCpmMultiplier'] and modifiers['Boss']['Cpm'] is not None:
+        modifiers['Boss']['Stats']['Attack'] = modifiers['Boss']['Stats']['Attack'] * modifiers['Boss']['AttackMultiplier'] * modifiers['Boss']['Cpm']
+        modifiers['Boss']['Stats']['Defence'] = modifiers['Boss']['Stats']['Defence'] * modifiers['Boss']['Cpm']
 
     return modifiers, errorText
 #endregion
@@ -1409,6 +1422,8 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                 modifiers['CyclePlayers'] = float(int(playerCount))
             except:
                 errorText += f'\'{input[12:]}\' wasn\'t understood as a valid player amount! Keep it between 1 and 4!\n'
+        elif input == 'oldenergycalc':
+            modifiers['UseNewMaxFormula'] = False
         elif input == 'nofastmovecalc':
             modifiers['SimFastAlone'] = False
         elif input == 'nomaxorb':
@@ -1435,7 +1450,7 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
 
 #region math calculations
 async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
-    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
+    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['Boss']['Stats']['Attack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
 
     fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
@@ -1453,12 +1468,12 @@ async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifi
 
     movesetDps = await calcFinalMovesetDPS(fastDps, chargedDps, chargedMove['Duration'], weaveDps, dpsBoss, stamina)
 
-    finalDps = await calcFinalDPS(movesetDps, attack, modifiers['BossDefence'])
+    finalDps = await calcFinalDPS(movesetDps, attack, modifiers['Boss']['Stats']['Defence'])
 
     return finalDps
 
 async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
-    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['BossAttack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
+    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['Boss']['Stats']['Attack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
 
     fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
@@ -1503,12 +1518,6 @@ async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsB
 async def calcBossDPS(enemyScaling, bossAttack, defence, SHADOW_MULTIPLIER, ZAMA_BOOST):
     dpsBoss = enemyScaling*bossAttack/(defence * ZAMA_BOOST * (2.0 - SHADOW_MULTIPLIER))
     return dpsBoss
-
-'''
-async def calcSurvivalTime(dpsBoss, stamina):
-    survivalTime = stamina/dpsBoss
-    return survivalTime
-'''
 
 async def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
     weatherMultiplier = 1.0
@@ -1558,15 +1567,7 @@ async def calcEnergyEfficiency(dpsFast, epsFast, dpsCharged, epsCharged):
 async def calcWeaveDPS(dpsFast, epsFast, energyEff, dpsBoss):
     dpsWeave = dpsFast + energyEff * (epsFast + (0.5 * dpsBoss))
     return dpsWeave
-'''
-async def calcRatio(epsFast, epsCharged, dpsBoss):
-    ratio = (epsFast + (0.5*dpsBoss))/(epsFast+epsCharged)
-    return ratio
 
-async def calcCycleTime(chargedDuration, ratio):
-    cycle = chargedDuration/ratio
-    return cycle
-'''
 async def calcFinalMovesetDPS(dpsFast, dpsCharged, chargedDuration, dpsWeave, dpsBoss, stamina):
     dpsMoveset = dpsWeave - (dpsBoss/(2*stamina)) * chargedDuration * (dpsCharged - dpsFast)
     return dpsMoveset
@@ -1577,25 +1578,33 @@ async def calcFinalDPS(dpsMoveset, attack, defBoss):
 
 async def calcFastMaxDps(fastDamage, fastDuration, attack, modifiers):
     modifierVal = await calcModifierValue(modifiers, 'Fast')
-    dmgFast = (0.5 * fastDamage * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue']
+    dmgFast = (0.5 * fastDamage * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal) + modifiers['ExtraDpsValue']
     dpsFast = dmgFast/fastDuration
     return dpsFast
     
 async def calcFastMaxEPS(fastDamage, fastDuration, attack, modifiers):
     modifierVal = await calcModifierValue(modifiers, 'Fast')
-    dmgFast = (0.5 * fastDamage * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue']
-    epsFast = max(math.floor(dmgFast/(modifiers['BossHealth'] * 0.005)), 1)/fastDuration
+    dmgFast = (0.5 * fastDamage * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal) + modifiers['ExtraDpsValue']
+    if modifiers['UseNewMaxFormula']:
+        attackEnergy = dmgFast/(modifiers['Boss']['Stats']['Health'] * (0.005 / modifiers['Boss']['EnergyMultiplier']))
+    else:
+        attackEnergy = math.floor(dmgFast/(modifiers['Boss']['Stats']['Health'] * 0.005))
+    epsFast = max(attackEnergy, 1)/fastDuration
     return epsFast
 
 async def calcChargedMaxEPS(chargedDamage, chargedDuration, attack, modifiers):
     modifierVal = await calcModifierValue(modifiers, 'Charged')
-    dmgCharged = (0.5 * chargedDamage * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue']
-    epsCharged = max(math.floor(dmgCharged/(modifiers['BossHealth'] * 0.005)), 1)/chargedDuration
+    dmgCharged = (0.5 * chargedDamage * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal) + modifiers['ExtraDpsValue']
+    if modifiers['UseNewMaxFormula']:
+        attackEnergy = dmgCharged/(modifiers['Boss']['Stats']['Health'] * (0.005 / modifiers['Boss']['EnergyMultiplier']))
+    else:
+        attackEnergy = math.floor(dmgCharged/(modifiers['Boss']['Stats']['Health'] * 0.005))
+    epsCharged = max(attackEnergy, 1)/chargedDuration
     return epsCharged
 
 async def calcMaxMoveDamage(movePower, attack, modifiers):
     modifierVal = await calcModifierValue(modifiers, 'Max')
-    dmgMax = math.floor((0.5 * movePower * (attack/modifiers['BossDefence']) * modifierVal) + modifiers['ExtraDpsValue'])
+    dmgMax = math.floor((0.5 * movePower * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal) + modifiers['ExtraDpsValue'])
     return dmgMax
 
 def getMaxOrbEps():
