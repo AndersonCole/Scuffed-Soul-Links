@@ -123,7 +123,7 @@ pokemon = [
 
 #Structure for runs
 '''
-Players are an array of whatever discord comes back with with the @messages, something like <@341722760852013066>
+Players are an array of whatever discord comes back with with the @messages, something like <@123456789>
 Pokemon is an array of dex numbers, set up as -1 until each player specifies their encounter
 Encounter is an array of encounters that have been encountered or still need to be encountered
 runs = [

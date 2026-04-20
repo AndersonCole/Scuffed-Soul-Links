@@ -12,31 +12,47 @@ import regex as re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import math
-from fractions import Fraction
 from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours
 from dictionaries.pogo_dictionaries import eventColours, filterLists, timezones, defaultOddsModifiers
 from functions.shared_functions import (
-    formatTextForDisplay, getMonFromName, getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, rollForShiny, pokemon
+    formatTextForDisplay, getMonFromName, 
+    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, 
+    rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats
 )
 
 #region help command
 async def pogoHelp():
     embed = discord.Embed(title='Shuckles PoGo Commands',
-                            description='```$pogo events``` Shows upcoming and current events. All event data is scraped from LeekDuck\n' +
-                                        '```$pogo commDays``` Shows upcoming community days\n' +
-                                        '```$pogo hourEvents``` Shows Max Mondays, Spotlight Hours and Raid Hours\n' +
-                                        '```$pogo raids``` Shows upcoming raid boss changovers, and other raid events\n' +
-                                        '```$pogo gbl``` Shows upcoming GBL league rotations\n\n' +
+                            description='```$pogo add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order\n' +
+                                        '```$pogo delete-mon Kartana``` Deletes a mon from the registered list\n' +
+                                        '```$pogo list-mons``` Lists all the registered mons\n\n' +
+                                        '```$pogo stats Kartana``` Calculates what the pokemons stats would be like in Go using its most recent main series stats\n'
+                                        '```$pogo stats Kartana, noNerf``` Calculates what it would be like without any stat nerfs\n`noNerf`, `3Nerf` and `9Nerf` are the allowed nerf exceptions\n'
+                                        '```$pogo stats 59, 181, 131, 59, 31, 109``` Calculates stats for Go based on the entered HP, Atk, Def, SpAtk, SpDef and Spd stats\nNerf exceptions can be applied here too\n\n'
+                                        '```$pogo events help``` Shows all event searches\n\n' +
                                         '```$pogo odds Shuckle``` Shows the odds of getting something\n' +
-                                        '```$pogo odds modifiers``` Lists out all the available odds modifers\n',
+                                        '```$pogo odds modifiers``` Lists out all the available odds modifers',
+                            color=sharedEmbedColours.get('Default'))
+
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
+    
+    return embed
+
+async def pogoEventsHelp():
+    embed = discord.Embed(title='Shuckles PoGo Event Commands',
+                            description='```$pogo events all``` Shows upcoming and current events\n' +
+                                        '```$pogo events commDays``` Shows upcoming community days\n' +
+                                        '```$pogo events hourEvents``` Shows Max Mondays, Spotlight Hours and Raid Hours\n' +
+                                        '```$pogo events raids``` Shows upcoming raid boss changovers, and other raid events\n' +
+                                        '```$pogo events gbl``` Shows upcoming GBL league rotations\n\n'
+                                        'All event data is scraped from LeekDuck',
                             color=sharedEmbedColours.get('Default'))
 
     embed.set_author(name='Events Data Source', url='https://github.com/bigfoott/ScrapedDuck')
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
-    return embed
-    
+    return embed  
 #endregion
 
 #region event commands
@@ -175,7 +191,7 @@ async def createEventsEmbeds(filterFor):
     
 #endregion
 
-#odds command
+#region odds command
 def oddsModifiers():
     embed = discord.Embed(title='Shuckles PoGo Odds Modifiers',
                             description='```$pogo odds Shuckle, 15/15/15``` IVs: Sets the minimum acceptable IVs\n' +
@@ -378,4 +394,84 @@ def determineModifierValues(extraInputs, modifiers):
     modifiers['Ivs'] = raiseIvsToFloor(modifiers['Ivs'], modifiers['Floor'])
 
     return modifiers, errorText
+#endregion
+
+#region go stat convert
+async def convertToGoStats(stats, nerfOverride=None):
+    try:
+        stats = [int(obj) for obj in stats]
+    except:
+        return 'Not all 6 stats were numbers!'
+    
+    if nerfOverride is not None:
+        nerfOverride = calcNerfOverride(nerfOverride)
+        if (isinstance(nerfOverride, str)):
+            return nerfOverride
+        
+    attack, defence, stamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
+
+    lv40CP = determineCPFromBaseStat(attack, defence, stamina, 40)
+    lv50CP = determineCPFromBaseStat(attack, defence, stamina, 50)
+
+    nerfText = getNerfText(nerfAmount)
+
+    return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'
+        
+
+async def convertToGoStatsFromName(monName, nerfOverride=None):
+    dexNum = getDexNum(monName)
+
+    if dexNum == -1:
+        return f'The pokemon \'{monName}\' was not recognized!'
+    
+    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+
+    if monData is None:
+        return f'An error occured while checking the api!'
+
+    stats = []
+
+    for i in range(6):
+        stats.append(int(monData['stats'][i]['base_stat']))
+
+    if nerfOverride is not None:
+        nerfOverride = calcNerfOverride(nerfOverride)
+        if (isinstance(nerfOverride, str)):
+            return nerfOverride
+    
+    attack, defence, stamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
+
+    lv40CP = determineCPFromBaseStat(attack, defence, stamina, 40)
+    lv50CP = determineCPFromBaseStat(attack, defence, stamina, 50)
+
+    nerfText = getNerfText(nerfAmount)
+
+    return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'
+
+def calcNerfOverride(nerfOverride):
+    if nerfOverride == '9nerf':
+        return 0.91
+    elif nerfOverride == '3nerf':
+        return 0.97
+    elif nerfOverride == 'nonerf':
+        return 1.00
+    else:
+        return f'The nerf exception \'{nerfOverride}\' was not recognized!\n`noNerf`, `3Nerf` and `9Nerf` are the only valid exceptions!'
+
+def getNerfText(nerfAmount):
+    if nerfAmount == 0.91:
+        return '(After a 9% nerf)'
+    elif nerfAmount == 0.97:
+        return '(After a 3% nerf)'
+    return ''
+
+def determineCPFromBaseStat(attack, defence, stamina, level):
+    cpMultiplier = getPoGoCPMultiplier(level)
+    calculatedAttack = calcPoGoStat(attack, 15, cpMultiplier)
+    calculatedDefence = calcPoGoStat(defence, 15, cpMultiplier)
+    calculatedStamina = calcPoGoStat(stamina, 15, cpMultiplier)
+
+    cp = calcPoGoCP(calculatedAttack, calculatedDefence, calculatedStamina)
+
+    return cp
 #endregion

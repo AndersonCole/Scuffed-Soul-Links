@@ -1,9 +1,3 @@
-""" 
-Contains the functions for using the soul link bot. 
-Usually returns data in a discord embed
-
-Cole Anderson, Dec 2023
-"""
 import discord
 import openai
 import random
@@ -18,8 +12,8 @@ from PIL import ImageFont
 from io import BytesIO
 from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
                                         getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
-                                        getDexNum, formatTextForBackend, formatTextForDisplay, 
-                                        getTypeEmoji, getTypeColour,
+                                        getDexNum, formatTextForDisplay, getMon, getMonName,
+                                        getTypeEmoji, getTypeColour, addPaginatedEmbedFields,
                                         loadShucklePersonality, rollForShiny, pokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types, categories
 from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
@@ -70,19 +64,6 @@ async def help():
 #endregion
 
 #region text parsing functions
-def getMon(dexNum):
-    try:
-        return [obj for obj in pokemon if obj['DexNum'] == dexNum][0]
-    except:
-        return None
-
-def getMonName(dexNum):
-    try:
-        mon = [obj for obj in pokemon if obj['DexNum'] == dexNum][0]['Name']
-        return formatTextForDisplay(mon)
-    except:
-        return None
-
 def getGroup(game):
     try:
         return [obj for obj in games if any(group.lower() == game.lower() for group in obj['Games'])][0]['Name']
@@ -294,7 +275,7 @@ async def createRole(players, guild):
         run = getRun(currentRun['RunName'])
         
         if run is None:
-            raise Exception('Somehow the run name is invalid. Get <@341722760852013066> to look into it lol')
+            raise Exception('Somehow the run name is invalid. Get Anderson to look into it lol')
 
         game_data = [obj for obj in games if any(group.lower() == run['Game'].lower() for group in obj['Games'])][0]
 
@@ -762,7 +743,7 @@ async def askShuckle(user_input):
         return response.choices[0].message.content[:2000]
     except Exception as ex:
         print(ex)
-        return '<@341722760852013066> ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
+        return 'Anderson ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
 #endregion
 
 #region $sl deaths command
@@ -1408,60 +1389,27 @@ def addCommonDexEmbedFields(embed, stats, versionGroup):
     return embed
 
 def addPaginatedLearnsetEmbeds(embed, embeds, movesets, movesetKey, uniqueFieldHeader, stats, versionGroup, imageBuffer, monTypes, uniqueFieldTextOverride=None):
-    maxPageCount = 25
-    if len(movesets[movesetKey]) > 0:
-        uniqueFieldText = ''
-        nameText = ''
-        typeCategoryText = ''
-        pageCount = maxPageCount
-        for move in movesets[movesetKey]:
-            if pageCount > 0:
-                if uniqueFieldTextOverride is not None:
-                    uniqueFieldText += f'{uniqueFieldTextOverride}\n'
-                else:
-                    uniqueFieldText += f'{move[movesetKey]}\n'
-                nameText += f'{move["Name"]}\n'
-                typeCategoryText += f'᲼{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
-                pageCount -= 1
-            else:
-                embed = addCommonDexEmbedFields(embed, stats, versionGroup)
-                
-                embed.add_field(name=uniqueFieldHeader,
-                                value=uniqueFieldText,
-                                inline=True)
-                
-                embed.add_field(name='Name',
-                                value=nameText,
-                                inline=True)
-                
-                embed.add_field(name='Type',
-                                value=typeCategoryText,
-                                inline=True)
+    if not movesets[movesetKey]:
+        embed.clear_fields()
+        return embeds
+    
+    fieldTitles = (uniqueFieldHeader, 'Name', 'Type')
+    fieldContent = ['', '', '']
 
-                embeds.append((copy.deepcopy(embed), imageBuffer, f'{monTypes[0]}', 'png'))
+    pageCount = 25
+    for i, move in enumerate(movesets[movesetKey], start=1):
+        fieldContent[0] += f'{uniqueFieldTextOverride if uniqueFieldTextOverride is not None else move[movesetKey]}\n'
+        fieldContent[1] += f'{move["Name"]}\n'
+        fieldContent[2] += f'᲼{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
 
-                embed.clear_fields()
-                uniqueFieldText = ''
-                nameText = ''
-                typeCategoryText = ''
-                pageCount = maxPageCount
-
-        if pageCount < maxPageCount:
+        if i % pageCount == 0:
             embed = addCommonDexEmbedFields(embed, stats, versionGroup)
-            
-            embed.add_field(name=uniqueFieldHeader,
-                            value=uniqueFieldText,
-                            inline=True)
-            
-            embed.add_field(name='Name',
-                            value=nameText,
-                            inline=True)
-            
-            embed.add_field(name='Type',
-                            value=typeCategoryText,
-                            inline=True)
-            
-            embeds.append((copy.deepcopy(embed), imageBuffer, f'{monTypes[0]}', 'png'))
+            embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds, extraEmbedData=(imageBuffer, f'{monTypes[0]}', 'png'))
+            fieldContent = ['', '', '']
+
+    if fieldContent[0] != '':
+        embed = addCommonDexEmbedFields(embed, stats, versionGroup)
+        embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds, extraEmbedData=(imageBuffer, f'{monTypes[0]}', 'png'))
 
     embed.clear_fields()
 

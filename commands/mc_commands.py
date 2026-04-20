@@ -1,5 +1,10 @@
 import regex as re
+from dictionaries.shared_dictionaries import sharedFileLocations
+from functions.shared_functions import loadDataVariableFromFile
 from functions.mc_server_functions import *
+
+owner = loadDataVariableFromFile(sharedFileLocations.get('Owner'), readJson=False)
+admins = loadDataVariableFromFile(sharedFileLocations.get('Admins'), readJson=True)
 
 async def minecraftCommands(userInput, author):
     if userInput == 'help':
@@ -9,12 +14,15 @@ async def minecraftCommands(userInput, author):
         response = await mcSetup()
 
     elif userInput == 'save':
-        if await serverOnline():
-            await mcSave(author.name)
+        if author.mention[2:-1] in admins:
+            if await serverOnline():
+                await mcSave(author.name)
 
-            response = 'Sent a server save request!'
+                response = 'Sent a server save request!'
+            else:
+                response = 'The server\'s offline!'
         else:
-            response = 'The server\'s offline!'
+            response = 'Get outta here, admins only!'
 
     elif userInput == 'info':
         if await serverOnline():
@@ -57,7 +65,7 @@ async def minecraftCommands(userInput, author):
             response = 'The server\'s offline!'
     
     elif userInput == 'lockdown':
-        if author.mention[2:-1] == '341722760852013066':
+        if author.mention[2:-1] == owner:
             if await serverOnline():
                 response = 'Beginning area lockdown!'
 
@@ -65,16 +73,19 @@ async def minecraftCommands(userInput, author):
             else:
                 response = 'The server\'s offline!'
         else:
-            response = 'Get outta here, Anderson only!'
+            response = 'Get outta here, admin only!'
 
     elif userInput == 'start':
-        if not await serverOnline():
-            response = await mcStart()
+        if author.mention[2:-1] in admins:
+            if not await serverOnline():
+                response = await mcStart()
+            else:
+                response = 'The server is already online!'
         else:
-            response = 'The server is already online!'
+            response = 'Get outta here, admins only!'
 
     elif userInput == 'stop':
-        if author.mention[2:-1] == '341722760852013066':
+        if author.mention[2:-1] in admins:
             if await serverOnline():
                 response = 'Stopping the server in a minute!'
 
@@ -82,10 +93,10 @@ async def minecraftCommands(userInput, author):
             else:
                 response = 'The server\'s already offline!'
         else:
-            response = 'Get outta here, Anderson only!'
+            response = 'Get outta here, admins only!'
 
     elif userInput == 'restart':
-        if author.mention[2:-1] == '341722760852013066':
+        if author.mention[2:-1] in admins:
             if await serverOnline():
                 response = 'Beginning restart process! Try connecting in like 2 minutes!'
 
@@ -93,10 +104,10 @@ async def minecraftCommands(userInput, author):
             else:
                 response = 'The server\'s offline! Just use `$mc start` instead!'
         else:
-            response = 'Get outta here, Anderson only!'
+            response = 'Get outta here, admins only!'
     
     elif userInput == 'backup':
-        if author.mention[2:-1] == '341722760852013066':
+        if author.mention[2:-1] == owner:
             if await serverOnline():
                 response = 'Backup starting in 5 minutes!'
 
@@ -106,7 +117,7 @@ async def minecraftCommands(userInput, author):
 
                 await mcOfflineBackup()
         else:
-            response = 'Get outta here, Anderson only!'
+            response = 'Get outta here, admins only!'
                  
 
     else:

@@ -26,7 +26,7 @@ timezones = {
 }
 
 filterLists = {
-    'events': ['event', 'community-day', 'pokemon-go-tour', 'pokemon-go-fest', 'wild-area', 'raid-day', 'raid-weekend'],
+    'all': ['event', 'community-day', 'pokemon-go-tour', 'pokemon-go-fest', 'wild-area', 'raid-day', 'raid-weekend'],
     'commdays': ['community-day'],
     'hourevents': ['max-mondays', 'pokemon-spotlight-hour', 'raid-hour'],
     'raids': ['raid-day', 'raid-battles', 'raid-weekend', 'max-battles'],

@@ -14,13 +14,14 @@ import copy
 from PIL import Image, ImageDraw
 from io import BytesIO
 from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
-                                        getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
-                                        getDexNum, checkForNickname, verifyMoveType, 
+                                        getPokeAPISpriteUrl, openHttpImage,
+                                        checkForNickname, verifyMoveType, 
                                         formatCapitalize, formatTextForBackend, formatTextForDisplay,
-                                        getTypesFromPokeAPI, getTypeColour,
-                                        loadShucklePersonality, rollForShiny, pokemon)
+                                        getTypesFromPokeAPI, getTypeColour, 
+                                        getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, checkDuplicatePoGoMon, pogoRound, addPaginatedEmbedFields,
+                                        loadShucklePersonality, rollForShiny, pokemon, pogoPokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
-from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather, cpMultipliers
+from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
 
@@ -28,60 +29,79 @@ dpsNotes = loadDataVariableFromFile(dpsFileLocations.get('Notes'), False)
 
 moves = loadDataVariableFromFile(dpsFileLocations.get('Moves'))
 
-changedMoves = loadDataVariableFromFile(dpsFileLocations.get('ChangedMoves'))
-
-loadedMons = loadDataVariableFromFile(dpsFileLocations.get('Pokemon'))
-
 userModifiers = loadDataVariableFromFile(dpsFileLocations.get('UserModifiers'))
 
 #dev command $dps symbol {num}
+#region help commands
+async def getSharedHelp(commandText):
+    embed = discord.Embed(title=f'Shuckles PoGo DPS Shared Commands',
+                            description=f'```{commandText} add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order\n' +
+                                        f'```{commandText} delete-mon Kartana``` Deletes a mon from the registered list\n' +
+                                        f'```{commandText} add-move Razor Leaf, 13, 7, 1000, Grass``` For fast moves, list their damage, energy gain, duration and type\n' +
+                                        f'```{commandText} add-move Leaf Blade, 70, 33, 2400, 1250, Grass``` For charged moves, list their damage, energy cost, duration, damage window start, and type\n' +
+                                        f'```{commandText} delete-move Razor Leaf``` Deletes a move from the registered list\n' +
+                                        f'```{commandText} add-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Adds every move listed to a registered mon\n' +
+                                        f'```{commandText} remove-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Removes every move listed from a registered mon\n' +
+                                        f'```{commandText} list-mons``` Lists all the registered mons\n' +
+                                        f'```{commandText} list-moves``` Lists all the registered moves\n\n' +
+                                        'Everything should be case insensitive\nAlways assume stats are listed in Attack/Defence/HP order\nTimes should be enerted in milliseconds\nhttps://db.pokemongohub.net is good for checking move data.',
+                            color=sharedEmbedColours.get('Default'))
+    
+    randNum = random.randint(0, 100)
+
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
+
+    return embed, randNum
+
 async def dpsHelp():
-    embed = discord.Embed(title='Shuckles PoGo DPS Commands',
-                            description='```$dps check Kartana``` Calcs the dps based on the mons moveset\n' +
-                                        '```$dps batch-check Kartana, Meowscarada, Abomasnow``` Calcs the dps for all the listed mons, with the default modifiers\n' +
-                                        '```$dps modifiers``` Lists out all the available modifers\n' +
-                                        '```$dps set-modifiers``` Allows you to set default modifiers that will be used for every raid dps check\n' +
-                                        '```$dps reset-modifiers``` Resets your custom modifiers back to default\n' +
-                                        '```$dps add-move Razor Leaf, 13, 7, 1000, Grass``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
-                                        '```$dps add-move Razor Leaf, 13, 7, 1000, Grass``` For fast moves, list their damage, energy, and duration in milliseconds.\n' +
-                                        '```$dps add-move Leaf Blade, 70, 33, 2400, 1250, Grass``` For charged moves, list their damage, energy cost, duration, and damage window start, with the times in milliseconds.\n' +
-                                        '```$dps add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order.\n' +
-                                        '```$dps add-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Adds every move listed to a registered mon\n' +
-                                        '```$dps remove-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Removes every move listed from a registered mon, as long as they\'re registered to it.\n' +
-                                        '```$dps list-mons``` Lists all the registered mons.\n' +
-                                        '```$dps list-moves``` Lists all the registered moves.\n' +
-                                        '```$dps list-move-changes``` Lists all the changes made in October to some moves.\n' +
-                                        '```$dps delete-mon Kartana``` Deletes a mon from the registered list.\n' +
-                                        '```$dps delete-move Razor Leaf``` Deletes a move from the registered list.\n\n' +
-                                        '```$dps go-stats Kartana``` Calculates what the pokemons stats would be like in Go using its most recent main series stats.\n'
-                                        '```$dps go-stats Kartana, noNerf``` Calculates what it would be like without any stat nerfs.\n`noNerf`, `3Nerf` and `9Nerf` are the allowed nerf exceptions.\n'
-                                        '```$dps go-stats 59, 181, 131, 59, 31, 109``` Calculates stats for Go based on the entered HP, Atk, Def, SpAtk, SpDef and Spd stats. Nerf exceptions can be applied here too.\n\n'
-                                        '```$dps add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
-                                        '```$dps delete-notes``` Deletes all saved notes.\n' +
-                                        '```$dps check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n\n' +
-                                        'Everything should be case insensitive.\nAlways assume stats are listed in Attack/Defence/HP order.\nA \'★\' beside a move name indicates its been changed in an update.\nhttps://db.pokemongohub.net is good for checking move data.', 
+    commandText = '$dps'
+    sharedEmbed, randNum = await getSharedHelp(commandText)
+
+    embeds = []
+
+    embed = discord.Embed(title='Shuckles PoGo Raid DPS Commands',
+                            description=f'```{commandText} check Kartana``` Calcs the dps based on the mons moveset\n' +
+                                        f'```{commandText} batch-check Kartana, Meowscarada, Abomasnow``` Calcs the dps for all the listed mons, with the default modifiers\n' +
+                                        f'```{commandText} modifiers``` Lists out the available DPS modifers\n' +
+                                        f'```{commandText} set-modifiers``` Allows you to set default modifiers that will be used for every raid dps check\n' +
+                                        f'```{commandText} reset-modifiers``` Resets your custom modifiers back to default\n\n' +
+                                        f'```{commandText} add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
+                                        f'```{commandText} delete-notes``` Deletes all saved notes.\n' +
+                                        f'```{commandText} check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n\n' +
+                                        'Everything should be case insensitive\nAlways assume stats are listed in Attack/Defence/HP order', 
                             color=sharedEmbedColours.get('Default'))
 
-    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
     
-    return embed
+    embeds.append(embed)
+    embeds.append(sharedEmbed)
+
+    return embeds
 
 async def dynamaxHelp():
-    embed = discord.Embed(title=f'Shuckles PoGo Dynamax Commands',
-                            description='```$max check Charizard``` Calcs the dps and max eps for the moveset for the mon\n' +
-                                        '```$max batch-check Charizard, Zacian, Zamazenta``` Calcs the dps and max eps for all the listed mons, with the default modifiers\n' +
-                                        '```$max modifiers``` Lists out all the available modifers\n' +
-                                        '```$max set-modifiers``` Allows you to set default modifiers that will be used for every max dps check\n' +
-                                        '```$max reset-modifiers``` Resets your custom modifiers back to default\n\n' +
-                                        'The max commands use all the data added in the Raid DPS side of Shuckle.',
+    commandText = '$max'
+    sharedEmbed, randNum = await getSharedHelp(commandText)
+
+    embeds = []
+
+    embed = discord.Embed(title=f'Shuckles PoGo Dynamax DPS Commands',
+                            description=f'```{commandText} check Charizard``` Calcs the dps and max eps for the moveset for the mon\n' +
+                                        f'```{commandText} batch-check Charizard, Zacian, Zamazenta``` Calcs the dps and max eps for all the listed mons, with the default modifiers\n' +
+                                        f'```{commandText} modifiers``` Lists out the available Dynamax modifers\n' +
+                                        f'```{commandText} set-modifiers``` Allows you to set default modifiers that will be used for every max dps check\n' +
+                                        f'```{commandText} reset-modifiers``` Resets your custom modifiers back to default\n\n' +
+                                        'Everything should be case insensitive\nAlways assume stats are listed in Attack/Defence/HP order',
                             color=sharedEmbedColours.get('Default'))
 
-    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
+    
+    embeds.append(embed)
+    embeds.append(sharedEmbed)
 
-    return embed
+    return embeds
     
 async def getSharedModifiers(commandText):
-    embed = discord.Embed(title='Shuckles PoGo Shared Modifiers',
+    embed = discord.Embed(title='Shuckles PoGo DPS Shared Modifiers',
                             description=f'```{commandText}, Shadow, 51``` Any modifier can be applied in any order, as shown\n\n' +
                                         f'```{commandText}, 51``` Level: Calcs DPS at the specified level\n' +
                                         f'```{commandText}, 14/15/15``` IVs: Calcs from the given IVs\nAlways assume stats are listed in Attack/Defence/HP order\n\n' +
@@ -120,19 +140,16 @@ async def getSharedModifiers(commandText):
     return embed, randNum
 
 async def raidModifiers():
-    sharedEmbed, randNum = await getSharedModifiers('$dps check Kartana')
+    commandText = '$dps check Kartana'
+    sharedEmbed, randNum = await getSharedModifiers(commandText)
 
     embeds = []
 
     embeds.append(sharedEmbed)
 
     embed = discord.Embed(title='Shuckles PoGo Raid Specific Modifiers',
-                            description='```$dps check Kartana, PartySize2``` PartySize: Calculates the party power boost based on the trainers in the party.\n2 = Every 18 Attacks, 3 = Every 9 Attacks, 4 = Every 6 Attacks\n' +
-                                        '```$dps check Kartana, ShowMoveTimings``` ShowMoveTimings: Shows the timing difference when the moves got rounded to the nearest 0.5s\n' +
-                                        '```$dps check Kartana, ShowMoveChanges``` ShowMoveChanges: Adds a star beside the moves that were changed in the Oct 2024 re-balance\n' +
-                                        '```$dps check Kartana, NoMoveChanges``` NoMoveChanges: Ignores the changes made to move base stats in October 2024\n' +
-                                        '```$dps check Kartana, ShowOldDps``` ShowOldDps: Additionally shows the dps as it was June 2024 and prior\n' +
-                                        '```$dps check Kartana, SortByOldDps``` SortByOldDps: Orders the output by the old dps\n\n' +
+                            description=f'```{commandText}, PartySize2``` PartySize: Calculates the party power boost based on the trainers in the party.\n' +
+                                        '2 = Every 18 Attacks\n3 = Every 9 Attacks\n4 = Every 6 Attacks\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for raid calculations\nDefault check assumes Lv50, Hundo, Not Shadow, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Dps',
                             color=sharedEmbedColours.get('Default'))
 
@@ -143,29 +160,30 @@ async def raidModifiers():
     return embeds
 
 async def dynamaxModifiers():
-    sharedEmbed, randNum = await getSharedModifiers('$max check Charizard')
+    commandText = '$max check Charizard'
+    sharedEmbed, randNum = await getSharedModifiers(commandText)
 
     embeds = []
 
     embeds.append(sharedEmbed)
 
     embed = discord.Embed(title='Shuckles PoGo Dynamax Specific Modifiers',
-                            description='```$max check Charizard, NoMaxSTAB``` NoMaxSTAB: Removes STAB from the mons max attack\n' +
-                                        '```$max check Charizard, MaxEffective1.6x``` MaxEffectiveness: Applies type effectivity damage bonuses to max moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg.\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
-                                        '```$max check Charizard, DMax3``` DMax: Sets the level of a dynamax move\n' +
-                                        '```$max check Charizard, GMax3``` GMax: Sets the level of a gigantamax move\n' +
-                                        '```$max check Charizard, ShowCycleDps``` ShowCycleDps: Averages your dps between the charging and max phases\n' +
-                                        '```$max check Charizard, CycleSwapToBlastoise``` CycleSwapTo: Averages the dps between a charging mon and max move mon\n' +
-                                        '```$max check Charizard, CycleSwapLevel50``` CycleSwapLevel: Sets the level of the max move swap mon\n' +
-                                        '```$max check Charizard, CycleSwapIvs15/15/15``` CycleSwapIvs: Sets the ivs of the max move swap mon\n' +
-                                        '```$max check Charizard, Players2``` Players: Only for max cycles, increases the calculated stats as if there were multiple players using the same setups\n' +
-                                        '```$max check Charizard, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentage\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
-                                        '```$max check Charizard, MushroomBoost``` MushroomBoost: Adds the 2x max mushroom damage multiplier\n' +
-                                        '```$max check Charizard, OldEnergyCalc``` OldEnergyCalc: Uses the old max energy formula\n' +
-                                        '```$max check Charizard, NoFastMoveCalc``` NoFastMoveCalc: Turns off the fast move only calcs\n' +
-                                        '```$max check Charizard, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
-                                        '```$max check Charizard, SortByDps``` SortByDps: Orders the output by the dps\n' +
-                                        '```$max check Charizard, SortByCycleTime``` SortByCycleTime: Orders the output by the cycle time\n\n' +
+                            description=f'```{commandText}, NoMaxSTAB``` NoMaxSTAB: Removes STAB from the mons max attack\n' +
+                                        f'```{commandText}, MaxEffective1.6x``` MaxEffectiveness: Applies type effectivity damage bonuses to max moves\n4x Weakness = 2.56x dmg | 2x Weakness = 1.6x dmg\n 0.5x Resistance = 0.625x dmg | 0x Immunity = 0.39x dmg\n' +
+                                        f'```{commandText}, DMax3``` DMax: Sets the level of a dynamax move\n' +
+                                        f'```{commandText}, GMax3``` GMax: Sets the level of a gigantamax move\n' +
+                                        f'```{commandText}, ShowCycleDps``` ShowCycleDps: Averages your dps between the charging and max phases\n' +
+                                        f'```{commandText}, CycleSwapToBlastoise``` CycleSwapTo: Averages the dps between a charging mon and max move mon\n' +
+                                        f'```{commandText}, CycleSwapLevel50``` CycleSwapLevel: Sets the level of the max move swap mon\n' +
+                                        f'```{commandText}, CycleSwapIvs15/15/15``` CycleSwapIvs: Sets the ivs of the max move swap mon\n' +
+                                        f'```{commandText}, Players2``` Players: Only for max cycles, increases the calculated stats as if there were multiple players using the same setups\n' +
+                                        f'```{commandText}, PowerSpotBoost4``` PowerSpotBoost: Sets the power spot boost percentage\nLv 1 (1 helper) = +10%, Lv 2 (2-3 helpers) = +15%\nLv 3 (4-14 helpers) = +18.8%, Lv 4 (15+ helpers) = +20%\n' +
+                                        f'```{commandText}, MushroomBoost``` MushroomBoost: Adds the 2x max mushroom damage multiplier\n' +
+                                        f'```{commandText}, OldEnergyCalc``` OldEnergyCalc: Uses the old max energy formula\n' +
+                                        f'```{commandText}, NoFastMoveCalc``` NoFastMoveCalc: Turns off the fast move only calcs\n' +
+                                        f'```{commandText}, NoMaxOrb``` NoMaxOrb: Removes the extra energy gain from the max orb\n' +
+                                        f'```{commandText}, SortByDps``` SortByDps: Orders the output by the dps\n' +
+                                        f'```{commandText}, SortByCycleTime``` SortByCycleTime: Orders the output by the cycle time\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for dynamax calculations\nDefault check assumes Lv40, Hundo, calculates STAB, Assumes STAB on max moves, Neutral effectiveness, No Special Boosts, Sorted by Max Eps',
                             color=sharedEmbedColours.get('Default'))
 
@@ -174,58 +192,15 @@ async def dynamaxModifiers():
     embeds.append(embed)
 
     return embeds
+#endregion
 
 #region parsing funcs
-def checkDuplicateMon(monName):
-    monName = formatTextForBackend(monName)
-
-    if len([obj for obj in loadedMons if obj['Name'] == monName]) >= 1:
-        return True
-    return False
-
 def checkDuplicateMove(moveName):
     moveName = formatTextForBackend(moveName)
 
     if len([obj for obj in moves if obj['Name'] == moveName]) >= 1:
         return True
     return False
-
-def displayDurationChange(oldDuration, newDuration, showChanges):
-    if showChanges:
-        durationDiff = newDuration - oldDuration
-        durationDiff = round(durationDiff, 1)
-        if durationDiff >= 0:
-            durationDiff = f'+{durationDiff}'
-        return f'({durationDiff}s)'
-    return ''
-
-def roundDPS(dps):
-    roundedDPS = round(dps, 2)
-    return roundedDPS
-
-def displayOldDps(oldDps, showDps):
-    if showDps:
-        return f'{oldDps} -> '
-    return ''
-
-def moveChanged(moveName):
-    for move in changedMoves:
-        if move['Name'] == moveName:
-            return True
-    return False
-
-def getChangedMoveStats(moveName, oldPower, oldEnergy, applyChanges):
-    power = oldPower
-    energy = oldEnergy
-    if applyChanges:
-        for move in changedMoves:
-            if move['Name'] == moveName:
-                if move['PowerChanged']:
-                    power = move['NewPower']
-                if move['EnergyChanged']:
-                    energy = move['NewEnergy']
-                break
-    return power, energy
 
 def determineSTAB(forcedNone, forced, move, monTypes):
     if move['Name'].startswith('funny-move'):
@@ -252,34 +227,7 @@ def determineMegaMultiplier(megaTypes, fastMove):
     return activeModifiers.get('MegaMultiplier').get('DiffType')
 #endregion
 
-#region dps commands
-async def dpsAddMon(monName, attack, defence, stamina):
-    monName = checkForNickname(monName)
-
-    if checkDuplicateMon(monName):
-        return 'That pokemon is already registered!'
-
-    if (1000 < attack or attack <= 0) or (1000 < defence or defence <= 0) or (1000 < stamina or stamina <= 0):
-        return 'Make sure the stats are greater than 0 or less than 1000!'
-    
-    dexNum = getDexNum(monName)
-
-    if dexNum == -1:
-        return f'The pokemon \'{formatTextForDisplay(monName)}\' was not recognized!'
-
-    loadedMons.append({
-        'Name': monName,
-        'ImageDexNum': dexNum,
-        'Attack': attack,
-        'Defence': defence,
-        'Stamina': stamina,
-        'Moves': []
-    })
-
-    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
-
-    return f'Pokemon \'{formatTextForDisplay(monName)}\' added successfully!'
-
+#region dps moves add read delete
 async def dpsAddFastMove(moveName, damage, energy, duration, moveType):
     if checkDuplicateMove(moveName):
         return 'That move is already registered!'
@@ -343,22 +291,40 @@ async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindo
 
     return f'Charged move \'{formatTextForDisplay(moveName)}\' added successfully!'
 
+async def dpsDeleteMove(moveName):
+    if not checkDuplicateMove(moveName):
+        return 'That move is not even registered yet!'
+    
+    moveName = formatTextForBackend(moveName)
+
+    for mon in pogoPokemon:
+        for move in mon['Moves']:
+            if move['Name'] == moveName:
+                mon['Moves'].remove(move)
+                break
+
+    for move in moves:
+        if move['Name'] == moveName:
+            moves.remove(move)
+            break
+
+    await saveDataVariableToFile(dpsFileLocations.get('Moves'), moves)
+    await saveDataVariableToFile(sharedFileLocations.get('PoGoPokemon'), pogoPokemon)
+
+    return 'Move deleted successfully!'
+
 async def dpsAddMoveset(monName, newMoves):
     monName = checkForNickname(monName)
 
-    if not checkDuplicateMon(monName):
+    if not checkDuplicatePoGoMon(monName):
         return 'That pokemon is not registered!'
     
-    mon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(monName)][0]
+    mon = [obj for obj in pogoPokemon if obj['Name'] == formatTextForBackend(monName)][0]
 
     output = ''
 
     for move in newMoves:
         moveName = formatTextForBackend(move)
-
-        if moveName == 'dynamax-cannon':
-            output += 'There\'s a new modifier for testing funny moves! Go check it out!\n'
-            continue
     
         if not checkDuplicateMove(move):
             output += f'The move \'{formatTextForDisplay(moveName)}\' has not been registered!\n'
@@ -377,17 +343,17 @@ async def dpsAddMoveset(monName, newMoves):
 
         output += f'\'{formatTextForDisplay(moveName)}\' has been added to {formatTextForDisplay(monName)}!\n'
 
-    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
+    await saveDataVariableToFile(sharedFileLocations.get('PoGoPokemon'), pogoPokemon)
 
     return output
 
 async def dpsRemoveMoveset(monName, delMoves):
     monName = checkForNickname(monName)
 
-    if not checkDuplicateMon(monName):
+    if not checkDuplicatePoGoMon(monName):
         return 'That pokemon is not registered!'
     
-    mon = [obj for obj in loadedMons if obj['Name'] == monName][0]
+    mon = [obj for obj in pogoPokemon if obj['Name'] == monName][0]
 
     output = ''
 
@@ -406,241 +372,44 @@ async def dpsRemoveMoveset(monName, delMoves):
 
         output += f'\'{formatTextForDisplay(moveName)}\' has been removed from {formatTextForDisplay(monName)}!\n'
 
-    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
+    await saveDataVariableToFile(sharedFileLocations.get('PoGoPokemon'), pogoPokemon)
 
     return output
 
-#region read and delete commands
-async def listDPSMoves():
-    embeds = []
+def formatFastMoveDuration(fastMove):
+    return f'{fastMove["Duration"]}\n'
+def formatChargedMoveDuration(chargedMove):
+    return f'{chargedMove["Duration"]} | {chargedMove["DamageWindow"]}\n'
 
-    fastMoves = []
-    chargedMoves = []
-    for move in moves:
-        if move['Type'] == 'Fast':
-            fastMoves.append(move)
-        else:
-            chargedMoves.append(move)
+async def dpsListMoves():
+    embeds = []
 
     embed = discord.Embed(title=f'Registered Moves',
                             description='',
                             color=sharedEmbedColours.get('Default'))
-    
-    moveText = ''
-    dmgEnergyText = ''
-    durationText = ''
+
+    fieldTitles = ('Move', 'Dmg & Energy', 'Duration')
+    allMoves = (
+        [(move, formatFastMoveDuration) for move in moves if move['Type'] == 'Fast'] +
+        [(move, formatChargedMoveDuration) for move in moves if move['Type'] == 'Charged']
+    )
+    fieldContent = ['', '', '']
 
     pageCount = 15
-    for fastMove in fastMoves:
+    for i, (move, durationFormat) in enumerate(allMoves, start=1):
         
-        moveText += f'{formatTextForDisplay(fastMove["Name"])}\n'
-        dmgEnergyText += f'{fastMove["Damage"]} | {fastMove["Energy"]}\n'
-        durationText += f'{fastMove["Duration"]}\n'
-        pageCount -= 1
+        fieldContent[0] += f'{formatTextForDisplay(move["Name"])}\n'
+        fieldContent[1] += f'{move["Damage"]} | {move["Energy"]}\n'
+        fieldContent[2] += durationFormat(move)
         
-        if pageCount <= 0:
-            embed.add_field(name='Move',
-                            value=moveText,
-                            inline=True)
-            
-            embed.add_field(name='Dmg & Energy',
-                            value=dmgEnergyText,
-                            inline=True)
-            
-            embed.add_field(name='Duration',
-                            value=durationText,
-                            inline=True)
-            embeds.append(copy.deepcopy(embed))
+        if i % pageCount == 0:
+            embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+            fieldContent = ['', '', '']
 
-            embed.clear_fields()
-            moveText = ''
-            dmgEnergyText = ''
-            durationText = ''
-            pageCount = 15
-
-    for chargedMove in chargedMoves:
-        
-        moveText += f'{formatTextForDisplay(chargedMove["Name"])}\n'
-        dmgEnergyText += f'{chargedMove["Damage"]} | {chargedMove["Energy"]}\n'
-        durationText += f'{chargedMove["Duration"]} | {chargedMove["DamageWindow"]}\n'
-        pageCount -= 1
-
-        if pageCount <= 0:
-            embed.add_field(name='Move',
-                            value=moveText,
-                            inline=True)
-            
-            embed.add_field(name='Dmg & Energy',
-                            value=dmgEnergyText,
-                            inline=True)
-            
-            embed.add_field(name='Duration',
-                            value=durationText,
-                            inline=True)
-            embeds.append(copy.deepcopy(embed))
-
-            embed.clear_fields()
-            moveText = ''
-            dmgEnergyText = ''
-            durationText = ''
-            pageCount = 15
-
-    embed.add_field(name='Move',
-                            value=moveText,
-                            inline=True)
-            
-    embed.add_field(name='Dmg & Energy',
-                    value=dmgEnergyText,
-                    inline=True)
-    
-    embed.add_field(name='Duration',
-                    value=durationText,
-                    inline=True)
-    
-    embeds.append(embed)
+    if fieldContent[0] != '':
+        embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
     
     return embeds
-
-async def listDPSMoveChanges():
-    embeds = []
-
-    embed = discord.Embed(title=f'Changed Moves',
-                            description='These move changes happened in October 2024\n\'-\' means it was unchanged\nOld -> New',
-                            color=sharedEmbedColours.get('Default'))
-
-    moveText = ''
-    dmgText = ''
-    energyText = ''
-
-    pageCount = 15
-    for move in changedMoves:
-
-        moveText += f'{formatTextForDisplay(move["Name"])}\n'
-        if move['PowerChanged']:
-            dmgText += f'{move["OldPower"]} -> {move["NewPower"]}\n'
-        else:
-            dmgText += f'-\n'
-        if move['EnergyChanged']:
-            energyText += f'{move["OldEnergy"]} -> {move["NewEnergy"]}\n'
-        else:
-            energyText += f'-\n'
-        pageCount -= 1
-
-        if pageCount <= 0:
-            embed.add_field(name='Move',
-                            value=moveText,
-                            inline=True)
-            
-            embed.add_field(name='Damage',
-                            value=dmgText,
-                            inline=True)
-            
-            embed.add_field(name='Energy',
-                            value=energyText,
-                            inline=True)
-            embeds.append(copy.deepcopy(embed))
-
-            embed.clear_fields()
-            moveText = ''
-            dmgText = ''
-            energyText = ''
-            pageCount = 15
-
-    embed.add_field(name='Move',
-                            value=moveText,
-                            inline=True)
-            
-    embed.add_field(name='Damage',
-                    value=dmgText,
-                    inline=True)
-    
-    embed.add_field(name='Energy',
-                    value=energyText,
-                    inline=True)
-    
-    embeds.append(embed)
-    
-    return embeds
-
-async def listDPSMons():
-    embeds = []
-
-    embed = discord.Embed(title=f'Registered Pokemon',
-                            description='',
-                            color=sharedEmbedColours.get('Default'))
-    
-    monText = ''
-    statsText = ''
-
-    pageCount = 15
-    for mon in loadedMons:
-        monText += f'{formatTextForDisplay(mon["Name"])}\n'
-        statsText += f'{mon["Attack"]} | {mon["Defence"]} | {mon["Stamina"]}\n'
-        pageCount -= 1
-        if pageCount <= 0:
-            embed.add_field(name='Mon',
-                            value=monText,
-                            inline=True)
-            
-            embed.add_field(name='Stats',
-                            value=statsText,
-                            inline=True)
-            
-            embeds.append(copy.deepcopy(embed))
-
-            embed.clear_fields()
-            monText = ''
-            statsText = ''
-            pageCount = 15
-
-    embed.add_field(name='Mon',
-                            value=monText,
-                            inline=True)
-            
-    embed.add_field(name='Stats',
-                    value=statsText,
-                    inline=True)
-    
-    embeds.append(embed)
-    
-    return embeds
-
-async def deleteDPSMove(moveName):
-    if not checkDuplicateMove(moveName):
-        return 'That move is not even registered yet!'
-    
-    moveName = formatTextForBackend(moveName)
-
-    for mon in loadedMons:
-        for move in mon['Moves']:
-            if move['Name'] == moveName:
-                mon['Moves'].remove(move)
-                break
-
-    for move in moves:
-        if move['Name'] == moveName:
-            moves.remove(move)
-            break
-
-    await saveDataVariableToFile(dpsFileLocations.get('Moves'), moves)
-    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
-
-    return 'Move deleted successfully!'
-
-async def deleteDPSMon(monName):
-    monName = checkForNickname(monName)
-
-    if not checkDuplicateMon(monName):
-        return 'That pokemon is not even registered yet!'
-
-    for mon in loadedMons:
-        if mon['Name'] == monName:
-            loadedMons.remove(mon)
-            break
-
-    await saveDataVariableToFile(dpsFileLocations.get('Pokemon'), loadedMons)
-
-    return 'Mon deleted successfully!'
 #endregion
 
 #region dps calculations
@@ -661,8 +430,6 @@ async def batchDpsCheck(monNames, battleSystem, author):
     
     return embeds
 
-
-
 async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     modifiers = getDefaultModifiers(battleSystem, author)
 
@@ -673,10 +440,10 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     
     monName = checkForNickname(monName)
 
-    if not checkDuplicateMon(monName):
+    if not checkDuplicatePoGoMon(monName):
         return 'That pokemon is not registered!', None
     
-    mon = [obj for obj in loadedMons if obj['Name'] == monName][0]
+    mon = [obj for obj in pogoPokemon if obj['Name'] == monName][0]
 
     monTypes = await getTypesFromPokeAPI(mon['ImageDexNum'])
     bossTypes = await getTypesFromPokeAPI(modifiers['Boss']['DexNum'])
@@ -689,16 +456,12 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     chargedMovesText = ''
 
     for move in mon['Moves']:
-        changedIndicator = ''
-        if modifiers['ShowMoveChanges']:
-            if moveChanged(move['Name']):
-                changedIndicator = '★'
         if move['Type'] == 'Fast':
             fastMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
-            fastMovesText += f'{formatTextForDisplay(move["Name"])}{changedIndicator}, '
+            fastMovesText += f'{formatTextForDisplay(move["Name"])}, '
         else:
             chargedMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
-            chargedMovesText += f'{formatTextForDisplay(move["Name"])}{changedIndicator}, '
+            chargedMovesText += f'{formatTextForDisplay(move["Name"])}, '
 
     if modifiers['UsingFunnyMove50']:
         chargedMoves.append(activeModifiers.get('ModeratelyFunnyMove'))
@@ -724,9 +487,6 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
         maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], monAttack, modifiers)
 
     for fastMove in fastMoves:
-        copiedFastMove = copy.deepcopy(fastMove)
-        copiedFastMove['Damage'], copiedFastMove['Energy'] = getChangedMoveStats(copiedFastMove['Name'], copiedFastMove['Damage'], copiedFastMove['Energy'], modifiers['ApplyMoveChanges'])
-        
         modifiers['FastSTABMultiplier'] = determineSTAB(modifiers['ForceNoFastSTAB'], modifiers['ForceFastSTAB'], fastMove, monTypes)
 
         if modifiers['CalculateFastEffectiveness']:
@@ -743,10 +503,8 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
             else:
                 modifiers['FastMegaMultiplier'] = activeModifiers.get('MegaMultiplier').get('DiffType')
 
-        newFastMove = await calcRoundedFastMoves(copiedFastMove)
-
         if battleSystem == 'dmax' and modifiers['SimFastAlone']:
-            fastDps, fastEps = await calcMaxFastAlone(monAttack, newFastMove, modifiers)
+            fastDps, fastEps = await calcMaxFastAlone(monAttack, fastMove, modifiers)
 
             if modifiers['ShowCycleDps']:
                 maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(fastDps, fastEps, maxMoveDamage, modifiers)
@@ -766,9 +524,6 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
                 })
 
         for chargedMove in chargedMoves:
-            copiedChargedMove = copy.deepcopy(chargedMove)
-            copiedChargedMove['Damage'], copiedChargedMove['Energy'] = getChangedMoveStats(copiedChargedMove['Name'], copiedChargedMove['Damage'], copiedChargedMove['Energy'], modifiers['ApplyMoveChanges'])
-
             modifiers['ChargedSTABMultiplier'] = determineSTAB(modifiers['ForceNoChargedSTAB'], modifiers['ForceChargedSTAB'], chargedMove, monTypes)
 
             if modifiers['CalculateChargedEffectiveness']:
@@ -778,31 +533,26 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
 
             if modifiers['ApplyMegaBoost']:
                 modifiers['ChargedMegaMultiplier'] = determineMegaMultiplier(modifiers['MegaTypes'], chargedMove)
-
-            newChargedMove = await calcRoundedChargedMoves(copiedChargedMove)
             
-            newDPS = await calcOverallDPS(monAttack, monDefence, monStamina, newFastMove, newChargedMove, modifiers)
+            dps = await calcOverallDPS(monAttack, monDefence, monStamina, fastMove, chargedMove, modifiers)
 
             if battleSystem == 'raids':
-                oldDPS = await calcOverallDPS(monAttack, monDefence, monStamina, fastMove, chargedMove, modifiers)
-
                 dpsResults.append({
                     'FastName': fastMove['Name'],
                     'FastDuration': fastMove['Duration'],
-                    'NewFastDuration': newFastMove['Duration'],
+                    'NewFastDuration': fastMove['Duration'],
                     'ChargedName': chargedMove['Name'],
                     'ChargedDuration': chargedMove['Duration'],
-                    'NewChargedDuration': newChargedMove['Duration'],
-                    'OldDPS': oldDPS,
-                    'NewDPS': newDPS
+                    'NewChargedDuration': chargedMove['Duration'],
+                    'DPS': dps
                 })
 
             elif battleSystem == 'dmax':
-                maxEPS = await calcMaxEPS(monAttack, monDefence, monStamina, newFastMove, newChargedMove, modifiers)
+                maxEPS = await calcMaxEPS(monAttack, monDefence, monStamina, fastMove, chargedMove, modifiers)
                 
                 if modifiers['ShowCycleDps']:
-                    newDPS = newDPS * modifiers['CyclePlayers']
-                    maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(newDPS, maxEPS, maxMoveDamage, modifiers)
+                    dps = dps * modifiers['CyclePlayers']
+                    maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers)
 
                     dpsResults.append({
                         'FastName': fastMove['Name'],
@@ -815,21 +565,18 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
                     dpsResults.append({
                         'FastName': fastMove['Name'],
                         'ChargedName': chargedMove['Name'],
-                        'DPS': newDPS,
+                        'DPS': dps,
                         'MaxEPS': maxEPS
                     })
 
     #raids results sorting
-    if modifiers['ResultSortOrder'] == 'ByNewDps':
-        sortedDpsResults = sorted(dpsResults, key=lambda x: x['NewDPS'], reverse=True)
-    elif modifiers['ResultSortOrder'] == 'ByOldDps':
-        sortedDpsResults = sorted(dpsResults, key=lambda x: x['OldDPS'], reverse=True)
+    if modifiers['ResultSortOrder'] == 'ByDps':
+        sortedDpsResults = sorted(dpsResults, key=lambda x: x['DPS'], reverse=True)
 
     #dmax results sorting
     elif modifiers['ResultSortOrder'] == 'ByMaxEps':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['MaxEPS'], reverse=True)
-    elif modifiers['ResultSortOrder'] == 'ByDps':
-        sortedDpsResults = sorted(dpsResults, key=lambda x: x['DPS'], reverse=True)
+
     #cycle dmax results sorting
     elif modifiers['ResultSortOrder'] == 'ByCycleTime':
         sortedDpsResults = sorted(dpsResults, key=lambda x: x['TTD'])
@@ -842,15 +589,15 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
 
     for result in sortedDpsResults:
         if battleSystem == 'raids':
-            moveNameOutput += f'{formatTextForDisplay(result["FastName"])}{displayDurationChange(result["FastDuration"], result["NewFastDuration"], modifiers["ShowMoveTimings"])} | {formatTextForDisplay(result["ChargedName"])}{displayDurationChange(result["ChargedDuration"], result["NewChargedDuration"], modifiers["ShowMoveTimings"])}\n'
-            moveDpsOutput += f'{displayOldDps(roundDPS(result["OldDPS"]), modifiers["ShowOldDps"])}{roundDPS(result["NewDPS"])}\n'
+            moveNameOutput += f'{formatTextForDisplay(result["FastName"])} | {formatTextForDisplay(result["ChargedName"])}\n'
+            moveDpsOutput += f'{pogoRound(result["DPS"], 2)}\n'
         elif battleSystem == 'dmax':
             moveNameOutput += f'{formatTextForDisplay(result["FastName"])} | {formatTextForDisplay(result["ChargedName"])}\n'
-            moveDpsOutput += f'{roundDPS(result["DPS"])}\n'
+            moveDpsOutput += f'{pogoRound(result["DPS"], 2)}\n'
             if modifiers['ShowCycleDps']:
-                moveTtdOutput += f'{roundDPS(result["TTD"])}s\n'
+                moveTtdOutput += f'{pogoRound(result["TTD"], 2)}s\n'
             else:
-                moveEpsOutput += f'{roundDPS(result["MaxEPS"])}\n'
+                moveEpsOutput += f'{pogoRound(result["MaxEPS"], 2)}\n'
 
     if len(moveNameOutput) > 1024:
         return f'You exceeded the character limit by {len(moveNameOutput) - 1024} characters! Get rid of some moves!', None
@@ -858,13 +605,8 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     embed.add_field(name='Moveset',
                     value=moveNameOutput,
                     inline=True)
-    
-    if modifiers['ShowOldDps']:
-        dpsFieldName = 'Old -> New'
-    else:
-        dpsFieldName = 'DPS'
 
-    embed.add_field(name=dpsFieldName,
+    embed.add_field(name='DPS',
                     value=moveDpsOutput,
                     inline=True)
 
@@ -872,12 +614,12 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
 
         if modifiers['ShowCycleDps']:
             if modifiers['CycleWillSwap']:
-                swapMonCpMultiplier = getCPMultiplier(modifiers['CycleSwapMon']['Level'])
+                swapMonCpMultiplier = getPoGoCPMultiplier(modifiers['CycleSwapMon']['Level'])
 
-                swapMonAttack = calcStat(modifiers['CycleSwapMon']['Stats']['Attack'], modifiers['CycleSwapMon']['Ivs']['Attack'], swapMonCpMultiplier)
-                swapMonDefence = calcStat(modifiers['CycleSwapMon']['Stats']['Defence'], modifiers['CycleSwapMon']['Ivs']['Defence'], swapMonCpMultiplier)
-                swapMonStamina = calcStat(modifiers['CycleSwapMon']['Stats']['Stamina'], modifiers['CycleSwapMon']['Ivs']['Stamina'], swapMonCpMultiplier)
-                embed.description = (f'{monCP} CP | {calcCP(swapMonAttack, swapMonDefence, swapMonStamina)} CP\n'
+                swapMonAttack = calcPoGoStat(modifiers['CycleSwapMon']['Stats']['Attack'], modifiers['CycleSwapMon']['Ivs']['Attack'], swapMonCpMultiplier)
+                swapMonDefence = calcPoGoStat(modifiers['CycleSwapMon']['Stats']['Defence'], modifiers['CycleSwapMon']['Ivs']['Defence'], swapMonCpMultiplier)
+                swapMonStamina = calcPoGoStat(modifiers['CycleSwapMon']['Stats']['Stamina'], modifiers['CycleSwapMon']['Ivs']['Stamina'], swapMonCpMultiplier)
+                embed.description = (f'{monCP} CP | {calcPoGoCP(swapMonAttack, swapMonDefence, swapMonStamina)} CP\n'
                                     f'Attack: {mon["Attack"]} | Attack: {modifiers["CycleSwapMon"]["Stats"]["Attack"]}\n'
                                     f'Defence: {mon["Defence"]} | Defence: {modifiers["CycleSwapMon"]["Stats"]["Defence"]}\n'
                                     f'Stamina: {mon["Stamina"]} | Stamina: {modifiers["CycleSwapMon"]["Stats"]["Stamina"]}\n'
@@ -892,7 +634,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
                             value=moveEpsOutput,
                             inline=True)
         
-        embed.description += f'\n\n{modifiers["MaxMoveText"]}Move Damage: {roundDPS(maxMoveDamage)} dmg'
+        embed.description += f'\n\n{modifiers["MaxMoveText"]}Move Damage: {pogoRound(maxMoveDamage, 2)} dmg'
 
     embed.description += f'\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}'
 
@@ -931,28 +673,19 @@ def getEmbedTitle(mon, modifiers, battleSystem):
     return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatTextForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}{playerText}'
 
 def getCalculatedStats(mon, modifiers):
-    cpMultiplier = getCPMultiplier(modifiers['Level'])
+    cpMultiplier = getPoGoCPMultiplier(modifiers['Level'])
 
-    monAttack = calcStat(mon['Attack'], modifiers['Ivs']['Attack'], cpMultiplier)
-    monDefence = calcStat(mon['Defence'], modifiers['Ivs']['Defence'], cpMultiplier)
-    monStamina = calcStat(mon['Stamina'], modifiers['Ivs']['Stamina'], cpMultiplier)
+    monAttack = calcPoGoStat(mon['Attack'], modifiers['Ivs']['Attack'], cpMultiplier)
+    monDefence = calcPoGoStat(mon['Defence'], modifiers['Ivs']['Defence'], cpMultiplier)
+    monStamina = calcPoGoStat(mon['Stamina'], modifiers['Ivs']['Stamina'], cpMultiplier)
 
-    monCP = calcCP(monAttack, monDefence, monStamina)
+    monCP = calcPoGoCP(monAttack, monDefence, monStamina)
 
     return monAttack, monDefence, monStamina, monCP
 
-def calcStat(baseStat, iv, cpMultiplier):
-    calculatedStat = (baseStat + iv)*cpMultiplier
-
-    return calculatedStat
-
-def calcCP(attack, defence, stamina):
-    cp = max(10, math.floor((attack*(defence**0.5)*(stamina**0.5))/10))
-    return cp
-
 async def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
     if modifiers['CycleWillSwap']:
-        swapMonAttack = (modifiers['CycleSwapMon']['Stats']['Attack'] + 15)*getCPMultiplier(modifiers['CycleSwapMon']['Level'])
+        swapMonAttack = (modifiers['CycleSwapMon']['Stats']['Attack'] + 15)*getPoGoCPMultiplier(modifiers['CycleSwapMon']['Level'])
         maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], swapMonAttack, modifiers)
 
     timeToDmax = calcTimeToMax(maxEPS)
@@ -1177,9 +910,9 @@ async def determineModifierValues(extraInputs, battleSystem, author):
             else:
                 try:
                     megaMon = checkForNickname(input[:-5])
-                    if not checkDuplicateMon(megaMon):
+                    if not checkDuplicatePoGoMon(megaMon):
                         raise Exception
-                    megaMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(megaMon)][0]
+                    megaMon = [obj for obj in pogoPokemon if obj['Name'] == formatTextForBackend(megaMon)][0]
                     match megaMon['Name']:
                         case 'groudon-primal':
                             megaTypes = weather.get('sunny')
@@ -1225,9 +958,9 @@ async def determineModifierValues(extraInputs, battleSystem, author):
         elif input.startswith('boss'):
             try:
                 bossMon = checkForNickname(input[4:])
-                if not checkDuplicateMon(bossMon):
+                if not checkDuplicatePoGoMon(bossMon):
                     raise Exception
-                bossMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(bossMon)][0]
+                bossMon = [obj for obj in pogoPokemon if obj['Name'] == formatTextForBackend(bossMon)][0]
                 modifiers['Boss']['DexNum'] = bossMon['ImageDexNum']
                 modifiers['Boss']['Stats']['Attack'] = bossMon['Attack']
                 modifiers['Boss']['Stats']['Defence'] = bossMon['Defence']
@@ -1294,7 +1027,6 @@ async def determineModifierValues(extraInputs, battleSystem, author):
 
 #region raid exclusive modifiers
 #Party Power, Tier
-#SortByOldDps, ShowMoveChanges, NoMoveChanges
 async def determineRaidModifierValues(modifiers, raidInputs, errorText):
 
     for input in raidInputs:
@@ -1303,24 +1035,9 @@ async def determineRaidModifierValues(modifiers, raidInputs, errorText):
 
             if modifiers['PartyPowerGain'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid amount of trainers in a party! Keep it between 2 and 4!\n'
-        elif input == 'showmovetimings':
-            modifiers['ShowMoveTimings'] = True
-        elif input == 'showmovechanges':
-            modifiers['ShowMoveChanges'] = True
-        elif input == 'nomovechanges':
-            modifiers['ApplyMoveChanges'] = False
-        elif input == 'showolddps':
-            modifiers['ShowOldDps'] = True
-        elif input == 'sortbyolddps':
-            modifiers['ResultSortOrder'] = 'ByOldDps'
+        
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
-
-    if not modifiers['ApplyMoveChanges'] and modifiers['ShowMoveChanges']:
-        errorText += 'You have to apply the move changes to be able to see the changes!\n'
-
-    if not modifiers['ShowOldDps'] and modifiers['ResultSortOrder'] == 'ByOldDps':
-        errorText += 'You have to add ShowOldDps to be able to sort by it!\n'
 
     if errorText != '':
         errorText += '\nCheck `$dps modifiers` to see all valid modifiers!' 
@@ -1376,9 +1093,9 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
         elif input.startswith('cycleswapto'):
             try:
                 swapMon = checkForNickname(input[11:])
-                if not checkDuplicateMon(swapMon):
+                if not checkDuplicatePoGoMon(swapMon):
                     raise Exception
-                swapMon = [obj for obj in loadedMons if obj['Name'] == formatTextForBackend(swapMon)][0]
+                swapMon = [obj for obj in pogoPokemon if obj['Name'] == formatTextForBackend(swapMon)][0]
                 modifiers['ShowCycleDps'] = True
                 modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
                 modifiers['CycleWillSwap'] = True
@@ -1649,135 +1366,7 @@ def calcAveragePartyBoost(fastMovesPerCharged, modifiers):
     partyEnergyPerCharged = modifiers['PartyPowerGain'] * (fastMovesPerCharged + 1)
 
     return min(1.0, partyEnergyPerCharged/activeModifiers.get('PartyPowerReadyAt'))
-
-async def calcRoundedFastMoves(move):
-    newDuration = round(move['Duration']*2)/2
-    newMove = {
-        'Name': move['Name'],
-        'Type': 'Fast',
-        'Damage': move['Damage'],
-        'Energy': move['Energy'],
-        'Duration': newDuration
-    }
-    return newMove
-
-async def calcRoundedChargedMoves(move):
-    newDuration = round(move['Duration']*2)/2
-    newDamageWindow = round(move['DamageWindow']*2)/2
-    newMove = {
-        'Name': move['Name'],
-        'Type': 'Charged',
-        'Damage': move['Damage'],
-        'Energy': move['Energy'],
-        'Duration': newDuration,
-        'DamageWindow': newDamageWindow
-    }
-    return newMove
-
-def getCPMultiplier(level):
-    return cpMultipliers.get(level, 0)
 #endregion
-#endregion
-
-#region go stat convert
-async def convertToGoStats(stats, nerfOverride=None):
-    try:
-        stats = [int(obj) for obj in stats]
-    except:
-        return 'Not all 6 stats were numbers!'
-    
-    if nerfOverride is not None:
-        nerfOverride = calcNerfOverride(nerfOverride)
-        if (isinstance(nerfOverride, str)):
-            return nerfOverride
-        
-    attack, defence, stamina, lv40CP, lv50CP, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
-
-    nerfText = getNerfText(nerfAmount)
-
-    return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'
-        
-
-async def convertToGoStatsFromName(monName, nerfOverride=None):
-    dexNum = getDexNum(monName)
-
-    if dexNum == -1:
-        return f'The pokemon \'{monName}\' was not recognized!'
-    
-    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-
-    if monData is None:
-        return f'An error occured while checking the api!'
-
-    stats = []
-
-    for i in range(6):
-        stats.append(int(monData['stats'][i]['base_stat']))
-
-    if nerfOverride is not None:
-        nerfOverride = calcNerfOverride(nerfOverride)
-        if (isinstance(nerfOverride, str)):
-            return nerfOverride
-    
-    attack, defence, stamina, lv40CP, lv50CP, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
-
-    nerfText = getNerfText(nerfAmount)
-
-    return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'
-
-def calcNerfOverride(nerfOverride):
-    if nerfOverride == '9nerf':
-        return 0.91
-    elif nerfOverride == '3nerf':
-        return 0.97
-    elif nerfOverride == 'nonerf':
-        return 1.00
-    else:
-        return f'The nerf exception \'{nerfOverride}\' was not recognized!\n`noNerf`, `3Nerf` and `9Nerf` are the only valid exceptions!'
-
-def getNerfText(nerfAmount):
-    if nerfAmount == 0.91:
-        return '(After a 9% nerf)'
-    elif nerfAmount == 0.97:
-        return '(After a 3% nerf)'
-    return ''
-
-def calcPoGoStatsFromBaseStats(hp, attack, defence, spAttack, spDefence, speed, nerfAmount):
-
-    staminaGo = math.floor((1.75*hp) + 50)
-    attackScaled = round(((7/4)*max(attack, spAttack)) + ((1/4)*min(attack, spAttack)))
-    defenceScaled = round(((5/4)*max(defence, spDefence)) + ((3/4)*min(defence, spDefence)))
-
-    speedMult = ((speed-75)/500) + 1
-
-    attackGo = attackScaled * speedMult
-    defenceGo = defenceScaled * speedMult
-
-    if nerfAmount is None:
-        lv40CP = determineCPFromBaseStat(attackGo, defenceGo, staminaGo, 40)
-        if lv40CP >= 4000:
-            nerfAmount = 0.91
-        else:
-            nerfAmount = 1.00
-
-    staminaNerfed = round(staminaGo * nerfAmount)
-    attackNerfed = round(attackGo * nerfAmount)
-    defenceNerfed = round(defenceGo * nerfAmount)
-
-    lv40CP = determineCPFromBaseStat(attackNerfed, defenceNerfed, staminaNerfed, 40)
-    lv50CP = determineCPFromBaseStat(attackNerfed, defenceNerfed, staminaNerfed, 50)
-
-    return attackNerfed, defenceNerfed, staminaNerfed, lv40CP, lv50CP, nerfAmount
-
-def determineCPFromBaseStat(attack, defence, stamina, level):
-    cpMultiplier = getCPMultiplier(level)
-    calculatedAttack = calcStat(attack, 15, cpMultiplier)
-    calculatedDefence = calcStat(defence, 15, cpMultiplier)
-    calculatedStamina = calcStat(stamina, 15, cpMultiplier)
-
-    cp = calcCP(calculatedAttack, calculatedDefence, calculatedStamina)
-
-    return cp
 #endregion
 
 #region chatgpt notes
@@ -1829,7 +1418,7 @@ async def readDPSNotes(user, userInput):
 
         return response.choices[0].message.content[:2000]
     except Exception as ex:
-        return '<@341722760852013066> ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
+        return 'Anderson ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
 #endregion
 
 #if i need more later '鬼' '獣'

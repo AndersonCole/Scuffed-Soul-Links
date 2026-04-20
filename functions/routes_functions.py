@@ -1,10 +1,3 @@
-""" 
-Contains the functions relating to routes. 
-Usually returns data in a discord embed
-
-Cole Anderson, Apr 2024
-"""
-
 import discord
 import copy
 from datetime import datetime

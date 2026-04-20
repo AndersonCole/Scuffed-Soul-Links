@@ -1,5 +1,9 @@
 import regex as re
+from dictionaries.shared_dictionaries import sharedFileLocations
+from functions.shared_functions import loadDataVariableFromFile
 from functions.misc_functions import *
+
+admins = loadDataVariableFromFile(sharedFileLocations.get('Admins'), readJson=True)
 
 async def miscShuckleCommands(userInput, author=None, guild=None):
 
@@ -30,7 +34,7 @@ async def miscShuckleCommands(userInput, author=None, guild=None):
         response = order66(guild)
 
     elif userInput == 'Heal The World':
-        if author.mention[2:-1] == '341722760852013066':
+        if author.mention[2:-1] in admins:
             response = healTheWorld(guild)
         else:
             response = 'One cannot hope to heal the world without a strong conviction...'

@@ -1,9 +1,3 @@
-""" 
-Logs into discord as the soul link bot using the token from the textfile,
-and reads and responds to messages with a certain prefix.
-
-Cole Anderson, Dec 2023
-"""
 import discord
 from functions.shared_functions import assignReactionEmoji, loadDataVariableFromFile
 from dictionaries.shared_dictionaries import sharedFileLocations
@@ -17,24 +11,18 @@ from commands.mc_commands import minecraftCommands
 from util.shuckle_paginator import ShucklePaginator
 
 class DiscordClient(discord.Client):
-    """Class to represent the Client (bot user)"""
 
     def __init__(self):
-        """This is the constructor. Sets the default 'intents' for the bot."""
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
         super().__init__(intents=intents)
 
     async def on_ready(self):
-        """Called when the bot is fully logged in."""
         print('Logged on as', self.user)
 
     async def on_message(self, message):
-        """Called whenever the bot receives a message. The 'message' object
-        contains all the pertinent information."""
-
-        # don't respond to ourselves
+        
         if message.author == self.user:
             return
         
