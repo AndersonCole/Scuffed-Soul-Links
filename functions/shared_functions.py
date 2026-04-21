@@ -248,8 +248,10 @@ buildNicknameLookupTable()
 
 #region PoGo stats
 def pogoRound(num, decimalPlaces=0):
-    multiplier = 10 ** decimalPlaces
-    return math.floor(num * multiplier + 0.5) / multiplier
+    if decimalPlaces > 0:
+        multiplier = 10 ** decimalPlaces
+        return math.floor(num * multiplier + 0.5) / multiplier
+    return math.floor(num + 0.5)
 
 def calcPoGoStat(baseStat, iv, cpMultiplier):
     calculatedStat = (baseStat + iv)*cpMultiplier
@@ -348,7 +350,7 @@ async def pogoListMons():
                             description='',
                             color=sharedEmbedColours.get('Default'))
     
-    fieldTitles = ('Mon', 'Stats')
+    fieldTitles = ['Mon', 'Stats']
     fieldContent = ['', '']
     pageCount = 15
 

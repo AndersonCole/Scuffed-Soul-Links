@@ -1,15 +1,15 @@
 import discord
 import copy
 from datetime import datetime
-from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile
+from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, addPaginatedEmbedFields
 from dictionaries.routes_dictionaries import routesFileLocations, routesImagePaths, routesEmbedColour
 
 routes = loadDataVariableFromFile(routesFileLocations.get('Routes'))
 
 walkedRoutes = loadDataVariableFromFile(routesFileLocations.get('WalkedRoutes'))
 
-async def checkStrongestSoldier(user_id, guild):
-    user = guild.get_member(user_id)
+async def checkStrongestSoldier(userId, guild):
+    user = guild.get_member(userId)
     role = discord.utils.get(guild.roles, name="Routes Strongest Soldier")
 
     if role in user.roles:
@@ -30,9 +30,9 @@ async def routesHelp():
     return embed
 
 #region text parsing functions
-def getRoute(route_name, user):
+def getRoute(routeName, user):
     try:
-        return [obj for obj in routes if obj['Name'].lower() == route_name.lower() and obj['User'] == user][0]
+        return [obj for obj in routes if obj['Name'].lower() == routeName.lower() and obj['User'] == user][0]
     except:
         return None
 
@@ -46,9 +46,9 @@ def getBadgeLevel(count):
     else:
         return 'No'
 
-def getCellPercentage(times_walked, cell_count):
+def getCellPercentage(timesWalked, cellCount):
     try:
-        return f'{((cell_count/times_walked)*100):.1f}%'
+        return f'{((cellCount/timesWalked)*100):.1f}%'
     except:
         return 'None found'
 
@@ -59,11 +59,11 @@ def getDirection(direction):
 #end region
 
 #region routes commands
-async def addRoute(route_name, distance, times_walked, user):
+async def addRoute(routeName, distance, timesWalked, user):
     routes.append({
-        'Name': route_name,
+        'Name': routeName,
         'Distance': distance,
-        'TimesWalked': times_walked,
+        'TimesWalked': timesWalked,
         'User': user
     })
 
@@ -71,26 +71,26 @@ async def addRoute(route_name, distance, times_walked, user):
 
     return 'Route added successfully!'
 
-async def walkRoute(route_name, distance, direction, cell_count, user):
+async def walkRoute(routeName, distance, direction, cellCount, user):
 
-    route_data = getRoute(route_name, user)
+    routeData = getRoute(routeName, user)
 
-    if route_data == None:
+    if routeData == None:
         return 'The name of the route was invalid, or you were not the one who created this route!'
     
     currentDate = datetime.now().date().strftime("%Y-%m-%d")
 
     walkedRoutes.append({
-        'Name': route_data['Name'],
-        'Cells': cell_count,
+        'Name': routeData['Name'],
+        'Cells': cellCount,
         'Distance': distance,
         'Direction': direction,
-        'BadgeLevel': getBadgeLevel(route_data['TimesWalked'] + 1),
+        'BadgeLevel': getBadgeLevel(routeData['TimesWalked'] + 1),
         'Date': currentDate,
         'User': user
     })
 
-    [obj for obj in routes if obj['Name'].lower() == route_name.lower() and obj['User'] == user][0]['TimesWalked'] += 1
+    [obj for obj in routes if obj['Name'].lower() == routeName.lower() and obj['User'] == user][0]['TimesWalked'] += 1
 
     await saveDataVariableToFile(routesFileLocations.get('WalkedRoutes'), walkedRoutes)
     await saveDataVariableToFile(routesFileLocations.get('Routes'), routes)
@@ -109,51 +109,58 @@ async def walkRoute(route_name, distance, direction, cell_count, user):
 
 #region printouts
 async def listRoutes(user):
-    users_routes = [obj for obj in routes if obj['User'] == user]
+    usersRoutes = [obj for obj in routes if obj['User'] == user]
 
-    if len(users_routes) == 0:
+    if len(usersRoutes) == 0:
         return 'You haven\'t created any routes yet! Use ```$routes help``` to get started! Zygarde needs YOU!', None
+
+    embeds = []
 
     embed = discord.Embed(title=f'Routes',
                           description=f'{user}',
                           color=routesEmbedColour)
     
-    routes_string = ''
-
-    for route in users_routes:
-        routes_string += f'{route["Name"]}\n'
-
-    embed.add_field(name='',
-                    value=routes_string,
-                    inline=True)
-
     embed.set_thumbnail(url=routesImagePaths.get('ZygardeCell'))
 
-    return embed
+    fieldTitles = ['']
+    fieldContent = ['']
+
+    pageCount = 20
+    for i, route in enumerate(usersRoutes, start=1):
+        fieldContent[0] += f'{route["Name"]}\n'
+
+        if i % pageCount == 0:
+                embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+                fieldContent = ['']
+
+    if fieldContent[0] != '':
+        embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+
+    return embeds
 
 async def printoutDay(user):
-    todays_routes = [obj for obj in walkedRoutes if obj['Date'] == datetime.now().date().strftime("%Y-%m-%d") and obj['User'] == user]
+    todaysRoutes = [obj for obj in walkedRoutes if obj['Date'] == datetime.now().date().strftime("%Y-%m-%d") and obj['User'] == user]
 
-    if len(todays_routes) == 0:
+    if len(todaysRoutes) == 0:
         return 'No routes logged today! Get out there soldier, Zygarde needs YOUR help to destroy ML!', None
 
     embed = discord.Embed(title=f'Today\'s Routes',
                           description=f'{user}',
                           color=routesEmbedColour)
     
-    routes_string = ''
+    routesText = ''
 
-    for today_route in todays_routes:
-        route = [obj for obj in routes if obj['Name'] == today_route['Name'] and obj['User'] == user][0]
+    for todayRoute in todaysRoutes:
+        route = [obj for obj in routes if obj['Name'] == todayRoute['Name'] and obj['User'] == user][0]
 
-        routes_string += (f'Name: {today_route["Name"]}\n'
-                          f'Distance: {today_route["Distance"]}m/{route["Distance"]}m\n'
-                          f'Direction: {getDirection(today_route["Direction"])}\n'
-                          f'Cells: {today_route["Cells"]}\n'
+        routesText += (f'Name: {todayRoute["Name"]}\n'
+                          f'Distance: {todayRoute["Distance"]}m/{route["Distance"]}m\n'
+                          f'Direction: {getDirection(todayRoute["Direction"])}\n'
+                          f'Cells: {todayRoute["Cells"]}\n'
                           f'Badge Level: {getBadgeLevel(route["TimesWalked"])}\n\n')
 
     embed.add_field(name='',
-                    value=routes_string,
+                    value=routesText,
                     inline=True)
 
     embed.set_thumbnail(url=routesImagePaths.get('ZygardeCell'))
@@ -175,45 +182,36 @@ async def printoutRoutes(user):
                         description=f'Stats for {route["User"]}',
                         color=routesEmbedColour)
         
-        no_badge_walked = 0
-        no_badge_cells = 0
-        bronze_walked = 0
-        bronze_cells = 0
-        silver_walked = 0
-        silver_cells = 0
-        gold_walked = 0
-        gold_cells = 0
+        timesWalked = [0, 0, 0, 0]
+        cellCount = [0, 0, 0, 0]
 
         for walked in walkedRoutes:
             if walked['Name'] == route['Name'] and walked['User'] == route['User']:
                 if walked['BadgeLevel'] == 'Bronze':
-                    bronze_walked += 1
-                    bronze_cells += walked['Cells']
+                    timesWalked[1] += 1
+                    cellCount[1] += walked['Cells']
                 elif walked['BadgeLevel'] == 'Silver':
-                    silver_walked += 1
-                    silver_cells += walked['Cells']
+                    timesWalked[2] += 1
+                    cellCount[2] += walked['Cells']
                 elif walked['BadgeLevel'] == 'Gold':
-                    gold_walked += 1
-                    gold_cells += walked['Cells']
+                    timesWalked[3] += 1
+                    cellCount[3] += walked['Cells']
                 else:
-                    no_badge_walked += 1
-                    no_badge_cells += walked['Cells']
-        
-        times_walked = no_badge_walked + bronze_walked + silver_walked + gold_walked
-        total_cells = no_badge_cells + bronze_cells + silver_cells + gold_cells
+                    timesWalked[0] += 1
+                    cellCount[0] += walked['Cells']
 
-        if times_walked > 0:
-            stats_string = (f'Route Distance: {route["Distance"]}m\n'
-                            f'Times Walked: {times_walked}\n'
-                            f'Total Cells: {total_cells}\n\n'
-                            f'Cell% No Badge: {getCellPercentage(no_badge_walked, no_badge_cells)}\n'
-                            f'Cell% Bronze Badge: {getCellPercentage(bronze_walked, bronze_cells)}\n'
-                            f'Cell% Silver Badge: {getCellPercentage(silver_walked, silver_cells)}\n'
-                            f'Cell% Gold Badge: {getCellPercentage(gold_walked, gold_cells)}\n'
-                            f'Cell% Overall: {getCellPercentage(times_walked, total_cells)}')
+        if sum(timesWalked) > 0:
+            statsText = (f'Route Distance: {route["Distance"]}m\n'
+                            f'Times Walked: {sum(timesWalked)}\n'
+                            f'Total Cells: {sum(cellCount)}\n\n'
+                            f'Cell% No Badge: {getCellPercentage(timesWalked[0], cellCount[0])}\n'
+                            f'Cell% Bronze Badge: {getCellPercentage(timesWalked[1], cellCount[1])}\n'
+                            f'Cell% Silver Badge: {getCellPercentage(timesWalked[2], cellCount[2])}\n'
+                            f'Cell% Gold Badge: {getCellPercentage(timesWalked[3], cellCount[3])}\n'
+                            f'Cell% Overall: {getCellPercentage(sum(timesWalked), sum(cellCount))}')
 
             embed.add_field(name='',
-                            value=stats_string,
+                            value=statsText,
                             inline=True)
             
             badge = getBadgeLevel(route['TimesWalked'])

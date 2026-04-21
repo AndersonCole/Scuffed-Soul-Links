@@ -34,7 +34,7 @@ async def miscShuckleCommands(userInput, author=None, guild=None):
         response = order66(guild)
 
     elif userInput == 'Heal The World':
-        if author.mention[2:-1] in admins:
+        if author.id in admins:
             response = healTheWorld(guild)
         else:
             response = 'One cannot hope to heal the world without a strong conviction...'

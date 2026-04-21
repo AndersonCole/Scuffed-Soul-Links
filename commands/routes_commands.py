@@ -2,7 +2,7 @@ import regex as re
 from functions.routes_functions import *
 
 async def routesCommands(userInput, author, guild):
-    if await checkStrongestSoldier(int(author.mention[2:-1]), guild):
+    if await checkStrongestSoldier(author.id, guild):
         if userInput == 'help':
             response = await routesHelp()
 

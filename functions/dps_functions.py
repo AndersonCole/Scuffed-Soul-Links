@@ -388,7 +388,7 @@ async def dpsListMoves():
                             description='',
                             color=sharedEmbedColours.get('Default'))
 
-    fieldTitles = ('Move', 'Dmg & Energy', 'Duration')
+    fieldTitles = ['Move', 'Dmg & Energy', 'Duration']
     allMoves = (
         [(move, formatFastMoveDuration) for move in moves if move['Type'] == 'Fast'] +
         [(move, formatChargedMoveDuration) for move in moves if move['Type'] == 'Charged']

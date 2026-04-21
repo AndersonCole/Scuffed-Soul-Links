@@ -17,7 +17,7 @@ import tarfile
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from mcrcon import MCRcon
-from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, rollForShiny
+from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, rollForShiny, addPaginatedEmbedFields
 from dictionaries.mc_dictionaries import dimensions, mcFileLocations, mcImagePaths, mcEmbedColour, defaultModifiers
 
 serverPort = int(loadDataVariableFromFile(mcFileLocations.get('ServerPort'), False))
@@ -399,32 +399,22 @@ async def unlootedMoais():
     embed = discord.Embed(title=f'Unlooted Moai\'s',
                             description='Copy paste the line of text to mark it as looted',
                             color=mcEmbedColour)
-    
-    locationText = ''
+
+    fieldTitles = ['Location']
+    fieldContent = ['']
 
     pageCount = 15
-    for moai in moaiLocations:
+    for i, moai in enumerate(moaiLocations, start=1):
         if moai['Looted'] is False:
-            if pageCount > 0:
-                locationText += f'X: {moai["X"]} Y: {moai["Y"]} Z: {moai["Z"]}\n'
-                pageCount -= 1
-            else:
-                embed.add_field(name='Location',
-                                value=locationText,
-                                inline=True)
+            fieldContent[0] += f'X: {moai["X"]} Y: {moai["Y"]} Z: {moai["Z"]}\n'
 
-                embeds.append(copy.deepcopy(embed))
-
-                embed.clear_fields()
-                locationText = ''
-                pageCount = 15
-
-    embed.add_field(name='Location',
-                        value=locationText,
-                        inline=True)
+            if i % pageCount == 0:
+                embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+                fieldContent = ['']
     
-    embeds.append(embed)
-
+    if fieldContent[0] != '':
+        embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+    
     return embeds
 
 async def unlootedBoats():
@@ -434,48 +424,22 @@ async def unlootedBoats():
                             description='Copy paste the line of text to mark it as looted',
                             color=mcEmbedColour)
     
-    locationText = ''
+    fieldTitles = ['Location']
+    fieldContent = ['']
 
     pageCount = 15
-    for boat in boatLocations:
+    for i, boat in enumerate(boatLocations, start=1):
         if boat['Looted'] is False:
-            if pageCount > 0:
-                locationText += f'X: {boat["X"]} Y: {boat["Y"]} Z: {boat["Z"]}\n'
-                pageCount -= 1
-            else:
-                embed.add_field(name='Location',
-                                value=locationText,
-                                inline=True)
+            fieldContent[0] += f'X: {boat["X"]} Y: {boat["Y"]} Z: {boat["Z"]}\n'
 
-                embeds.append(copy.deepcopy(embed))
-
-                embed.clear_fields()
-                locationText = ''
-                pageCount = 15
-
-    embed.add_field(name='Location',
-                        value=locationText,
-                        inline=True)
+            if i % pageCount == 0:
+                embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+                fieldContent = ['']
     
-    embeds.append(embed)
-
+    if fieldContent[0] != '':
+        embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+    
     return embeds
-
-async def saveStructureData():
-    global moaiLocations
-    global boatLocations
-
-    with open('text_files/minecraft_server/moai.txt', 'w') as file:
-        file.write(json.dumps(moaiLocations))
-
-    with open('text_files/minecraft_server/moai.txt', 'r') as file:
-        moaiLocations = json.loads(file.read())
-
-    with open('text_files/minecraft_server/boats.txt', 'w') as file:
-        file.write(json.dumps(boatLocations))
-
-    with open('text_files/minecraft_server/boats.txt', 'r') as file:
-        boatLocations = json.loads(file.read())
 
 async def mcLoot(structure, location):
     coord_pattern = re.compile(r"x: (-?\d+) y: (-?\d+) z: (-?\d+)")
