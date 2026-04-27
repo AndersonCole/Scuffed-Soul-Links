@@ -9,14 +9,16 @@ import copy
 import regex as re
 import math
 from diskcache import Cache
-from dictionaries.pvp_dictionaries import defaultPvpModifiers
+from dictionaries.pvp_dictionaries import pvpFileLocations, defaultPvpModifiers
 from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours, pogoCPMultipliers
 from functions.shared_functions import (
     rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, 
-    getTypesFromPokeAPI, getTypeColour, getMonName, getPokeAPISpriteUrl, pogoPokemon
+    getTypesFromPokeAPI, getTypeColour, getMonName, getPokeAPISpriteUrl, loadDataVariableFromFile, addPaginatedEmbedFields, formatTextForDisplay, pogoPokemon
 )
 
 pvpRanksCache = Cache('./cache/pvp_ranks')
+
+fakeRankOnes = loadDataVariableFromFile(pvpFileLocations.get('FakeR1'))
 
 async def pvpHelp():
     embed = discord.Embed(title=f'Shuckle\'s PvP Commands',
@@ -25,6 +27,7 @@ async def pvpHelp():
                                             '```$pvp add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order\n' +
                                             '```$pvp delete-mon Kartana``` Deletes a mon from the registered list\n' +
                                             '```$pvp list-mons``` Lists all the registered mons\n\n' +
+                                            '```$pvp list-fakes GL``` Lists all the fake rank ones\nOptions are LL, Little, GL, Great, UL, Ultra\n' +
                                             '```$pvp img``` Gets the pvp rank reqs image',
                                 color=sharedEmbedColours.get('Default'))
 
@@ -67,6 +70,69 @@ def getRankSortOrderText(order):
         return 'Defence and Stat Product'
     return ''
 
+async def listFakeRankOnes(extraInput=None):
+    embeds = []
+
+    leagueLimit, league = determineLeague(extraInput)
+
+    if leagueLimit is None:
+        return f'\'{extraInput}\'wasn\'t understood as a valid league!'
+    
+    embed = discord.Embed(title=f'Mons with tied R1&2 Stat Product under {leagueLimit}',
+                            description='Excluding R1 hundos',
+                            color=sharedEmbedColours.get('Default'))
+    
+    fieldTitles = ['']
+    fieldContent = ['']
+    pageCount = 15
+
+    filteredFakeRankOnes = [obj for obj in fakeRankOnes if league in obj['Leagues']]
+
+    for i, mon in enumerate(filteredFakeRankOnes, start=1):
+        fieldContent[0] += f'{formatTextForDisplay(mon["Name"])}\n'
+        
+        if i % pageCount == 0:
+            embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+            fieldContent = ['']
+    
+    if fieldContent[0] != '':
+        embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+    
+    return embeds
+
+def determineLeague(extraInput):
+    leagueLimit = 1500
+    league = 'gl'
+
+    try:
+        if extraInput is None:
+            raise Exception
+
+        elif extraInput == 'll':
+            leagueLimit = 500
+            league = 'll'
+        elif extraInput == 'little':
+            leagueLimit = 500
+            league = 'll'
+        elif extraInput == 'gl':
+            leagueLimit = 1500
+            league = 'gl'
+        elif extraInput == 'great':
+            leagueLimit = 1500
+            league = 'gl'
+        elif extraInput == 'ul':
+            leagueLimit = 2500
+            league = 'ul'
+        elif extraInput == 'ultra':
+            leagueLimit = 2500
+            league = 'ul'
+
+        else:
+            leagueLimit = None
+            league = None
+    finally:
+        return leagueLimit, league
+    
 async def pvpRankCheck(monName, extraInputs=None):
     modifiers = copy.deepcopy(defaultPvpModifiers)
 

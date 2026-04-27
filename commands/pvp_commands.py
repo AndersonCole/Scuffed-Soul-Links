@@ -18,6 +18,12 @@ async def pvpCommands(userInput):
         else:
             response = await pvpRankCheck(userInput[6:].strip())
 
+    elif userInput.startswith('list-fakes'):
+        if ' ' in userInput:
+            response = await listFakeRankOnes(userInput[11:])
+        else:
+            response = await listFakeRankOnes()
+
     elif userInput == 'img':
         response = await getPvpRanksImg()
 

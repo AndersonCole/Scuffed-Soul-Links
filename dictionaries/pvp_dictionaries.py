@@ -1,3 +1,7 @@
+pvpFileLocations = {
+    'FakeR1': 'text_files/pvp/fake_rank_ones.txt'
+}
+
 defaultPvpModifiers = {
     'LeagueLimit': 1500,
     
