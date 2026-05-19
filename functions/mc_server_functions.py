@@ -141,8 +141,10 @@ async def mcSetup():
     embed = discord.Embed(title='Resource Pack Order',
                             description='Resource packs should stay zipped inside of the resource packs folder\n\n' +
                                         'Assuming you\'re using the recommended mod pack,\n' +
-                                        'I find it works best to have the Travelers Backpack Dark Mode at the top(ignore the incompatability warning), ' +
-                                        'with FA Dark Mode right under, then the Waxed Shuckle Copper pack, then Vanilla Tweaks, then the two included continuity resource packs under that.\n\n' +
+                                        'I find it works best to have Shuckles Dark Inventories at the top,\n' + 
+                                        'then the Waxed Shuckle Copper pack, then Vanilla Tweaks, then the two included continuity resource packs under that.\n ' +
+                                        'Last but not least, you can put the Wrench resource pack under the continuity packs.\n' +
+                                        'Visible Invisibles can go anywhere in the order, just turn it on when you need it.\n' +
                                         'Everything should work as intended like this.',
                             color=mcEmbedColour)
     
