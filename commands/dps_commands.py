@@ -39,9 +39,6 @@ async def dpsCommands(userInput, author):
     elif userInput.startswith('check-notes '):
         response = await readDPSNotes(author, userInput[12:])
 
-    elif userInput.startswith('symbol '):
-        response = await getDPSSymbol(userInput[7:])
-
     elif userInput == 'default-modifiers':
         response = await getUserModifiers('raids', author.id)
 

@@ -12,6 +12,7 @@ text_files/minecraft_server/serverIp.txt
 text_files/minecraft_server/serverPort.txt
 text_files/minecraft_server/googleDriveLink.txt
 __pycache__/
+.vscode/
 cache/
 *.py[cod]
 *$py.class

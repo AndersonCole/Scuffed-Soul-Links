@@ -19,6 +19,7 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         formatCapitalize, formatTextForBackend, formatTextForDisplay,
                                         getTypesFromPokeAPI, getTypeColour, 
                                         getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, checkDuplicatePoGoMon, pogoRound, addPaginatedEmbedFields,
+                                        getMonFromName, getPokeApiJsonData, calcPoGoStatsFromBaseStats,
                                         loadShucklePersonality, rollForShiny, pokemon, pogoPokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather
@@ -31,7 +32,6 @@ moves = loadDataVariableFromFile(dpsFileLocations.get('Moves'))
 
 userModifiers = loadDataVariableFromFile(dpsFileLocations.get('UserModifiers'))
 
-#dev command $dps symbol {num}
 #region help commands
 async def getSharedHelp(commandText):
     embed = discord.Embed(title=f'Shuckles PoGo DPS Shared Commands',
@@ -957,15 +957,31 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!\n'
         elif input.startswith('boss'):
             try:
-                bossMon = checkForNickname(input[4:])
-                if not checkDuplicatePoGoMon(bossMon):
-                    raise Exception
-                bossMon = [obj for obj in pogoPokemon if obj['Name'] == formatTextForBackend(bossMon)][0]
-                modifiers['Boss']['DexNum'] = bossMon['ImageDexNum']
-                modifiers['Boss']['Stats']['Attack'] = bossMon['Attack']
-                modifiers['Boss']['Stats']['Defence'] = bossMon['Defence']
+                bossMon = getMonFromName(input[4:])
+
+                if not checkDuplicatePoGoMon(bossMon['Name']):
+                    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{bossMon["DexNum"]}')
+
+                    if monData is None:
+                        raise Exception
+
+                    stats = []
+
+                    for i in range(6):
+                        stats.append(int(monData['stats'][i]['base_stat']))
+
+                    bossAtk, bossDef, bossSta, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
+
+                    modifiers['Boss']['DexNum'] = bossMon['DexNum']
+                    modifiers['Boss']['Stats']['Attack'] = bossAtk
+                    modifiers['Boss']['Stats']['Defence'] = bossDef
+                else:
+                    bossMon = [obj for obj in pogoPokemon if obj['Name'] == bossMon['Name']][0]
+                    modifiers['Boss']['DexNum'] = bossMon['ImageDexNum']
+                    modifiers['Boss']['Stats']['Attack'] = bossMon['Attack']
+                    modifiers['Boss']['Stats']['Defence'] = bossMon['Defence']
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid boss name! Make sure it\'s registered!\n'
+                errorText += f'\'{input}\' wasn\'t understood as a valid pokemon name! Or PokeAPI is having issues!\n'
         elif input.startswith('tier'):
             modifiers['Boss']['Tier'] = input[4:].lower()
             modifiers['Boss']['Stats']['Health'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('bossHealth', None)
@@ -1420,32 +1436,5 @@ async def readDPSNotes(user, userInput):
     except Exception as ex:
         return 'Anderson ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
 #endregion
-
-#if i need more later '鬼' '獣'
-async def getDPSSymbol(dps):
-    try:
-        dps = float(dps)
-    except:
-        return f'\'{dps}\' isn\'t a valid number, try again!'
-    
-    if dps > 69:
-        return '神'
-    elif dps > 64:
-        return '帝'
-    elif dps > 59:
-        return '王'
-    elif dps > 54:
-        return '死'
-    elif dps > 49:
-        return 'ゴ'
-    elif dps > 44:
-        return '龍'
-    elif dps > 39:
-        return '滅'
-    elif dps > 34:
-        return '攻'
-    elif dps > 30:
-        return 'ド'
-    return '∅'
 
 #endregion
