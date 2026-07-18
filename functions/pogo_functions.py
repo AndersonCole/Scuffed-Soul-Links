@@ -13,12 +13,18 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import math
 from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours
-from dictionaries.pogo_dictionaries import eventColours, filterLists, timezones, defaultOddsModifiers
+from dictionaries.pogo_dictionaries import pogoFileLocations, eventColours, filterLists, timezones, defaultOddsModifiers, trackedEmojis
+from dictionaries.pvp_dictionaries import pvpFileLocations
 from functions.shared_functions import (
-    formatTextForDisplay, getMonFromName, 
-    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, 
-    rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats
+    formatTextForDisplay, getMonFromName, getRegionFromDexNum,
+    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, verifyRegion, getMon, addPaginatedEmbedFields,
+    rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats,
+    loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, pogoPokemon
 )
+
+trackedMons = loadDataVariableFromFile(pogoFileLocations.get('TrackedMons'))
+
+fakeRankOnes = loadDataVariableFromFile(pvpFileLocations.get('FakeR1'))
 
 #region help command
 async def pogoHelp():
@@ -29,6 +35,9 @@ async def pogoHelp():
                                         '```$pogo stats Kartana``` Calculates what the pokemons stats would be like in Go using its most recent main series stats\n'
                                         '```$pogo stats Kartana, noNerf``` Calculates what it would be like without any stat nerfs\n`noNerf`, `3Nerf` and `9Nerf` are the allowed nerf exceptions\n'
                                         '```$pogo stats 59, 181, 131, 59, 31, 109``` Calculates stats for Go based on the entered HP, Atk, Def, SpAtk, SpDef and Spd stats\nNerf exceptions can be applied here too\n\n'
+                                        '```$pogo user-nickname John Alola, @Logan```\n' +
+                                        '```$pogo track-mon bulbasaur, xxs, xxl```\n' +
+                                        '```$pogo untrack-mon bulbasaur, all```\n\n' +
                                         '```$pogo events help``` Shows all event searches\n\n' +
                                         '```$pogo odds Shuckle``` Shows the odds of getting something\n' +
                                         '```$pogo odds modifiers``` Lists out all the available odds modifers',
@@ -241,7 +250,7 @@ async def calculateOdds(monName, extraInputs=None):
     modifiers = copy.deepcopy(defaultOddsModifiers)
 
     if extraInputs != None:
-        modifiers, errorText = determineModifierValues([str(i).strip().lower() for i in extraInputs], modifiers)
+        modifiers, errorText = determineOddsModifierValues([str(i).strip().lower() for i in extraInputs], modifiers)
         if errorText != '':
             return errorText
         
@@ -320,7 +329,7 @@ async def calculateOdds(monName, extraInputs=None):
     return embed
 
         
-def determineModifierValues(extraInputs, modifiers):
+def determineOddsModifierValues(extraInputs, modifiers):
     errorText = ''
 
     for input in extraInputs:
@@ -394,6 +403,316 @@ def determineModifierValues(extraInputs, modifiers):
     modifiers['Ivs'] = raiseIvsToFloor(modifiers['Ivs'], modifiers['Floor'])
 
     return modifiers, errorText
+#endregion
+
+#region track commands
+async def trackMon(monName, extraInputs, author):
+    if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
+        trackedMons.append({
+            'User': {
+                'Id': author,
+                'Nicknames': []
+            },
+            'Pokemon': []
+        })
+
+    mon = getMonFromName(monName)
+
+    if mon is None:
+        return f'\'{monName}\' was not recognized as a valid pokemon!'
+
+    toTrack, errorText = determineTracking([str(i).strip().lower() for i in extraInputs])
+    if errorText != '':
+        return errorText
+    
+    userTracked = [obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']
+
+    if len([obj for obj in userTracked if obj['DexNum'] == mon['DexNum']]) == 0:
+        userTracked.append({
+            'DexNum': mon['DexNum'],
+            'Tracked': []
+        })
+    
+    userTrackedMon = [obj for obj in userTracked if obj['DexNum'] == mon['DexNum']][0]
+
+    userTrackedMon['Tracked'] = list(set(userTrackedMon['Tracked']).union(toTrack))
+
+    await saveDataVariableToFile(pogoFileLocations.get('TrackedMons'), trackedMons)
+
+    return f'Tracking for \'{formatTextForDisplay(monName)}\' updated!'
+
+async def removeTrackedMon(monName, extraInputs, author):
+    if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
+        return 'You don\'t even have anything tracked yet!'
+    
+    mon = getMonFromName(monName)
+
+    if mon is None:
+        return f'\'{monName}\' was not recognized as a valid pokemon!'
+    
+    toRemove, errorText = determineTracking([str(i).strip().lower() for i in extraInputs])
+    if errorText != '':
+        return errorText
+    
+    userTracked = [obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']
+
+    if len(userTracked) == 0:
+        return 'You don\'t even have anything tracked yet!'
+
+    if len([obj for obj in userTracked if obj['DexNum'] == mon['DexNum']]) == 0:
+        return 'You don\'t have anything tracked for that pokemon!'
+    
+    userTrackedMon = [obj for obj in userTracked if obj['DexNum'] == mon['DexNum']][0]
+
+    userTrackedMon['Tracked'] = list(set(userTrackedMon['Tracked']).difference(toRemove))
+
+    if len(userTrackedMon['Tracked']) == 0:
+        userTracked.remove(userTrackedMon)
+    
+    await saveDataVariableToFile(pogoFileLocations.get('TrackedMons'), trackedMons)
+
+    return f'Tracking for \'{formatTextForDisplay(monName)}\' updated!'
+
+def determineTracking(extraInputs):
+    errorText = ''
+    toTrack = []
+
+    for input in extraInputs:
+        if input == 'gl':
+            toTrack.append('gl')
+        elif input == 'great':
+            toTrack.append('gl')
+
+        elif input == 'ul':
+            toTrack.append('ul')
+        elif input == 'ultra':
+            toTrack.append('ul')
+        
+        elif input == 'xxs':
+            toTrack.append('xxs')
+        elif input == 'small':
+            toTrack.append('xxs')
+        elif input == 'smol':
+            toTrack.append('xxs')
+
+        elif input == 'xxl':
+            toTrack.append('xxl')
+        elif input == 'large':
+            toTrack.append('xxl')
+        elif input == 'beeg':
+            toTrack.append('xxl')
+
+        elif input == '100':
+            toTrack.append('hundo')
+        elif input == 'hundo':
+            toTrack.append('hundo')
+        elif input == '4*':
+            toTrack.append('hundo')
+
+        elif input == 'lucky':
+            toTrack.append('lucky')
+
+        elif input == 'all':
+            toTrack = ['gl', 'ul', 'xxs', 'xxl', 'hundo', 'lucky']
+
+        else:
+            errorText += f'The input \'{input}\' wasn\'t recognized!\n'
+
+    return set(toTrack), errorText
+
+async def addUserNickname(nickname, originalId):
+    if len([obj for obj in trackedMons if obj['User']['Id'] == originalId]) == 0:
+        trackedMons.append({
+            'User': {
+                'Id': originalId,
+                'Nicknames': []
+            },
+            'Pokemon': []
+        })
+
+    [obj for obj in trackedMons if obj['User']['Id'] == originalId][0]['User']['Nicknames'].append(formatTextForBackend(nickname))
+
+    await saveDataVariableToFile(pogoFileLocations.get('TrackedMons'), trackedMons)
+
+    return f'Nickname \'{formatTextForDisplay(nickname)}\' successfully added!'
+
+def getAuthorFromNickname(nickname):
+    if len([obj for obj in trackedMons if obj['User']['Id'] == nickname]) > 0:
+        return nickname
+    
+    for user in trackedMons:
+        if nickname in user['User']['Nicknames']:
+            return user['User']['Id']
+        
+    return None
+
+def trackedSortKey(tracked):
+    if tracked == 'hundo':
+        return 0
+    elif tracked == 'lucky':
+        return 1
+    elif tracked == 'xxs':
+        return 2
+    elif tracked == 'xxl':
+        return 3
+    elif tracked == 'gl':
+        return 4
+    elif tracked == 'ul':
+        return 5
+    return 6
+
+def getTrackedEmojis(tracked):
+    tracked.sort(key=trackedSortKey)
+
+    emojiText = ''
+
+    for want in tracked:
+        emojiText += f'{trackedEmojis.get(want)} '
+
+    return emojiText
+
+
+async def checkTrackedMon(monName, user, guild):
+    author = getAuthorFromNickname(user)
+
+    if author is None:
+        return 'This user doesn\'t have anything tracked!'
+    
+    discordUser = guild.get_member(int(author[2:-1]))
+
+    if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
+        return 'This user doesn\'t have anything tracked!'
+    
+    if len([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']) == 0:
+        return 'This user doesn\'t have anything tracked!'
+
+    mon = getMonFromName(monName)
+
+    if mon is None:
+        return f'\'{monName}\' was not recognized as a valid pokemon!'
+
+    userTracked = [obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']
+
+    if len([obj for obj in userTracked if obj['DexNum'] == mon['DexNum']]) == 0:
+        return f'{formatTextForDisplay(discordUser.name)} does not need any {formatTextForDisplay(mon["Name"])}!'
+    
+    userTrackedMon = [obj for obj in userTracked if obj['DexNum'] == mon['DexNum']][0]
+
+    monTypes = await getTypesFromPokeAPI(mon['DexNum'])
+
+    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['ImageDexNum'] == mon['DexNum']), {})
+
+    if len(pogoMon) == 0:
+        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{mon["DexNum"]}')
+
+        if monData is None:
+            return f'An error occured while checking the api!'
+
+        stats = []
+
+        for i in range(6):
+            stats.append(int(monData['stats'][i]['base_stat']))
+
+        pogoMon['Attack'], pogoMon['Defence'], pogoMon['Stamina'], nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
+    
+    embed = discord.Embed(title=f'{formatTextForDisplay(mon["Name"])} tracked by {formatTextForDisplay(discordUser.name)}',
+                          description=f'Attack: {pogoMon["Attack"]}\n'
+                                      f'Defence: {pogoMon["Defence"]}\n'
+                                      f'Stamina: {pogoMon["Stamina"]}',
+                          color=getTypeColour(monTypes[0]))
+    
+    embed.add_field(name=getTrackedEmojis(userTrackedMon['Tracked']),
+                    value='',
+                    inline=False)
+    
+    embed.set_thumbnail(url=getPokeAPISpriteUrl(mon['DexNum']))
+
+    if len([obj for obj in fakeRankOnes if obj['DexNum'] == mon['DexNum']]) > 0:
+        leagues = [obj for obj in fakeRankOnes if obj['DexNum'] == mon['DexNum']][0]['Leagues']
+
+        for league in leagues:
+            if league in userTrackedMon['Tracked']:
+                embed.set_footer(text='Beware of possible fake rank ones!')
+
+    return embed
+
+async def checkRegionMons(region, filter, user, guild):
+    author = getAuthorFromNickname(user)
+
+    if author is None:
+        return 'This user doesn\'t have anything tracked!'
+    
+    discordUser = guild.get_member(int(author[2:-1]))
+    
+    if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
+        return 'This user doesn\'t have anything tracked!'
+    
+    if len([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']) == 0:
+        return 'This user doesn\'t have anything tracked!'
+    
+    if not verifyRegion(region):
+        return f'\'{region}\' was not recognized as a valid region!'
+    
+    toDisplay, pageCount = determineDisplay(filter.strip().lower())
+    if len(toDisplay) == 0:
+        return f'{filter} was not not recognized as a valid search term!\nValid terms are `hundo`, `lucky`, `size`, `pvp` and `all`!'
+    
+    userTracked = sorted([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon'], key=lambda x: x['DexNum'])
+
+    regionList = []
+
+    for tracked in userTracked:
+        if region == getRegionFromDexNum(tracked['DexNum']):
+            trackedToDisplay = set(tracked['Tracked']) & set(toDisplay)
+            if trackedToDisplay:
+                regionList.append({
+                    'DexNum': tracked['DexNum'],
+                    'Tracked': list(trackedToDisplay)
+                })
+
+    if len(regionList) == 0:
+        return f'{formatTextForDisplay(discordUser.name)} does not need anything {formatTextForDisplay(filter.strip())} from {formatTextForDisplay(region)}!'
+
+    embeds = []
+
+    embed = discord.Embed(title=f'{formatTextForDisplay(region)} Pokemon tracked by {formatTextForDisplay(discordUser.name)}',
+                            description='',
+                            color=sharedEmbedColours.get('Default'))
+    
+    fieldTitles = ['Mon', 'Tracked']
+    fieldContent = ['', '']
+
+    for i, mon in enumerate(regionList, start=1):
+        fieldContent[0] += f'{formatTextForDisplay(getMon(mon["DexNum"])["Name"])}\n'
+        fieldContent[1] += f'{getTrackedEmojis(mon["Tracked"])}\n'
+        
+        if i % pageCount == 0:
+            embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+            fieldContent = ['', '']
+    
+    if fieldContent[0] != '':
+        embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+    
+    return embeds
+
+
+def determineDisplay(filter):
+    if filter == 'all':
+        return ['hundo', 'lucky', 'xxs', 'xxl', 'gl', 'ul'], 6
+    
+    elif filter == 'hundo':
+        return ['hundo'], 20
+    
+    elif filter == 'lucky':
+        return ['lucky'], 20
+    
+    elif filter == 'size':
+        return ['xxs', 'xxl'], 15
+    
+    elif filter == 'pvp':
+        return ['gl', 'ul'], 15
+    
+    return [], 0
 #endregion
 
 #region go stat convert

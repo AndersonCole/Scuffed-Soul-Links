@@ -1,7 +1,7 @@
 from functions.pogo_functions import *
 from functions.shared_functions import pogoAddMon, pogoDeleteMon, pogoListMons
 
-async def pogoMiscCommands(userInput):
+async def pogoMiscCommands(userInput, author, guild):
     if userInput == 'help':
         response = await pogoHelp()
 
@@ -37,6 +37,47 @@ async def pogoMiscCommands(userInput):
                 response = 'I don\'t know wtf you\'re trying to input!'
         else:
             response = await calculateOdds(userInput[5:].strip())
+
+    #region tracking commands
+    elif userInput.startswith('user-nickname '):
+        splitInput = re.split(r'[,]+', userInput[14:])
+        if len(splitInput) == 2:
+            response = await addUserNickname(splitInput[0].strip(), splitInput[1].strip())
+        else:
+            response = 'Invalid input! Use commas \',\' in between values!'
+
+    elif userInput.startswith('track '):
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[6:])
+            if len(splitInput) >= 2:
+                response = await trackMon(splitInput[0], splitInput[1:], author.mention)
+            else:
+                response = 'I don\'t know wtf you\'re trying to input!'
+        else:
+            response = 'Invalid input! Use commas \',\' in between values!'
+
+    elif userInput.startswith('untrack '):
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[8:])
+            if len(splitInput) >= 2:
+                response = await removeTrackedMon(splitInput[0], splitInput[1:], author.mention)
+            else:
+                response = 'I don\'t know wtf you\'re trying to input!'
+        else:
+            response = 'Invalid input! Use commas \',\' in between values!'
+
+    elif userInput.startswith('tracked '):
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[8:])
+            if len(splitInput) == 2:
+                response = await checkTrackedMon(splitInput[0], splitInput[1].strip(), guild)
+            elif len(splitInput) == 3:
+                response = await checkRegionMons(splitInput[0], splitInput[1], splitInput[2].strip(), guild)
+            else:
+                response = 'I don\'t know wtf you\'re trying to input!'
+        else:
+            response = 'Invalid input! Use commas \',\' in between values!'
+    #endregion
 
     #region mons add delete read
     elif userInput.startswith('add-mon '):

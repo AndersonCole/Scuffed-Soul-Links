@@ -1,3 +1,7 @@
+pogoFileLocations = {
+    'TrackedMons': 'text_files/pogo/user_tracked.txt'
+}
+
 eventColours = {
     'event': 6148352,
     'pokemon-spotlight-hour': 15569998,
@@ -46,4 +50,14 @@ defaultOddsModifiers = {
     'BackgroundChance': None,
     'ExtraChance': None,
     'LuckyChance': None
+}
+
+trackedEmojis = {
+    'lucky': '<:lucky:1527526883908915301>',
+    'hundo': '<:hundo:1527527058048024617>',
+    'gl': '<:gl:1527528288195706920>',
+    'ul': '<:ul:1527528270080376913>',
+    'xxs': '<:xxs:1527591560001224815>',
+    'xxl': '<:xxl:1527529229837668382>',
+    'all': '<:all:1527529855606980628>'
 }

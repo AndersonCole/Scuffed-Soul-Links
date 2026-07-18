@@ -9,7 +9,7 @@ from datetime import datetime
 import math
 import discord
 import copy
-from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, types, pogoCPMultipliers, sharedEmbedColours
+from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, regions, types, pogoCPMultipliers, sharedEmbedColours
 
 pokeApiCache = Cache('./cache/poke_api')
 
@@ -194,11 +194,42 @@ def getTypeColour(type):
         return None
     
 def verifyMoveType(moveType):
-    moveType = formatCapitalize(moveType)
-    temp = [obj for obj in types if obj['Name'] == moveType]
-    if len(temp) == 1:
+    if len([obj for obj in types if obj['Name'] == formatCapitalize(moveType)]) == 1:
         return True
     return False
+
+def verifyRegion(region):
+    if len([obj for obj in regions if obj['Name'] == formatTextForBackend(region)]) == 1:
+        return True
+    return False
+
+def getRegions():
+    for region in regions:
+        tempDexNums = []
+        for num in region['DexNums']:
+            if isinstance(num, tuple):
+                for dexNum in range(num[0], num[1]+1):
+                    tempDexNums.append(dexNum)
+            else:
+                tempDexNums.append(num)
+
+        region['DexNums'] = copy.deepcopy(tempDexNums)
+
+    return regions
+
+def getRegionFromDexNum(dexNum):
+    return regionLookup.get(dexNum, None)
+
+def buildRegionLookupTable():
+    global regionLookup
+
+    regionLookup = {}
+    for region in getRegions():
+        regionName = region['Name']
+        for dexNum in region['DexNums']:
+            regionLookup[dexNum] = regionName
+
+buildRegionLookupTable()
 
 #region nicknames and searching pokemon file
 def checkForNickname(monName):

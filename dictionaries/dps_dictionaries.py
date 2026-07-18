@@ -138,7 +138,7 @@ activeModifiers = {
     'PartyPowerGain': {
         '2': 2.0, #18 atks
         '3': 4.0, #9 atks
-        '4': 6.0 #6  atks
+        '4': 6.0 #6 atks
     },
 
     'PowerSpotMultiplier': {
