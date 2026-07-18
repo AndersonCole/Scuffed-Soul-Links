@@ -652,19 +652,19 @@ async def checkRegionMons(region, filter, user, guild):
     if len([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']) == 0:
         return 'This user doesn\'t have anything tracked!'
     
-    if not verifyRegion(region):
+    if not verifyRegion(region) and formatTextForBackend(region.strip()) != 'all':
         return f'\'{region}\' was not recognized as a valid region!'
     
     toDisplay, pageCount = determineDisplay(filter.strip().lower())
     if len(toDisplay) == 0:
-        return f'{filter} was not not recognized as a valid search term!\nValid terms are `hundo`, `lucky`, `size`, `pvp` and `all`!'
+        return f'{filter} was not not recognized as a valid search term!\nCheck `$pogo help` for valid terms!'
     
     userTracked = sorted([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon'], key=lambda x: x['DexNum'])
 
     regionList = []
 
     for tracked in userTracked:
-        if region == getRegionFromDexNum(tracked['DexNum']):
+        if region == getRegionFromDexNum(tracked['DexNum']) or formatTextForBackend(region.strip()) == 'all':
             trackedToDisplay = set(tracked['Tracked']) & set(toDisplay)
             if trackedToDisplay:
                 regionList.append({
