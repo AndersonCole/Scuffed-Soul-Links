@@ -1,1 +1,1 @@
-[]
+[{"User": {"Id": "<@341722760852013066>", "Nicknames": ["cole"]}, "Pokemon": [{"DexNum": 144, "Tracked": ["xxl"]}]}]
