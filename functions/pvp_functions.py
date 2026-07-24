@@ -9,21 +9,26 @@ import copy
 import regex as re
 import math
 from diskcache import Cache
-from dictionaries.pvp_dictionaries import pvpFileLocations, defaultPvpModifiers
+from dictionaries.pvp_dictionaries import pvpFileLocations, defaultPvpModifiers, scannerSystems
 from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours, pogoCPMultipliers
 from functions.shared_functions import (
-    rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, 
-    getTypesFromPokeAPI, getTypeColour, getMonName, getPokeAPISpriteUrl, loadDataVariableFromFile, addPaginatedEmbedFields, formatTextForDisplay, pogoPokemon
+    rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, getMon, formatTextForBackend,
+    getTypesFromPokeAPI, getTypeColour, getMonName, getPokeAPISpriteUrl, loadDataVariableFromFile, saveDataVariableToFile, addPaginatedEmbedFields, formatTextForDisplay, pogoPokemon
 )
 
 pvpRanksCache = Cache('./cache/pvp_ranks')
 
 fakeRankOnes = loadDataVariableFromFile(pvpFileLocations.get('FakeR1'))
 
+scanners = loadDataVariableFromFile(pvpFileLocations.get('Scanners'))
+
 async def pvpHelp():
     embed = discord.Embed(title=f'Shuckle\'s PvP Commands',
                                 description='```$pvp check Medicham``` Shows the top ranks of a pokemon\n' +
                                             '```$pvp modifiers``` Lists out the available PvP modifiers\n\n' +
+                                            '```$pvp scanner-system Poracle, d10000, LvRange10``` Select the scanner system you use. Optionally specify a distance and lv range\n' +
+                                            '```$pvp tracking-string Medicham``` Creates a tracking string for the specified mon\nThe same modifiers for `$pvp check` work here\n\n' +
+                                            '```$pvp list-fakes GL``` Lists all the fake rank ones\nOptions are LL, Little, GL, Great, UL, Ultra\n' +
                                             '```$pvp add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order\n' +
                                             '```$pvp delete-mon Kartana``` Deletes a mon from the registered list\n' +
                                             '```$pvp list-mons``` Lists all the registered mons\n\n' +
@@ -37,15 +42,16 @@ async def pvpHelp():
 
 def pvpModifiers():
     embed = discord.Embed(title='Shuckles PvP Modifiers',
-                            description='```$pvp check Medicham, 5/15/15``` IVs: Compares the entered IV combo against the top ranks\n' +
-                                        '```$pvp check Medicham, Rank1``` Rank: Compares the entered rank number against the top ranks\n' +
-                                        '```$pvp check Medicham, Great``` League: Sets the max CP based on the league.\nOptions are LL, Little, GL, Great, UL, Ultra, ML, Master\n' +
-                                        '```$pvp check Medicham, Min20``` MinLevel: Sets the min level for rank calculations\n' +
-                                        '```$pvp check Medicham, Max51``` MaxLevel: Sets the max level for rank calculations\n' +
-                                        '```$pvp check Medicham, Floor10``` Floor: Sets the iv floor\n' +
-                                        '```$pvp check Medicham, SortAttack``` SortAttack: Sorts results by highest attack\n' +
-                                        '```$pvp check Medicham, SortDefence``` SortDefence: Sorts results by highest defence\n\n' +
-                                        'Everything should be case insensitive.\n',
+                            description=f'```$pvp check Medicham, 5/15/15``` IVs: Compares the entered IV combo against the top ranks\n' +
+                                        f'```$pvp check Medicham, Rank1``` Rank: Compares the entered rank number against the top ranks\n' +
+                                        f'```$pvp check Medicham, Great``` League: Sets the max CP based on the league.\nOptions are LL, Little, GL, Great, UL, Ultra, ML, Master\n' +
+                                        f'```$pvp check Medicham, Min20``` MinLevel: Sets the min level for rank calculations\n' +
+                                        f'```$pvp check Medicham, Max51``` MaxLevel: Sets the max level for rank calculations\n' +
+                                        f'```$pvp check Medicham, Floor10``` Floor: Sets the iv floor\n' +
+                                        f'```$pvp check Medicham Mega, PreMega``` PreMega: Shows the CP of the mon before mega evolving\n' +
+                                        f'```$pvp check Medicham, SortAttack``` SortAttack: Sorts results by highest attack\n' +
+                                        f'```$pvp check Medicham, SortDefence``` SortDefence: Sorts results by highest defence\n\n' +
+                                        f'Everything should be case insensitive.\n',
                             color=sharedEmbedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
@@ -55,7 +61,7 @@ def pvpModifiers():
 async def getPvpRanksImg():
     return discord.File('images/pvp.png', filename='pvp.png')
 
-#region pvpRanks
+#region helper functions
 def getNerfText(nerfAmount):
     if nerfAmount == 0.91:
         return ', with a 9% nerf'
@@ -101,43 +107,95 @@ async def listFakeRankOnes(extraInput=None):
     return embeds
 
 def determineLeague(extraInput):
-    leagueLimit = 1500
-    league = 'gl'
+    if extraInput is None:
+        leagueLimit = 1500
+        league = 'gl'
 
+    elif extraInput == 'll':
+        leagueLimit = 500
+        league = 'll'
+    elif extraInput == 'little':
+        leagueLimit = 500
+        league = 'll'
+    elif extraInput == 500:
+        leagueLimit = 500
+        league = 'll'
+    elif extraInput == 'gl':
+        leagueLimit = 1500
+        league = 'gl'
+    elif extraInput == 'great':
+        leagueLimit = 1500
+        league = 'gl'
+    elif extraInput == 1500:
+        leagueLimit = 1500
+        league = 'gl'
+    elif extraInput == 'ul':
+        leagueLimit = 2500
+        league = 'ul'
+    elif extraInput == 'ultra':
+        leagueLimit = 2500
+        league = 'ul'
+    elif extraInput == 2500:
+        leagueLimit = 2500
+        league = 'ul'
+
+    else:
+        leagueLimit = None
+        league = None
+
+    return leagueLimit, league
+
+async def showPreMegaCP(dexNum, rank, show):
     try:
-        if extraInput is None:
+        if not show:
             raise Exception
 
-        elif extraInput == 'll':
-            leagueLimit = 500
-            league = 'll'
-        elif extraInput == 'little':
-            leagueLimit = 500
-            league = 'll'
-        elif extraInput == 'gl':
-            leagueLimit = 1500
-            league = 'gl'
-        elif extraInput == 'great':
-            leagueLimit = 1500
-            league = 'gl'
-        elif extraInput == 'ul':
-            leagueLimit = 2500
-            league = 'ul'
-        elif extraInput == 'ultra':
-            leagueLimit = 2500
-            league = 'ul'
+        mon = getMon(dexNum)
 
-        else:
-            leagueLimit = None
-            league = None
-    finally:
-        return leagueLimit, league
+        if '-mega' not in mon['Name']:
+            raise Exception
+
+        pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['ImageDexNum'] == mon['Evolves-From']), None)
+
+        if pogoMon is None:
+            monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{mon["Evolves-From"]}')
     
+            if monData is None:
+                raise FileNotFoundError
+    
+            stats = []
+    
+            for i in range(6):
+                stats.append(int(monData['stats'][i]['base_stat']))
+    
+            baseAttack, baseDefence, baseStamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
+        else:
+            baseAttack = pogoMon['Attack']
+            baseDefence = pogoMon['Defence']
+            baseStamina = pogoMon['Stamina']
+        
+        cpMultiplier = getPoGoCPMultiplier(rank['Level'])
+        attackStat = calcPoGoStat(baseAttack, rank['Ivs']['Attack'], cpMultiplier)
+        defenceStat = calcPoGoStat(baseDefence, rank['Ivs']['Defence'], cpMultiplier)
+
+        staminaStat = calcPoGoStat(baseStamina, rank['Ivs']['Stamina'], cpMultiplier)
+
+        cp = calcPoGoCP(attackStat, defenceStat, staminaStat)
+
+        return f'({cp})'
+    
+    except FileNotFoundError:
+        return '(???)'
+    except:
+        return ''
+#endregion
+
+#region pvp ranks
 async def pvpRankCheck(monName, extraInputs=None):
     modifiers = copy.deepcopy(defaultPvpModifiers)
 
     if extraInputs != None:
-        modifiers, errorText = determineModifierValues([str(i).strip().lower() for i in extraInputs], modifiers)
+        modifiers, errorText = determinePvpModifierValues([str(i).strip().lower() for i in extraInputs], modifiers)
         if errorText != '':
             return errorText
         
@@ -145,67 +203,8 @@ async def pvpRankCheck(monName, extraInputs=None):
 
     if dexNum == -1:
         return f'The pokemon \'{monName}\' was not recognized!'
-    
-    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['ImageDexNum'] == dexNum), None)
 
-    if pogoMon is not None:
-        modifiers['BaseStats']['Attack'] = pogoMon['Attack']
-        modifiers['BaseStats']['Defence'] = pogoMon['Defence']
-        modifiers['BaseStats']['Stamina'] = pogoMon['Stamina']
-        modifiers['StatText'] = 'Using the stats we\'ve entered'
-    else:
-        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-
-        if monData is None:
-            return f'An error occured while checking the api!'
-
-        stats = []
-
-        for i in range(6):
-            stats.append(int(monData['stats'][i]['base_stat']))
-
-        modifiers['BaseStats']['Attack'], modifiers['BaseStats']['Defence'], modifiers['BaseStats']['Stamina'], nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
-        modifiers['StatText'] = f'Using the most recent main series stats{getNerfText(nerfAmount)}'
-
-    cacheKey = (f'{dexNum}:{modifiers["LeagueLimit"]}:Floor{modifiers["Floor"]}:{modifiers["MinLevel"]}-{modifiers["MaxLevel"]}:' +
-               f'{modifiers["BaseStats"]["Attack"]}/{modifiers["BaseStats"]["Defence"]}/{modifiers["BaseStats"]["Stamina"]}')
-
-    if cacheKey in pvpRanksCache:
-        rankList = pvpRanksCache[cacheKey]
-    
-    else:
-        rankList = await calcPvpRanks(modifiers['BaseStats']['Attack'], modifiers['BaseStats']['Defence'], modifiers['BaseStats']['Stamina'],
-                                      modifiers['LeagueLimit'], modifiers['Floor'], modifiers['MinLevel'], modifiers['MaxLevel'])
-
-        pvpRanksCache.set(cacheKey, rankList)
-    
-    rankList.sort(key=lambda x:(
-        x['StatProduct'],
-        x['Stats']['Attack'],
-        x['Stats']['Stamina'],
-        x['CP'],
-        x['Ivs']['Stamina']
-    ), reverse=True)
-
-    for i, rank in enumerate(rankList, start=1):
-        rank['Rank'] = i
-
-    if modifiers['ResultSortOrder'] == 'ByAttack':
-        rankList.sort(key=lambda x:(
-            x['StatProduct'] * x['Stats']['Attack'] * x['Ivs']['Attack'],
-            x['Stats']['Attack'],
-            x['Stats']['Stamina'],
-            x['CP'],
-            x['Ivs']['Stamina']
-        ), reverse=True)
-    elif modifiers['ResultSortOrder'] == 'ByDefence':
-        rankList.sort(key=lambda x:(
-            x['StatProduct'] * x['Stats']['Defence'],
-            x['Stats']['Attack'],
-            x['Stats']['Stamina'],
-            x['CP'],
-            x['Ivs']['Stamina']
-        ), reverse=True)
+    rankList, modifiers = await getPvpRankList(dexNum, modifiers)
 
     monTypes = await getTypesFromPokeAPI(dexNum)
 
@@ -220,8 +219,9 @@ async def pvpRankCheck(monName, extraInputs=None):
     fieldContent = ['', '', '']
 
     for i, rank in enumerate(rankList, start=1):
+        preMegaCp = await showPreMegaCP(dexNum, rank, modifiers["ShowPreMegaCP"])
         fieldContent[0] += f'R{rank["Rank"]} Lv{rank["Level"]:g}\n'
-        fieldContent[1] += f'{rank["CP"]} CP | {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}\n'
+        fieldContent[1] += f'{rank["CP"]}{preMegaCp} CP | {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}\n'
         fieldContent[2] += f'{pogoRound(rank["Stats"]["Attack"], 2)} / {pogoRound(rank["Stats"]["Defence"], 2)} / {rank["Stats"]["Stamina"]}\n'
 
         if i >= 10:
@@ -276,7 +276,123 @@ async def pvpRankCheck(monName, extraInputs=None):
 
     return embed
 
-def determineModifierValues(extraInputs, modifiers):
+async def getPvpRankList(dexNum, modifiers):
+    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['ImageDexNum'] == dexNum), None)
+    
+    if pogoMon is not None:
+        modifiers['BaseStats']['Attack'] = pogoMon['Attack']
+        modifiers['BaseStats']['Defence'] = pogoMon['Defence']
+        modifiers['BaseStats']['Stamina'] = pogoMon['Stamina']
+        modifiers['StatText'] = 'Using the stats we\'ve entered'
+    else:
+        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+
+        if monData is None:
+            return f'An error occured while checking the api!'
+
+        stats = []
+
+        for i in range(6):
+            stats.append(int(monData['stats'][i]['base_stat']))
+
+        modifiers['BaseStats']['Attack'], modifiers['BaseStats']['Defence'], modifiers['BaseStats']['Stamina'], nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
+        modifiers['StatText'] = f'Using the most recent main series stats{getNerfText(nerfAmount)}'
+
+    cacheKey = (f'{dexNum}:{modifiers["LeagueLimit"]}:Floor{modifiers["Floor"]}:{modifiers["MinLevel"]}-{modifiers["MaxLevel"]}:' +
+                f'{modifiers["BaseStats"]["Attack"]}/{modifiers["BaseStats"]["Defence"]}/{modifiers["BaseStats"]["Stamina"]}')
+
+    if cacheKey in pvpRanksCache:
+        rankList = pvpRanksCache[cacheKey]
+    
+    else:
+        rankList = await calcPvpRanks(modifiers['BaseStats']['Attack'], modifiers['BaseStats']['Defence'], modifiers['BaseStats']['Stamina'],
+                                        modifiers['LeagueLimit'], modifiers['Floor'], modifiers['MinLevel'], modifiers['MaxLevel'])
+
+        pvpRanksCache.set(cacheKey, rankList)
+    
+    rankList.sort(key=lambda x:(
+        x['StatProduct'],
+        x['Stats']['Attack'],
+        x['Stats']['Stamina'],
+        x['CP'],
+        x['Ivs']['Stamina']
+    ), reverse=True)
+
+    for i, rank in enumerate(rankList, start=1):
+        rank['Rank'] = i
+
+    if modifiers['ResultSortOrder'] == 'ByAttack':
+        rankList.sort(key=lambda x:(
+            x['StatProduct'] * x['Stats']['Attack'] * x['Ivs']['Attack'],
+            x['Stats']['Attack'],
+            x['Stats']['Stamina'],
+            x['CP'],
+            x['Ivs']['Stamina']
+        ), reverse=True)
+    elif modifiers['ResultSortOrder'] == 'ByDefence':
+        rankList.sort(key=lambda x:(
+            x['StatProduct'] * x['Stats']['Defence'],
+            x['Stats']['Attack'],
+            x['Stats']['Stamina'],
+            x['CP'],
+            x['Ivs']['Stamina']
+        ), reverse=True)
+
+    return rankList, modifiers
+
+async def calcPvpRanks(baseAttack, baseDefence, baseStamina, leagueLimit, ivFloor, minLvl, maxLvl):
+    initialLevelRange = [level for level in sorted(pogoCPMultipliers.keys()) if minLvl <= level <= maxLvl]
+
+    rankList = []
+    currentMaxLvl = maxLvl
+
+    for attackIv in range(ivFloor, 16):
+        for defenceIv in range(ivFloor, 16):
+            for staminaIv in range(ivFloor, 16):
+                best = None
+
+                levelRange = [level for level in initialLevelRange if level <= currentMaxLvl]
+                for level in reversed(levelRange):
+                    cpMultiplier = getPoGoCPMultiplier(level)
+                    attackStat = calcPoGoStat(baseAttack, attackIv, cpMultiplier)
+                    defenceStat = calcPoGoStat(baseDefence, defenceIv, cpMultiplier)
+
+                    staminaStat = calcPoGoStat(baseStamina, staminaIv, cpMultiplier)
+                    realStaminaStat = max(10, math.floor(staminaStat))
+
+                    statProduct = pogoRound(attackStat * defenceStat * realStaminaStat)
+                    cp = calcPoGoCP(attackStat, defenceStat, staminaStat)
+
+                    if cp <= leagueLimit:
+                        best = {
+                            'CP': cp,
+                            'Level': level,
+                            'StatProduct': statProduct,
+                            'Ivs': {
+                                'Attack': attackIv,
+                                'Defence': defenceIv,
+                                'Stamina': staminaIv
+                            },
+                            'Stats': {
+                                'Attack': attackStat,
+                                'Defence': defenceStat,
+                                'Stamina': realStaminaStat
+                            }
+                        }
+                        break
+                
+                if best is None:
+                    continue
+
+                if attackIv == ivFloor and defenceIv == ivFloor and staminaIv == ivFloor:
+                    currentMaxLvl = best['Level']
+
+                rankList.append(best)
+
+    return rankList
+
+#region modifiers
+def determinePvpModifierValues(extraInputs, modifiers):
     errorText = ''
 
     for input in extraInputs:
@@ -329,6 +445,8 @@ def determineModifierValues(extraInputs, modifiers):
                 modifiers['Floor'] = floorIv
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid floor iv! Keep it between 0-15!\n'
+        elif input == 'premega':
+            modifiers['ShowPreMegaCP'] = True
         elif input == 'll':
             modifiers['LeagueLimit'] = 500
         elif input == 'little':
@@ -360,55 +478,119 @@ def determineModifierValues(extraInputs, modifiers):
         errorText += f'You can\'t have a minimum level higher than your maximum level!'
 
     return modifiers, errorText
+#endregion
+#endregion
 
-async def calcPvpRanks(baseAttack, baseDefence, baseStamina, leagueLimit, ivFloor, minLvl, maxLvl):
-    initialLevelRange = [level for level in sorted(pogoCPMultipliers.keys()) if minLvl <= level <= maxLvl]
+#region scanner strings
+async def specifyScannerSystem(system, author, extraInputs=None):
+    if len([obj for obj in scanners if obj['User'] == author]) == 0:
+        scanners.append({
+            'User': author,
+            'Scanner': None,
+            'LevelRange': None,
+            'Distance': None
+        })
 
-    rankList = []
-    currentMaxLvl = maxLvl
+    userScanner = [obj for obj in scanners if obj['User'] == author][0]
 
-    for attackIv in range(ivFloor, 16):
-        for defenceIv in range(ivFloor, 16):
-            for staminaIv in range(ivFloor, 16):
-                best = None
+    if extraInputs != None:
+        modifiers, errorText = determineScannerModifierValues([str(i).strip().lower() for i in extraInputs])
+        if errorText != '':
+            return errorText
+            
+    if scannerSystems.get(formatTextForBackend(system), None) is None:
+        return 'Scanner system not recognized!'
+    
+    userScanner['Scanner'] = formatTextForBackend(system)
+    userScanner['LevelRange'] = modifiers['LevelRange']
+    userScanner['Distance'] = modifiers['Distance']
 
-                levelRange = [level for level in initialLevelRange if level <= currentMaxLvl]
-                for level in reversed(levelRange):
-                    cpMultiplier = getPoGoCPMultiplier(level)
-                    attackStat = calcPoGoStat(baseAttack, attackIv, cpMultiplier)
-                    defenceStat = calcPoGoStat(baseDefence, defenceIv, cpMultiplier)
+    await saveDataVariableToFile(pvpFileLocations.get('Scanners'), scanners)
 
-                    staminaStat = calcPoGoStat(baseStamina, staminaIv, cpMultiplier)
-                    realStaminaStat = max(10, math.floor(staminaStat))
+    return 'Scanner system saved!'
 
-                    statProduct = pogoRound(attackStat * defenceStat * realStaminaStat)
-                    cp = calcPoGoCP(attackStat, defenceStat, staminaStat)
+def determineScannerModifierValues(extraInputs):
+    modifiers = {
+        'Distance': None,
+        'LevelRange': None
+    }
+    errorText = ''
+    
+    for input in extraInputs:
+        if input.startswith('d'):
+            try:
+                modifiers['Distance'] = int(input[1:])
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid distance!\n'
+        elif input.startswith('lvrange'):
+            try:
+                modifiers['LevelRange'] = int(input[7:])
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid level range!\n'
 
-                    if cp <= leagueLimit:
-                        best = {
-                            'CP': cp,
-                            'Level': level,
-                            'StatProduct': statProduct,
-                            'Ivs': {
-                                'Attack': attackIv,
-                                'Defence': defenceIv,
-                                'Stamina': staminaIv
-                            },
-                            'Stats': {
-                                'Attack': attackStat,
-                                'Defence': defenceStat,
-                                'Stamina': realStaminaStat
-                            }
-                        }
-                        break
-                
-                if best is None:
-                    continue
+        else:
+            errorText += f'The input \'{input}\' was not understood!\n'
 
-                if attackIv == ivFloor and defenceIv == ivFloor and staminaIv == ivFloor:
-                    currentMaxLvl = best['Level']
+    return modifiers, errorText
 
-                rankList.append(best)
+def getTrackedMonName(dexNum, baseEvo):
+    if baseEvo:
+        basePokemon = getMon(dexNum)
+                        
+        while basePokemon['Evolves-From'] is not None:
+            basePokemon = getMon(basePokemon['Evolves-From'])
 
-    return rankList
+        dexNum = basePokemon['DexNum']
+
+    return getMonName(dexNum)
+
+
+def getMinScannerLevel(maxLevel, levelRange):
+    if maxLevel > 30:
+        minLevel = 30-levelRange
+    else:
+        minLevel = math.floor(maxLevel) - levelRange
+
+    return max(1, minLevel)
+
+async def getTrackingString(monName, author, extraInputs=None):
+    modifiers = copy.deepcopy(defaultPvpModifiers)
+    
+    if extraInputs != None:
+        modifiers, errorText = determinePvpModifierValues([str(i).strip().lower() for i in extraInputs], modifiers)
+        if errorText != '':
+            return errorText
+        
+    dexNum = getDexNum(monName)
+
+    if dexNum == -1:
+        return f'The pokemon \'{monName}\' was not recognized!'
+
+    if len([obj for obj in scanners if obj['User'] == author]) == 0:
+        return f'I don\'t know what system to track for!'
+
+    userScanner = [obj for obj in scanners if obj['User'] == author][0]
+    scannerPrefixes = scannerSystems[userScanner['Scanner']]['Prefixes']
+    separator = scannerSystems[userScanner["Scanner"]]["Separator"]
+    
+    rankList, modifiers = await getPvpRankList(dexNum, modifiers)
+    rank = rankList[0]
+
+    trackingString = f'{scannerPrefixes["Start"]}{separator}{getTrackedMonName(dexNum, scannerSystems[userScanner["Scanner"]]["TrackBaseEvo"])}{separator}'
+    trackingString += f'{scannerPrefixes["MinLevel"]}{getMinScannerLevel(rank["Level"], userScanner["LevelRange"])}{separator}{scannerPrefixes["MaxLevel"]}{math.floor(rank["Level"])}{separator}'
+    if rank['Ivs']['Attack'] == 15 and rank['Ivs']['Defence'] == 15 and rank['Ivs']['Stamina'] == 15:
+        trackingString += f'{scannerPrefixes["Percentage"]}100{separator}'
+    else:
+        trackingString += f'{scannerPrefixes["MinAttack"]}{rank["Ivs"]["Attack"]}{separator}{scannerPrefixes["MaxAttack"]}{rank["Ivs"]["Attack"]}{separator}'
+        trackingString += f'{scannerPrefixes["MinDefence"]}{rank["Ivs"]["Defence"]}{separator}{scannerPrefixes["MaxDefence"]}{rank["Ivs"]["Defence"]}{separator}'
+        trackingString += f'{scannerPrefixes["MinStamina"]}{rank["Ivs"]["Stamina"]}{separator}{scannerPrefixes["MaxStamina"]}{rank["Ivs"]["Stamina"]}{separator}'
+
+        leagueLimit, league = determineLeague(modifiers['LeagueLimit'])
+
+        trackingString += f'{scannerPrefixes[league.upper()]}1{separator}'
+
+    if userScanner['Distance'] is not None:
+        trackingString += f'{scannerPrefixes["Distance"]}{userScanner["Distance"]}'
+
+    return f'```{trackingString}```'
 #endregion

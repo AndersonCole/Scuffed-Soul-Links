@@ -1,5 +1,6 @@
 pvpFileLocations = {
-    'FakeR1': 'text_files/pvp/fake_rank_ones.txt'
+    'FakeR1': 'text_files/pvp/fake_rank_ones.txt',
+    'Scanners': 'text_files/pvp/scanner_systems.txt'
 }
 
 defaultPvpModifiers = {
@@ -23,6 +24,32 @@ defaultPvpModifiers = {
         'Stamina': -1,
     },
     'Compare': False,
+    'ShowPreMegaCP': False,
 
     'ResultSortOrder': 'ByStatProduct'
+}
+
+scannerSystems = {
+    'poracle': {
+        'Prefixes': {
+            'Start': '!track',
+            'Distance': 'd',
+            'Percentage': 'iv',
+            'MinLevel': 'level',
+            'MaxLevel': 'maxlevel',
+            'MinAttack': 'atk',
+            'MaxAttack': 'maxatk',
+            'MinDefence': 'def',
+            'MaxDefence': 'maxdef',
+            'MinStamina': 'sta',
+            'MaxStamina': 'maxsta',
+            'Size': '',
+            'Gender': '',
+            'LL': 'little',
+            'GL': 'great',
+            'UL': 'ultra'
+        },
+        'TrackBaseEvo': True,
+        'Separator': ' '
+    }
 }

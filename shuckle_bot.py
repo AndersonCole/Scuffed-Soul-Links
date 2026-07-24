@@ -63,7 +63,7 @@ class DiscordClient(discord.Client):
         elif message.content.startswith('$pvp '):
             await message.add_reaction(assignReactionEmoji('PVP'))
 
-            response = await pvpCommands(message.content[5:])
+            response = await pvpCommands(message.content[5:], message.author)
 
         elif message.content.startswith('$mc '):
             await message.add_reaction(assignReactionEmoji('Minecraft'))

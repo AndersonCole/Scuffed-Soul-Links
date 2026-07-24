@@ -1,7 +1,7 @@
 from functions.pvp_functions import *
 from functions.shared_functions import pogoAddMon, pogoDeleteMon, pogoListMons
 
-async def pvpCommands(userInput):
+async def pvpCommands(userInput, author):
     if userInput == 'help':
         response = await pvpHelp()
     
@@ -18,11 +18,31 @@ async def pvpCommands(userInput):
         else:
             response = await pvpRankCheck(userInput[6:].strip())
 
-    elif userInput.startswith('list-fakes'):
+    elif userInput.startswith('list-fakes '):
         if ' ' in userInput:
             response = await listFakeRankOnes(userInput[11:])
         else:
             response = await listFakeRankOnes()
+
+    elif userInput.startswith('scanner-system '):
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[15:])
+            if len(splitInput) >= 2:
+                response = await specifyScannerSystem(splitInput[0].strip(), author.mention, splitInput[1:])
+            else:
+                response = 'I don\'t know wtf you\'re trying to input!'
+        else:
+            response = await specifyScannerSystem(userInput[15:].strip(), author.mention)
+
+    elif userInput.startswith('tracking-string '):
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[16:])
+            if len(splitInput) >= 2:
+                response = await getTrackingString(splitInput[0].strip(), author.mention, splitInput[1:])
+            else:
+                response = 'I don\'t know wtf you\'re trying to input!'
+        else:
+            response = await getTrackingString(userInput[16:].strip(), author.mention)
 
     elif userInput == 'img':
         response = await getPvpRanksImg()

@@ -36,8 +36,8 @@ async def pogoHelp():
                                         '```$pogo stats Kartana, noNerf``` Calculates what it would be like without any stat nerfs\n`noNerf`, `3Nerf` and `9Nerf` are the allowed nerf exceptions\n'
                                         '```$pogo stats 59, 181, 131, 59, 31, 109``` Calculates stats for Go based on the entered HP, Atk, Def, SpAtk, SpDef and Spd stats\nNerf exceptions can be applied here too\n\n'
                                         '```$pogo user-nickname John Alola, @Logan``` Adds a user nickname to be used when tracking\n' +
-                                        '```$pogo track-mon bulbasaur, xxs, xxl``` Adds a mon to your tracking list\nAllowed options are `all` `hundo` `lucky` `xxs` `xxl` `gl` `ul`\n' +
-                                        '```$pogo untrack-mon bulbasaur, all``` Removes a mon from your tracking list. Uses the same allowed options\n' +
+                                        '```$pogo track bulbasaur, xxs, xxl``` Adds a mon to your tracking list\nAllowed options are `all` `hundo` `lucky` `xxs` `xxl` `gl` `ul`\n' +
+                                        '```$pogo untrack bulbasaur, all``` Removes a mon from your tracking list. Uses the same allowed options\n' +
                                         '```$pogo tracked bulbasaur, John Alola``` Shows what a user has tracked for a specific pokemon\n' +
                                         '```$pogo tracked alola, all, John Alola``` Shows what a user has tracked for a whole region\nAllowed options are `all` `hundo` `lucky` `size` `pvp`\n\n' +
                                         '```$pogo events help``` Shows all event searches\n\n' +
@@ -543,7 +543,7 @@ def getAuthorFromNickname(nickname):
         return nickname
     
     for user in trackedMons:
-        if nickname in user['User']['Nicknames']:
+        if formatTextForBackend(nickname) in user['User']['Nicknames']:
             return user['User']['Id']
         
     return None
@@ -581,6 +581,9 @@ async def checkTrackedMon(monName, user, guild):
         return 'This user doesn\'t have anything tracked!'
     
     discordUser = guild.get_member(int(author[2:-1]))
+
+    if discordUser is None:
+        return 'That user is not in your current server!'
 
     if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
         return 'This user doesn\'t have anything tracked!'
@@ -645,6 +648,9 @@ async def checkRegionMons(region, filter, user, guild):
         return 'This user doesn\'t have anything tracked!'
     
     discordUser = guild.get_member(int(author[2:-1]))
+
+    if discordUser is None:
+            return 'That user is not in your current server!'
     
     if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
         return 'This user doesn\'t have anything tracked!'
