@@ -298,30 +298,36 @@ def calcPoGoCP(attack, defence, stamina):
 
 def calcPoGoStatsFromBaseStats(hp, attack, defence, spAttack, spDefence, speed, nerfAmount=None):
 
-    staminaGo = math.floor((1.75*hp) + 50)
-    attackScaled = pogoRound(((7/4)*max(attack, spAttack)) + ((1/4)*min(attack, spAttack)))
-    defenceScaled = pogoRound(((5/4)*max(defence, spDefence)) + ((3/4)*min(defence, spDefence)))
-
     speedMult = ((speed-75)/500) + 1
 
-    attackGo = pogoRound(attackScaled * speedMult)
-    defenceGo = pogoRound(defenceScaled * speedMult)
+    attackScaled = pogoRound(((7/4)*max(attack, spAttack)) + ((1/4)*min(attack, spAttack))) * speedMult
+    defenceScaled = pogoRound(((5/4)*max(defence, spDefence)) + ((3/4)*min(defence, spDefence))) * speedMult
+    staminaScaled = (1.75*hp) + 50
+
+    attackNoNerf = pogoRound(attackScaled)
+    defenceNoNerf = pogoRound(defenceScaled)
+    staminaNoNerf = math.floor(staminaScaled)
 
     if nerfAmount is None:
         cpMultiplier = getPoGoCPMultiplier(40)
-        lv40CP = calcPoGoCP(calcPoGoStat(attackGo, 15, cpMultiplier),
-                            calcPoGoStat(defenceGo, 15, cpMultiplier),
-                            calcPoGoStat(staminaGo, 15, cpMultiplier))
+        lv40CP = calcPoGoCP(calcPoGoStat(attackNoNerf, 15, cpMultiplier),
+                            calcPoGoStat(defenceNoNerf, 15, cpMultiplier),
+                            calcPoGoStat(staminaNoNerf, 15, cpMultiplier))
         if lv40CP >= 4000:
             nerfAmount = 0.91
         else:
             nerfAmount = 1.00
 
-    staminaNerfed = pogoRound(staminaGo * nerfAmount)
-    attackNerfed = pogoRound(attackGo * nerfAmount)
-    defenceNerfed = pogoRound(defenceGo * nerfAmount)
+    if nerfAmount == 1.0:
+        attackGo = attackNoNerf
+        defenceGo = defenceNoNerf
+        staminaGo = staminaNoNerf
+    else:
+        attackGo = pogoRound(attackScaled * nerfAmount)
+        defenceGo = pogoRound(defenceScaled * nerfAmount)
+        staminaGo = pogoRound(staminaScaled * nerfAmount)
 
-    return attackNerfed, defenceNerfed, staminaNerfed, nerfAmount
+    return attackGo, defenceGo, staminaGo, nerfAmount
 #endregion
 
 #region PoGo mon registry
