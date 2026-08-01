@@ -34,6 +34,7 @@ async def help():
                                       '```$sl links``` Lists out the active links for the current run\n' +
                                       '```$sl link-data Bulbasaur``` Gives you information about the link for the specified mon you own\n' +
                                       '```$sl link-data Starter``` Gives you information about the link for the area it was encountered\n' +
+                                      '```$sl link-data Bulbasaur, @Player1``` Gives you information about the link for a specific mon someone else owns\n' +
                                       '```$sl evolve Bulbasaur``` Evolves a pokemon you own\n' +
                                       '```$sl death Starter, Metronome explosion :(``` Removes the link from the active links\n' +
                                       '```$sl deaths``` Lists out all the dead links, and cause of death\n' +
@@ -50,9 +51,8 @@ async def help():
                                       '```$sl fail-run``` Ends the run in failure\n' +
                                       '```$sl run-info``` Prints out all relevant stats for the currently selected run\n\n' +
                                       '```$sl dex Bulbasaur``` Shows data on selected pokemon\n' +
-                                      '```$sl dex Bulbasaur, HeartGold``` Shows data on selected pokemon in HearGold\n' +
-                                      '```$sl moves Bulbasaur 24``` Shows the four moves the mon has at a specific level\n' +
-                                      '```$sl catch Bulbasaur 5``` Caclulates the catch rate for the selected gen given the pokemon and level\n' +
+                                      '```$sl dex Bulbasaur, HeartGold``` Shows data on selected pokemon in HeartGold\n' +
+                                      '```$sl moves Bulbasaur, 24``` Shows the four moves the mon has at a specific level\n' +
                                       '```$sl rare-candies``` Shuckle explains how to aquire rare candies using PKHex\n\n' +
                                       'For Data on forms, type the pokemon\'s name like giratina origin, vulpix alola, charizard mega y, appletun gmax\n' +
                                       'Accessing data for a pokemon\'s default form will always work with their base name',
@@ -1058,9 +1058,10 @@ async def pastePokemonOntoBackground(backgroundImage, pokemonToPaste, arrowType,
 
 async def createEvoChainImage(dexNum, type):
     basePokemon = getMon(dexNum)
-                
-    while basePokemon['Evolves-From'] is not None:
-        basePokemon = getMon(basePokemon['Evolves-From'])
+
+    if '-mega' not in basePokemon['Name']:
+        while basePokemon['Evolves-From'] is not None:
+            basePokemon = getMon(basePokemon['Evolves-From'])
     
     evoChainLength = 1
     if len(basePokemon['Evolves-Into']) > 0:
@@ -1439,7 +1440,7 @@ async def showMoveSet(mon, level):
 
     movesets, versionGroup = await getMoves(monData['moves'], currentRun['VersionGroup'])
 
-    fieldContent, comment = movesetTextLevel(movesets['Level-Up'], level)
+    fieldContent, comment = movesetTextLevel(movesets['Level'], level)
 
     stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
 

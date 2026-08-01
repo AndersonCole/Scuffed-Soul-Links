@@ -91,7 +91,7 @@ games = [
     {'Name': 'ultra-sun-ultra-moon', 'Games': ['Ultra Sun', 'Ultra Moon'], 'Colour': [11492140, 5188451], 'Link-Emoji': ['<:_:1193409578281488405>', '<:_:1193409621843529860>'], 'Mascot': [10155, 10156], 'Progression': [
                                             {'Stage': 0, 'Battle-Name': 'Normal Trial', 'Level-Cap': 12, 'Encounters': ['Starter', 'Route 1', 'Trainer\'s School', 'Hau\'oli City', 'Route 2', 'Hau\'oli Cemetery', 'Sandy Cave']},
                                             {'Stage': 1, 'Battle-Name': 'Kahuna Hala', 'Level-Cap': 16, 'Encounters': ['Verdant Cavern', 'Route 3', 'Melemele Meadow', 'Seaward Cave']},
-                                            {'Stage': 2, 'Battle-Name': 'Water Trial', 'Level-Cap': 20, 'Encounters': ['Ten Carat Hill', 'Route 4', 'Paniola Ranch', 'Route 5', 'Brooklet Hill', 'Hau\'oli Beachfront', 'Melemele Sea', 'Kala\'e Bay']},
+                                            {'Stage': 2, 'Battle-Name': 'Water Trial', 'Level-Cap': 20, 'Encounters': ['Ten Carat Hill', 'Route 4', 'Paniola Ranch', 'Route 5', 'Brooklet Hill', 'Melemele Sea', 'Kala\'e Bay']},
                                             {'Stage': 3, 'Battle-Name': 'Fire Trial', 'Level-Cap': 22, 'Encounters': ['Paniola Town', 'Route 6', 'Route 7', 'Wela Volcano Park', 'Diglett\'s Tunnel']},
                                             {'Stage': 4, 'Battle-Name': 'Grass Trial', 'Level-Cap': 24, 'Encounters': ['Dividing Peak Tunnel', 'Route 8', 'Fossil Static']},
                                             {'Stage': 5, 'Battle-Name': 'Kahuna Olivia', 'Level-Cap': 28, 'Encounters': ['Lush Jungle', 'Route 9', 'Memorial Hill', 'Akala Outskirts']},
@@ -102,7 +102,7 @@ games = [
                                             {'Stage': 10, 'Battle-Name': 'Fairy Trial', 'Level-Cap': 54, 'Encounters': ['Poipole Gift']},
                                             {'Stage': 11, 'Battle-Name': 'Kahuna Hapu', 'Level-Cap': 54, 'Encounters': []},
                                             {'Stage': 12, 'Battle-Name': 'Pokemon League', 'Level-Cap': 57, 'Encounters': ['Necrozma Static']},
-                                            {'Stage': 13, 'Battle-Name': 'Rainbow Rocket', 'Level-Cap': 68, 'Encounters': ['Type:Null Gift', 'Poni Grove', 'Poni Plains', 'Poni Coast', 'Poni Gauntlet', 'Poni Meadow', 'Resolution Cave', 'Zygarde Static', 'Legendary Static', 'Tapu Koko Static', 'Tapu Lele Static', 'Tapu Bulu Static', 'Tapu Fini Static', 'Team Rocket Castle']}
+                                            {'Stage': 13, 'Battle-Name': 'Rainbow Rocket', 'Level-Cap': 68, 'Encounters': ['Type:Null Gift', 'Poni Grove', 'Poni Plains', 'Poni Coast', 'Poni Gauntlet', 'Poni Meadow', 'Resolution Cave', 'Zygarde Static', 'Nebby Static', 'Tapu Koko Static', 'Tapu Lele Static', 'Tapu Bulu Static', 'Tapu Fini Static', 'Team Rocket Castle']}
     ]},
     {'Name': 'lets-go-pikachu-lets-go-eevee', 'Games': ['Lets Go Pikachu', 'Lets Go Eevee'], 'Colour': [16371533, 13342031], 'Link-Emoji': ['<:_:1193409693234761728>', '<:_:1193409732493447228>'], 'Mascot': [25, 133], 'Progression': []},
     {'Name': 'sword-shield', 'Games': ['Sword', 'Shield'], 'Colour': [44783, 15536485], 'Link-Emoji': ['<:_:1193411092509102130>', '<:_:1193411134577983498>'], 'Mascot': [888, 889], 'Progression': []},

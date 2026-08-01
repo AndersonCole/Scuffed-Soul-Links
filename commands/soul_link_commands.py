@@ -35,11 +35,9 @@ async def soulLinkCommands(userInput, author, guild):
         response = await listLinks()
     
     elif userInput.startswith('link-data '):
-        if re.search(r'<@\d+>', userInput[10:].strip()) is not None:
-            splitInput = re.split(r'[\s]+', userInput[10:])
-            
-            linkInfo = ' '.join(word for word in splitInput[1:])
-            response = await getLinkData(linkInfo.strip(), splitInput[0])
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[10:])
+            response = await getLinkData(splitInput[0].strip(), splitInput[1].strip())
         else:
             response = await getLinkData(userInput[10:].strip(), author.mention)
 
@@ -117,10 +115,11 @@ async def soulLinkCommands(userInput, author, guild):
         response = await calculateCatchRate(mon, splitInput[-1])
 
     elif userInput.startswith('moves '):
-        splitInput = re.split(r'[\s-.]+', userInput[6:])
-        mon = ' '.join(word for word in splitInput[:-1])
-
-        response = await showMoveSet(mon, splitInput[-1])
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[6:])
+            response = await showMoveSet(splitInput[0].strip(), splitInput[1].strip())
+        else:
+            response = 'Invalid input! Use commas \',\' in between values!'
 
     elif userInput == 'reset':
         response = resetFocus()
