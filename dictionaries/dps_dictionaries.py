@@ -1,6 +1,7 @@
 dpsFileLocations = {
     'Moves': 'text_files/dps/moves.txt',
     'Notes': 'text_files/dps/notes.txt',
+    'SuperMax': 'text_files/dps/super_max.txt',
     'UserModifiers': 'text_files/dps/user_modifiers.txt'
 }
 
@@ -12,6 +13,7 @@ defaultModifiers = {
         'raids': 50.0,
         'dmax': 40.0
     },
+    'LevelSet': False,
     'Ivs': {
         'Attack': 15,
         'Defence': 15,

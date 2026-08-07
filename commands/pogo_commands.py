@@ -76,7 +76,7 @@ async def pogoMiscCommands(userInput, author, guild):
             else:
                 response = 'I don\'t know wtf you\'re trying to input!'
         else:
-            response = 'Invalid input! Use commas \',\' in between values!'
+            response = await checkTrackedMon(userInput[8:], author.mention, guild)
     #endregion
 
     #region mons add delete read

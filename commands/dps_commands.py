@@ -29,7 +29,10 @@ async def dpsCommands(userInput, author):
                 response = 'I don\'t know wtf you\'re trying to input!'
         else:
             response = 'Just use `$dps check` if you\'re only gonna check one mon!'
-            
+
+    elif userInput.startswith('super-max '):
+        response = await addSuperMax(userInput[10:])
+    
     elif userInput.startswith('add-note '):
         response = await addDPSNote(userInput[9:])
     

@@ -20,7 +20,7 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getTypesFromPokeAPI, getTypeColour, 
                                         getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, checkDuplicatePoGoMon, pogoRound, addPaginatedEmbedFields,
                                         getMonFromName, getPokeApiJsonData, calcPoGoStatsFromBaseStats,
-                                        loadShucklePersonality, rollForShiny, pokemon, pogoPokemon)
+                                        loadShucklePersonality, rollForShiny, getMon, pokemon, pogoPokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather
 
@@ -29,6 +29,8 @@ openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), Fa
 dpsNotes = loadDataVariableFromFile(dpsFileLocations.get('Notes'), False)
 
 moves = loadDataVariableFromFile(dpsFileLocations.get('Moves'))
+
+superMaxMegas = loadDataVariableFromFile(dpsFileLocations.get('SuperMax'))
 
 userModifiers = loadDataVariableFromFile(dpsFileLocations.get('UserModifiers'))
 
@@ -65,6 +67,7 @@ async def dpsHelp():
                                         f'```{commandText} modifiers``` Lists out the available DPS modifers\n' +
                                         f'```{commandText} set-modifiers``` Allows you to set default modifiers that will be used for every raid dps check\n' +
                                         f'```{commandText} reset-modifiers``` Resets your custom modifiers back to default\n\n' +
+                                        f'```{commandText} super-max Dragonite Mega``` Adds a mega mon to the super max list\n\n' +
                                         f'```{commandText} add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
                                         f'```{commandText} delete-notes``` Deletes all saved notes.\n' +
                                         f'```{commandText} check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n\n' +
@@ -410,6 +413,23 @@ async def dpsListMoves():
         embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
     
     return embeds
+
+async def addSuperMax(monName):
+    monName = checkForNickname(monName)
+    
+    if not checkDuplicatePoGoMon(monName):
+        return 'That pokemon is not registered!'
+
+    if '-mega' not in monName and '-primal' not in monName:
+        return 'That pokemon isn\'t a mega!'
+    
+    mon = [obj for obj in pogoPokemon if obj['Name'] == monName][0]
+
+    superMaxMegas.append(mon['ImageDexNum'])
+
+    await saveDataVariableToFile(dpsFileLocations.get('SuperMax'), superMaxMegas)
+
+    return f'{formatTextForDisplay(monName)} registered as a super max mega!'
 #endregion
 
 #region dps calculations
@@ -448,14 +468,22 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     monTypes = await getTypesFromPokeAPI(mon['ImageDexNum'])
     bossTypes = await getTypesFromPokeAPI(modifiers['Boss']['DexNum'])
 
-    monAttack, monDefence, monStamina, monCP = getCalculatedStats(mon, modifiers)
+    moveset = copy.deepcopy(mon['Moves'])
 
+    if '-mega' in monName or '-primal' in monName:
+        if not modifiers['LevelSet'] and mon['ImageDexNum'] in superMaxMegas:
+            modifiers['Level'] = min(55.0, modifiers['Level'] + 2.0)
+        
+        preMegaName = getMon(getMon(mon['ImageDexNum'])['Evolves-From'])['Name']
+        if checkDuplicatePoGoMon(preMegaName):
+            moveset.extend([obj for obj in pogoPokemon if obj['Name'] == preMegaName][0]['Moves'])
+    
     fastMoves = []
     chargedMoves = []
     fastMovesText = ''
     chargedMovesText = ''
 
-    for move in mon['Moves']:
+    for move in moveset:
         if move['Type'] == 'Fast':
             fastMoves.append([obj for obj in moves if obj['Name'] == move['Name']][0])
             fastMovesText += f'{formatTextForDisplay(move["Name"])}, '
@@ -478,6 +506,8 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     moveEpsOutput = ''
     moveTtdOutput = ''
     dpsResults = []
+
+    monAttack, monDefence, monStamina, monCP = getCalculatedStats(mon, modifiers)
 
     embed = discord.Embed(title=getEmbedTitle(mon, modifiers, battleSystem),
                           description=f'{monCP} CP\nAttack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["Ivs"]["Attack"]}/{modifiers["Ivs"]["Defence"]}/{modifiers["Ivs"]["Stamina"]}',
@@ -842,6 +872,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 if 1.0 > val or val > 55.0:
                     raise Exception
                 modifiers['Level'] = float(input)
+                modifiers['LevelSet'] = True
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid level! Keep it between 1 and 51!\n'
         elif '/' in input and not input.startswith('cycle'):
