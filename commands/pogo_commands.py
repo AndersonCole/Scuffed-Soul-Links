@@ -71,12 +71,22 @@ async def pogoMiscCommands(userInput, author, guild):
             splitInput = re.split(r'[,]+', userInput[8:])
             if len(splitInput) == 2:
                 response = await checkTrackedMon(splitInput[0], splitInput[1].strip(), guild)
+            else:
+                response = 'Theres a new more verbose command for showing multiple tracked mons!\nTry using `$pogo tracked-list`'
+        else:
+            response = await checkTrackedMon(userInput[8:], author.mention, guild)
+
+    elif userInput.startswith('tracked-list '):
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[13:])
+            if len(splitInput) == 2:
+                response = await checkTrackedListMons(splitInput[0], splitInput[1], author.mention, guild)
             elif len(splitInput) == 3:
-                response = await checkRegionMons(splitInput[0], splitInput[1], splitInput[2].strip(), guild)
+                response = await checkTrackedListMons(splitInput[0], splitInput[1], splitInput[2].strip(), guild)
             else:
                 response = 'I don\'t know wtf you\'re trying to input!'
         else:
-            response = await checkTrackedMon(userInput[8:], author.mention, guild)
+            response = 'Invalid input! Use commas \',\' in between values!'
     #endregion
 
     #region mons add delete read

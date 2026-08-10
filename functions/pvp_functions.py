@@ -10,9 +10,9 @@ import regex as re
 import math
 from diskcache import Cache
 from dictionaries.pvp_dictionaries import pvpFileLocations, defaultPvpModifiers, scannerSystems
-from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours, pogoCPMultipliers
+from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours, pogoLevels
 from functions.shared_functions import (
-    rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, getMon, formatTextForBackend,
+    rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, getMon, formatTextForBackend, checkClassification,
     getTypesFromPokeAPI, getTypeColour, getMonName, getPokeAPISpriteUrl, loadDataVariableFromFile, saveDataVariableToFile, addPaginatedEmbedFields, formatTextForDisplay, pogoPokemon
 )
 
@@ -49,6 +49,7 @@ def pvpModifiers():
                                         f'```$pvp check Medicham, Max51``` MaxLevel: Sets the max level for rank calculations\n' +
                                         f'```$pvp check Medicham, Floor10``` Floor: Sets the iv floor\n' +
                                         f'```$pvp check Medicham Mega, PreMega``` PreMega: Shows the CP of the mon before mega evolving\n' +
+                                        f'```$pvp check Medicham Mega, PreSuperMega``` PreSuperMega: Shows the CP of the mon before super mega evolving\n' +
                                         f'```$pvp check Medicham, SortAttack``` SortAttack: Sorts results by highest attack\n' +
                                         f'```$pvp check Medicham, SortDefence``` SortDefence: Sorts results by highest defence\n\n' +
                                         f'Everything should be case insensitive.\n',
@@ -111,33 +112,18 @@ def determineLeague(extraInput):
         leagueLimit = 1500
         league = 'gl'
 
-    elif extraInput == 'll':
+    elif extraInput in {'ll', 'little', '500', 500}:
         leagueLimit = 500
         league = 'll'
-    elif extraInput == 'little':
-        leagueLimit = 500
-        league = 'll'
-    elif extraInput == 500:
-        leagueLimit = 500
-        league = 'll'
-    elif extraInput == 'gl':
+    elif extraInput in {'gl', 'great', '1500', 1500}:
         leagueLimit = 1500
         league = 'gl'
-    elif extraInput == 'great':
-        leagueLimit = 1500
-        league = 'gl'
-    elif extraInput == 1500:
-        leagueLimit = 1500
-        league = 'gl'
-    elif extraInput == 'ul':
+    elif extraInput in {'ul', 'ultra', '2500', 2500}:
         leagueLimit = 2500
         league = 'ul'
-    elif extraInput == 'ultra':
-        leagueLimit = 2500
-        league = 'ul'
-    elif extraInput == 2500:
-        leagueLimit = 2500
-        league = 'ul'
+    elif extraInput in {'ml', 'master', '9999', 9999}:
+        leagueLimit = 9999
+        league = 'ml'
 
     else:
         leagueLimit = None
@@ -145,14 +131,14 @@ def determineLeague(extraInput):
 
     return leagueLimit, league
 
-async def showPreMegaCP(dexNum, rank, show):
+async def showPreMegaCP(dexNum, rank, superMega, show):
     try:
         if not show:
             raise Exception
 
         mon = getMon(dexNum)
 
-        if '-mega' not in mon['Name']:
+        if not checkClassification(dexNum, 'Mega'):
             raise Exception
 
         pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['ImageDexNum'] == mon['Evolves-From']), None)
@@ -173,8 +159,11 @@ async def showPreMegaCP(dexNum, rank, show):
             baseAttack = pogoMon['Attack']
             baseDefence = pogoMon['Defence']
             baseStamina = pogoMon['Stamina']
-        
-        cpMultiplier = getPoGoCPMultiplier(rank['Level'])
+
+        if superMega:
+            cpMultiplier = getPoGoCPMultiplier(rank['Level'] - 2.0)
+        else:
+            cpMultiplier = getPoGoCPMultiplier(rank['Level'])
         attackStat = calcPoGoStat(baseAttack, rank['Ivs']['Attack'], cpMultiplier)
         defenceStat = calcPoGoStat(baseDefence, rank['Ivs']['Defence'], cpMultiplier)
 
@@ -219,7 +208,7 @@ async def pvpRankCheck(monName, extraInputs=None):
     fieldContent = ['', '', '']
 
     for i, rank in enumerate(rankList, start=1):
-        preMegaCp = await showPreMegaCP(dexNum, rank, modifiers["ShowPreMegaCP"])
+        preMegaCp = await showPreMegaCP(dexNum, rank, modifiers["EvoToSuperMega"], modifiers["ShowPreMegaCP"])
         fieldContent[0] += f'R{rank["Rank"]} Lv{rank["Level"]:g}\n'
         fieldContent[1] += f'{rank["CP"]}{preMegaCp} CP | {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}\n'
         fieldContent[2] += f'{pogoRound(rank["Stats"]["Attack"], 2)} / {pogoRound(rank["Stats"]["Defence"], 2)} / {rank["Stats"]["Stamina"]}\n'
@@ -341,7 +330,7 @@ async def getPvpRankList(dexNum, modifiers):
     return rankList, modifiers
 
 async def calcPvpRanks(baseAttack, baseDefence, baseStamina, leagueLimit, ivFloor, minLvl, maxLvl):
-    initialLevelRange = [level for level in sorted(pogoCPMultipliers.keys()) if minLvl <= level <= maxLvl]
+    initialLevelRange = [level for level in sorted(pogoLevels.keys()) if minLvl <= level <= maxLvl]
 
     rankList = []
     currentMaxLvl = maxLvl
@@ -447,6 +436,10 @@ def determinePvpModifierValues(extraInputs, modifiers):
                 errorText += f'\'{input}\' wasn\'t understood as a valid floor iv! Keep it between 0-15!\n'
         elif input == 'premega':
             modifiers['ShowPreMegaCP'] = True
+            modifiers['EvoToSuperMega'] = False
+        elif input == 'presupermega':
+            modifiers['ShowPreMegaCP'] = True
+            modifiers['EvoToSuperMega'] = True
         elif input == 'll':
             modifiers['LeagueLimit'] = 500
         elif input == 'little':
@@ -533,11 +526,13 @@ def determineScannerModifierValues(extraInputs):
 
     return modifiers, errorText
 
-def getTrackedMonName(dexNum, baseEvo):
-    if baseEvo:
+def getTrackedMonName(dexNum, trackBaseEvo):
+    if trackBaseEvo:
         basePokemon = getMon(dexNum)
-                        
+        
         while basePokemon['Evolves-From'] is not None:
+            if checkClassification(basePokemon['Evolves-From'], 'Baby'):
+                break
             basePokemon = getMon(basePokemon['Evolves-From'])
 
         dexNum = basePokemon['DexNum']
@@ -566,6 +561,11 @@ async def getTrackingString(monName, author, extraInputs=None):
     if dexNum == -1:
         return f'The pokemon \'{monName}\' was not recognized!'
 
+    if checkClassification(dexNum, 'Mega'):
+        superMegaDiff = 2
+    else:
+        superMegaDiff = 0
+
     if len([obj for obj in scanners if obj['User'] == author]) == 0:
         return f'I don\'t know what system to track for!'
 
@@ -577,7 +577,7 @@ async def getTrackingString(monName, author, extraInputs=None):
     rank = rankList[0]
 
     trackingString = f'{scannerPrefixes["Start"]}{separator}{getTrackedMonName(dexNum, scannerSystems[userScanner["Scanner"]]["TrackBaseEvo"])}{separator}'
-    trackingString += f'{scannerPrefixes["MinLevel"]}{getMinScannerLevel(rank["Level"], userScanner["LevelRange"])}{separator}{scannerPrefixes["MaxLevel"]}{math.floor(rank["Level"])}{separator}'
+    trackingString += f'{scannerPrefixes["MinLevel"]}{getMinScannerLevel(rank["Level"], userScanner["LevelRange"])}{separator}{scannerPrefixes["MaxLevel"]}{math.floor(rank["Level"]) - superMegaDiff}{separator}'
     if rank['Ivs']['Attack'] == 15 and rank['Ivs']['Defence'] == 15 and rank['Ivs']['Stamina'] == 15:
         trackingString += f'{scannerPrefixes["Percentage"]}100{separator}'
     else:

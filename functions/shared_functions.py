@@ -9,7 +9,7 @@ from datetime import datetime
 import math
 import discord
 import copy
-from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, regions, types, pogoCPMultipliers, sharedEmbedColours
+from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, pokemonClassifications, types, pogoLevels, sharedEmbedColours
 
 pokeApiCache = Cache('./cache/poke_api')
 
@@ -198,39 +198,6 @@ def verifyMoveType(moveType):
         return True
     return False
 
-def verifyRegion(region):
-    if len([obj for obj in regions if obj['Name'] == formatTextForBackend(region)]) == 1:
-        return True
-    return False
-
-def getRegions():
-    for region in regions:
-        tempDexNums = []
-        for num in region['DexNums']:
-            if isinstance(num, tuple):
-                for dexNum in range(num[0], num[1]+1):
-                    tempDexNums.append(dexNum)
-            else:
-                tempDexNums.append(num)
-
-        region['DexNums'] = copy.deepcopy(tempDexNums)
-
-    return regions
-
-def getRegionFromDexNum(dexNum):
-    return regionLookup.get(dexNum, None)
-
-def buildRegionLookupTable():
-    global regionLookup
-
-    regionLookup = {}
-    for region in getRegions():
-        regionName = region['Name']
-        for dexNum in region['DexNums']:
-            regionLookup[dexNum] = regionName
-
-buildRegionLookupTable()
-
 #region nicknames and searching pokemon file
 def checkForNickname(monName):
     monName = formatTextForBackend(monName)
@@ -277,6 +244,90 @@ def buildNicknameLookupTable():
 buildNicknameLookupTable()
 #endregion
 
+#region pokemon classifications
+def verifyRegion(region):
+    if len([obj for obj in pokemonClassifications['Regions'] if obj['Name'] == formatTextForBackend(region)]) == 1:
+        return True
+    return False
+
+def getRegionFromDexNum(dexNum):
+    return regionLookup.get(dexNum, None)
+
+def verifyClassification(classification):
+    if classification in pokemonClassifications.keys():
+        return True
+    return False
+
+def checkClassification(dexNum, classification):
+    if dexNum in pokemonClassifications.get(classification, None):
+        return True
+    return False
+
+def getRegions():
+    for region in pokemonClassifications.get('Regions'):
+        region['DexNums'] = unpackClassificationList(region['DexNums'])
+
+    return pokemonClassifications.get('Regions')
+
+def buildRegionLookupTable():
+    global regionLookup
+
+    regionLookup = {}
+    for region in getRegions():
+        regionName = region['Name']
+        for dexNum in region['DexNums']:
+            regionLookup[dexNum] = regionName
+
+def unpackClassificationList(dexNumList):
+    unpackedDexNums = []
+
+    for dexNum in dexNumList:
+        if isinstance(dexNum, tuple):
+            for num in range(dexNum[0], dexNum[1]+1):
+                unpackedDexNums.append(num)
+        else:
+            unpackedDexNums.append(dexNum)
+
+    return unpackedDexNums
+
+def buildHasSpecialEvoList(classification):
+    preEvoMons = pokemonClassifications.get(classification)
+    
+    for dexNum in pokemonClassifications.get(classification.lstrip('Has')):
+        basePokemon = getMon(dexNum)
+        while basePokemon['Evolves-From'] is not None:
+            basePokemon = getMon(basePokemon['Evolves-From'])
+            preEvoMons.append(basePokemon['DexNum'])
+
+    return preEvoMons
+
+def printoutClassifications():
+    for classification, dexNums in pokemonClassifications.items():
+        if classification == 'Regions':
+            continue
+        else:
+            temp = []
+            for num in dexNums:
+                mon = getMon(num)
+                if mon is None:
+                    print(num)
+                temp.append(formatTextForDisplay(mon['Name']))
+            print(f'{classification}: {temp}, {len(temp)}')
+
+def unpackPokemonClassifications():
+    for classification, dexNums in pokemonClassifications.items():
+        if classification == 'Regions':
+            buildRegionLookupTable()
+        elif classification.startswith('Has'):
+            pokemonClassifications[classification] = set(buildHasSpecialEvoList(classification))
+        else:
+            pokemonClassifications[classification] = set(unpackClassificationList(dexNums))
+
+    #printoutClassifications()
+
+unpackPokemonClassifications()
+#endregion
+
 #region PoGo stats
 def pogoRound(num, decimalPlaces=0):
     if decimalPlaces > 0:
@@ -290,7 +341,7 @@ def calcPoGoStat(baseStat, iv, cpMultiplier):
     return calculatedStat
 
 def getPoGoCPMultiplier(level):
-    return pogoCPMultipliers.get(level, 0)
+    return pogoLevels.get(level, {}).get('CPM', 0)
 
 def calcPoGoCP(attack, defence, stamina):
     cp = max(10, math.floor((attack*(defence**0.5)*(stamina**0.5))/10))

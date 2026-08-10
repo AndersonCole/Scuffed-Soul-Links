@@ -14,8 +14,8 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
                                         getDexNum, formatTextForDisplay, getMon, getMonName,
                                         getTypeEmoji, getTypeColour, addPaginatedEmbedFields,
-                                        loadShucklePersonality, rollForShiny, pokemon)
-from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types, categories
+                                        loadShucklePersonality, rollForShiny, checkClassification)
+from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
 from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
@@ -1059,7 +1059,7 @@ async def pastePokemonOntoBackground(backgroundImage, pokemonToPaste, arrowType,
 async def createEvoChainImage(dexNum, type):
     basePokemon = getMon(dexNum)
 
-    if '-mega' not in basePokemon['Name']:
+    if not checkClassification(dexNum, 'Mega') and not checkClassification(dexNum, 'Gigantamax'):
         while basePokemon['Evolves-From'] is not None:
             basePokemon = getMon(basePokemon['Evolves-From'])
     

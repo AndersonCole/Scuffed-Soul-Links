@@ -25,6 +25,7 @@ defaultPvpModifiers = {
     },
     'Compare': False,
     'ShowPreMegaCP': False,
+    'EvoToSuperMega': False,
 
     'ResultSortOrder': 'ByStatProduct'
 }

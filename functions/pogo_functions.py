@@ -19,7 +19,7 @@ from functions.shared_functions import (
     formatTextForDisplay, getMonFromName, getRegionFromDexNum,
     getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, verifyRegion, getMon, addPaginatedEmbedFields,
     rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats,
-    loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, pogoPokemon
+    loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, pogoPokemon
 )
 
 trackedMons = loadDataVariableFromFile(pogoFileLocations.get('TrackedMons'))
@@ -39,7 +39,9 @@ async def pogoHelp():
                                         '```$pogo track bulbasaur, xxs, xxl``` Adds a mon to your tracking list\nAllowed options are `all` `hundo` `lucky` `xxs` `xxl` `gl` `ul`\n' +
                                         '```$pogo untrack bulbasaur, all``` Removes a mon from your tracking list. Uses the same allowed options\n' +
                                         '```$pogo tracked bulbasaur, John Alola``` Shows what a user has tracked for a specific pokemon\n' +
-                                        '```$pogo tracked alola, all, John Alola``` Shows what a user has tracked for a whole region\nAllowed options are `all` `hundo` `lucky` `size` `pvp`\n\n' +
+                                        '```$pogo tracked-list region/class, filter, John Alola``` Shows what a user has tracked for either a region or a class of pokemon\n' + 
+                                        'Allowed region/class options are every region name `all` `regional` `rare` `starters` `baby` `legendary` `mythical` `ultra-beast` `paradox` `mega` `hasMega` `gmax` `hasGmax`\n' +
+                                        'Allowed filter options are `all` `hundo` `lucky` `size` `pvp`\n\n' +
                                         '```$pogo events help``` Shows all event searches\n\n' +
                                         '```$pogo odds Shuckle``` Shows the odds of getting something\n' +
                                         '```$pogo odds modifiers``` Lists out all the available odds modifers',
@@ -575,6 +577,11 @@ def getTrackedEmojis(tracked):
 
 
 async def checkTrackedMon(monName, user, guild):
+    mon = getMonFromName(monName)
+        
+    if mon is None:
+        return f'\'{monName}\' was not recognized as a valid pokemon!'
+    
     author = getAuthorFromNickname(user)
 
     if author is None:
@@ -590,11 +597,6 @@ async def checkTrackedMon(monName, user, guild):
     
     if len([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']) == 0:
         return 'This user doesn\'t have anything tracked!'
-
-    mon = getMonFromName(monName)
-
-    if mon is None:
-        return f'\'{monName}\' was not recognized as a valid pokemon!'
 
     userTracked = [obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']
 
@@ -641,7 +643,7 @@ async def checkTrackedMon(monName, user, guild):
 
     return embed
 
-async def checkRegionMons(region, filter, user, guild):
+async def checkTrackedListMons(classification, filter, user, guild):
     author = getAuthorFromNickname(user)
 
     if author is None:
@@ -650,47 +652,61 @@ async def checkRegionMons(region, filter, user, guild):
     discordUser = guild.get_member(int(author[2:-1]))
 
     if discordUser is None:
-            return 'That user is not in your current server!'
+        return 'That user is not in your current server!'
     
     if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
         return 'This user doesn\'t have anything tracked!'
     
     if len([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']) == 0:
         return 'This user doesn\'t have anything tracked!'
-    
-    if not verifyRegion(region) and formatTextForBackend(region.strip()) != 'all':
-        return f'\'{region}\' was not recognized as a valid region!'
-    
-    toDisplay, pageCount = determineDisplay(filter.strip().lower())
+
+    filter = formatTextForBackend(filter)
+    classification = formatTextForBackend(classification)
+
+    toDisplay, pageCount = determineDisplay(filter)
     if len(toDisplay) == 0:
         return f'{filter} was not not recognized as a valid search term!\nCheck `$pogo help` for valid terms!'
-    
+
     userTracked = sorted([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon'], key=lambda x: x['DexNum'])
 
-    regionList = []
+    trackedList = []
 
-    for tracked in userTracked:
-        if region == getRegionFromDexNum(tracked['DexNum']) or formatTextForBackend(region.strip()) == 'all':
-            trackedToDisplay = set(tracked['Tracked']) & set(toDisplay)
-            if trackedToDisplay:
-                regionList.append({
-                    'DexNum': tracked['DexNum'],
-                    'Tracked': list(trackedToDisplay)
-                })
+    if verifyRegion(classification):
+        for tracked in userTracked:
+            if classification == getRegionFromDexNum(tracked['DexNum']):
+                trackedToDisplay = set(tracked['Tracked']) & set(toDisplay)
+                if trackedToDisplay:
+                    trackedList.append({
+                        'DexNum': tracked['DexNum'],
+                        'Tracked': list(trackedToDisplay)
+                    })
+    else:
+        monClassification = determineClassification(classification)
+        if monClassification is None:
+            return f'{classification} was not understood as a valid class of pokemon!\nCheck `$pogo help` for valid classes!'
+        
+        for tracked in userTracked:
+            if monClassification == 'All' or checkClassification(tracked['DexNum'], monClassification):
+                trackedToDisplay = set(tracked['Tracked']) & set(toDisplay)
+                if trackedToDisplay:
+                    trackedList.append({
+                        'DexNum': tracked['DexNum'],
+                        'Tracked': list(trackedToDisplay)
+                    })
 
-    if len(regionList) == 0:
-        return f'{formatTextForDisplay(discordUser.name)} does not need anything {formatTextForDisplay(filter.strip())} from {formatTextForDisplay(region)}!'
+    if len(trackedList) == 0:
+        return f'{formatTextForDisplay(discordUser.name)} does not need anything {formatTextForDisplay(filter)} from {formatTextForDisplay(classification)}!'
 
     embeds = []
 
-    embed = discord.Embed(title=f'{formatTextForDisplay(region)} {formatTextForDisplay(filter.strip())} Pokemon tracked by {formatTextForDisplay(discordUser.name)}',
+    embed = discord.Embed(title=f'{formatTextForDisplay(classification)}, {formatTextForDisplay(filter)} Pokemon tracked by {formatTextForDisplay(discordUser.name)}',
                             description='',
                             color=sharedEmbedColours.get('Default'))
     
     fieldTitles = ['Mon', 'Tracked']
     fieldContent = ['', '']
 
-    for i, mon in enumerate(regionList, start=1):
+    for i, mon in enumerate(trackedList, start=1):
         fieldContent[0] += f'{formatTextForDisplay(getMon(mon["DexNum"])["Name"])}\n'
         fieldContent[1] += f'{getTrackedEmojis(mon["Tracked"])}\n'
         
@@ -702,7 +718,6 @@ async def checkRegionMons(region, filter, user, guild):
         embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
     
     return embeds
-
 
 def determineDisplay(filter):
     if filter == 'all':
@@ -721,6 +736,36 @@ def determineDisplay(filter):
         return ['gl', 'ul'], 15
     
     return [], 0
+
+def determineClassification(classification):
+    if classification == 'all':
+        return 'All'
+    elif classification in {'region', 'regional'}:
+        return 'PoGoRegional'
+    elif classification in {'rare'}:
+        return 'PoGoRare'
+    elif classification in {'starter', 'starters', 'firstpartner', 'first-partner'}:
+        return 'Starters'
+    elif classification in {'baby', 'babies', 'eggs'}:
+        return 'Baby'
+    elif classification in {'legendary', 'legends', 'legend', 'raid', 'raids'}:
+        return 'Legendary'
+    elif classification in {'mythical', 'mythicals', 'myth'}:
+        return 'Mythical'
+    elif classification in {'ultrabeast', 'ultrabeasts', 'ultra-beast', 'ultra-beasts', 'ub', 'ubs'}:
+        return 'UltraBeast'
+    elif classification in {'paradox', 'paradoxes', 'past', 'future'}:
+        return 'Paradox'
+    elif classification in {'mega', 'megas', 'ismega', 'is-mega', 'megaevo', 'megaevos', 'mega-evo', 'mega-evos', 'mega-evolution', 'mega-evolutions'}:
+        return 'Mega'
+    elif classification in {'hasmega', 'has-mega', 'megapreevo', 'mega-pre-evo'}:
+        return 'HasMega'
+    elif classification in {'gigantamax', 'gmax', 'g-max'}:
+        return 'Gigantamax'
+    elif classification in {'hasgmax', 'has-gmax', 'gmaxpreevo', 'gmax-pre-evo'}:
+        return 'HasGigantamax'
+
+    return None
 #endregion
 
 #region go stat convert

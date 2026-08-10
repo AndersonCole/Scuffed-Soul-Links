@@ -20,7 +20,7 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getTypesFromPokeAPI, getTypeColour, 
                                         getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, checkDuplicatePoGoMon, pogoRound, addPaginatedEmbedFields,
                                         getMonFromName, getPokeApiJsonData, calcPoGoStatsFromBaseStats,
-                                        loadShucklePersonality, rollForShiny, getMon, pokemon, pogoPokemon)
+                                        loadShucklePersonality, rollForShiny, getMon, checkClassification, pokemon, pogoPokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather
 
@@ -420,10 +420,10 @@ async def addSuperMax(monName):
     if not checkDuplicatePoGoMon(monName):
         return 'That pokemon is not registered!'
 
-    if '-mega' not in monName and '-primal' not in monName:
-        return 'That pokemon isn\'t a mega!'
-    
     mon = [obj for obj in pogoPokemon if obj['Name'] == monName][0]
+
+    if not checkClassification(mon['ImageDexNum'], 'Mega'):
+        return 'That pokemon isn\'t a mega!'
 
     superMaxMegas.append(mon['ImageDexNum'])
 
@@ -470,7 +470,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
 
     moveset = copy.deepcopy(mon['Moves'])
 
-    if '-mega' in monName or '-primal' in monName:
+    if checkClassification(mon['ImageDexNum'], 'Mega'):
         if not modifiers['LevelSet'] and mon['ImageDexNum'] in superMaxMegas:
             modifiers['Level'] = min(55.0, modifiers['Level'] + 2.0)
         
