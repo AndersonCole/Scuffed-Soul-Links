@@ -1325,7 +1325,7 @@ def machineSortKey(move):
 
 async def getMoves(moves, versionGroup):
     if len(moves) == 0:
-        return [], [], versionGroup
+        return {'Level': [], 'Machine': [], 'Tutor': [], 'Egg': []}, versionGroup
 
     if versionGroup == '':
         availableVersions = set()
@@ -1353,7 +1353,8 @@ async def getMoves(moves, versionGroup):
     tutorMoveset = [obj for obj in moveset if obj['Method'] == 'tutor']
     eggMoveset = [obj for obj in moveset if obj['Method'] == 'egg']
 
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         levelUpTasks = [getPokeApiJsonData(move['URL'], session=session) for move in levelUpMoveset]
         levelUpMoveData = await asyncio.gather(*levelUpTasks)
 

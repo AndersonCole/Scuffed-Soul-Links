@@ -36,12 +36,12 @@ async def pogoHelp():
                                         '```$pogo stats Kartana, noNerf``` Calculates what it would be like without any stat nerfs\n`noNerf`, `3Nerf` and `9Nerf` are the allowed nerf exceptions\n'
                                         '```$pogo stats 59, 181, 131, 59, 31, 109``` Calculates stats for Go based on the entered HP, Atk, Def, SpAtk, SpDef and Spd stats\nNerf exceptions can be applied here too\n\n'
                                         '```$pogo user-nickname John Alola, @Logan``` Adds a user nickname to be used when tracking\n' +
-                                        '```$pogo track bulbasaur, xxs, xxl``` Adds a mon to your tracking list\nAllowed options are `all` `hundo` `lucky` `xxs` `xxl` `gl` `ul`\n' +
+                                        '```$pogo track bulbasaur, xxs, xxl``` Adds a mon to your tracking list\nAllowed options are `all` `hundo` `lucky` `shiny` `gl` `ul` `shadow` `purified` `xxs` `xxl`\n' +
                                         '```$pogo untrack bulbasaur, all``` Removes a mon from your tracking list. Uses the same allowed options\n' +
                                         '```$pogo tracked bulbasaur, John Alola``` Shows what a user has tracked for a specific pokemon\n' +
                                         '```$pogo tracked-list region/class, filter, John Alola``` Shows what a user has tracked for either a region or a class of pokemon\n' + 
                                         'Allowed region/class options are every region name `all` `regional` `rare` `starters` `baby` `legendary` `mythical` `ultra-beast` `paradox` `mega` `hasMega` `gmax` `hasGmax`\n' +
-                                        'Allowed filter options are `all` `hundo` `lucky` `size` `pvp`\n\n' +
+                                        'Allowed filter options are `all` `hundo` `lucky` `shiny` `pvp` `rocket` `size`\n\n' +
                                         '```$pogo events help``` Shows all event searches\n\n' +
                                         '```$pogo odds Shuckle``` Shows the odds of getting something\n' +
                                         '```$pogo odds modifiers``` Lists out all the available odds modifers',
@@ -211,7 +211,8 @@ def oddsModifiers():
                                         '```$pogo odds Shuckle, Floor10``` Floor: Sets the iv floor of the encounter\n\n' +
                                         '```$pogo odds Shuckle, Shiny20``` Shiny: Sets the odds of getting a shiny\n' +
                                         '```$pogo odds Shuckle, Background10``` Background: Sets the odds of getting a background\n' +
-                                        '```$pogo odds Shuckle, Extra10``` Extra: Sets the odds of getting something extra, like a special move\n\n' +
+                                        '```$pogo odds Shuckle, Extra10``` Extra: Sets the odds of getting something extra, like a special move\n' +
+                                        '```$pogo odds Shuckle, BottleCap``` BottleCap: Finds the odds of getting something silver cappable\n\n' +
                                         'Everything should be case insensitive.\nThe denominator of the odds fraction should be entered for shiny, background and extra chances',
                             color=sharedEmbedColours.get('Default'))
 
@@ -482,42 +483,35 @@ def determineTracking(extraInputs):
     toTrack = []
 
     for input in extraInputs:
-        if input == 'gl':
-            toTrack.append('gl')
-        elif input == 'great':
-            toTrack.append('gl')
+        if input == 'all':
+            toTrack = ['hundo', 'lucky', 'shiny', 'gl', 'ul', 'shadow', 'purified', 'xxs', 'xxl']
 
-        elif input == 'ul':
-            toTrack.append('ul')
-        elif input == 'ultra':
-            toTrack.append('ul')
-        
-        elif input == 'xxs':
-            toTrack.append('xxs')
-        elif input == 'small':
-            toTrack.append('xxs')
-        elif input == 'smol':
-            toTrack.append('xxs')
-
-        elif input == 'xxl':
-            toTrack.append('xxl')
-        elif input == 'large':
-            toTrack.append('xxl')
-        elif input == 'beeg':
-            toTrack.append('xxl')
-
-        elif input == '100':
-            toTrack.append('hundo')
-        elif input == 'hundo':
-            toTrack.append('hundo')
-        elif input == '4*':
+        elif input in {'100', 'hundo', '4*'}:
             toTrack.append('hundo')
 
-        elif input == 'lucky':
+        elif input in {'lucky'}:
             toTrack.append('lucky')
 
-        elif input == 'all':
-            toTrack = ['gl', 'ul', 'xxs', 'xxl', 'hundo', 'lucky']
+        elif input in {'shiny'}:
+            toTrack.append('shiny')
+
+        elif input in {'gl', 'great'}:
+            toTrack.append('gl')
+
+        elif input in {'ul', 'ultra'}:
+            toTrack.append('ul')
+
+        elif input in {'shadow', 'rocket'}:
+            toTrack.append('shadow')
+
+        elif input in {'puri', 'purified'}:
+            toTrack.append('purified')
+
+        elif input in {'xxs', 'small', 'smol'}:
+            toTrack.append('xxs')
+
+        elif input in {'xxl', 'large', 'beeg'}:
+            toTrack.append('xxl')
 
         else:
             errorText += f'The input \'{input}\' wasn\'t recognized!\n'
@@ -555,23 +549,59 @@ def trackedSortKey(tracked):
         return 0
     elif tracked == 'lucky':
         return 1
-    elif tracked == 'xxs':
+    elif tracked == 'shiny':
         return 2
-    elif tracked == 'xxl':
-        return 3
     elif tracked == 'gl':
-        return 4
+        return 3
     elif tracked == 'ul':
+        return 4
+    elif tracked == 'shadow':
         return 5
-    return 6
+    elif tracked == 'purified':
+        return 6
+    elif tracked == 'xxs':
+        return 7
+    elif tracked == 'xxl':
+        return 8
+    return 0
 
-def getTrackedEmojis(tracked):
+def getTrackedEmojis(tracked, isList):
     tracked.sort(key=trackedSortKey)
 
-    emojiText = ''
+    if len(tracked) == 9 and isList:
+        return f'{trackedEmojis.get("all")}'
 
-    for want in tracked:
-        emojiText += f'{trackedEmojis.get(want)} '
+    emojiText = ''
+    skipNext = False
+
+    for i, want in enumerate(tracked):
+        if skipNext:
+            skipNext = False
+            continue
+
+        try:
+            if want == 'gl':
+                if tracked[i+1] == 'ul':
+                    emojiText += f'{trackedEmojis.get("gl_ul")} '
+                    skipNext = True
+                else:
+                    raise Exception
+            elif want == 'shadow':
+                if tracked[i+1] == 'purified':
+                    emojiText += f'{trackedEmojis.get("shadow_purified")} '
+                    skipNext = True
+                else:
+                    raise Exception
+            elif want == 'xxs':
+                if tracked[i+1] == 'xxl':
+                    emojiText += f'{trackedEmojis.get("xxs_xxl")} '
+                    skipNext = True
+                else:
+                    raise Exception
+            else:
+                raise Exception
+        except:
+            emojiText += f'{trackedEmojis.get(want)} '
 
     return emojiText
 
@@ -628,7 +658,7 @@ async def checkTrackedMon(monName, user, guild):
                                       f'Stamina: {pogoMon["Stamina"]}',
                           color=getTypeColour(monTypes[0]))
     
-    embed.add_field(name=getTrackedEmojis(userTrackedMon['Tracked']),
+    embed.add_field(name=getTrackedEmojis(userTrackedMon['Tracked'], False),
                     value='',
                     inline=False)
     
@@ -681,12 +711,12 @@ async def checkTrackedListMons(classification, filter, user, guild):
                         'Tracked': list(trackedToDisplay)
                     })
     else:
-        monClassification = determineClassification(classification)
+        monClassification, inverse = determineClassification(classification)
         if monClassification is None:
             return f'{classification} was not understood as a valid class of pokemon!\nCheck `$pogo help` for valid classes!'
         
         for tracked in userTracked:
-            if monClassification == 'All' or checkClassification(tracked['DexNum'], monClassification):
+            if monClassification == 'All' or inverseClassification(inverse, checkClassification(tracked['DexNum'], monClassification)):
                 trackedToDisplay = set(tracked['Tracked']) & set(toDisplay)
                 if trackedToDisplay:
                     trackedList.append({
@@ -708,10 +738,11 @@ async def checkTrackedListMons(classification, filter, user, guild):
 
     for i, mon in enumerate(trackedList, start=1):
         fieldContent[0] += f'{formatTextForDisplay(getMon(mon["DexNum"])["Name"])}\n'
-        fieldContent[1] += f'{getTrackedEmojis(mon["Tracked"])}\n'
+        fieldContent[1] += f'{getTrackedEmojis(mon["Tracked"], True)}\n'
         
         if i % pageCount == 0:
             embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
+            print(len(fieldContent[1]))
             fieldContent = ['', '']
     
     if fieldContent[0] != '':
@@ -721,51 +752,67 @@ async def checkTrackedListMons(classification, filter, user, guild):
 
 def determineDisplay(filter):
     if filter == 'all':
-        return ['hundo', 'lucky', 'xxs', 'xxl', 'gl', 'ul'], 6
+        return ['hundo', 'lucky', 'shiny', 'gl', 'ul', 'shadow', 'purified', 'xxs', 'xxl'], 6
     
     elif filter == 'hundo':
         return ['hundo'], 20
     
     elif filter == 'lucky':
         return ['lucky'], 20
-    
-    elif filter == 'size':
-        return ['xxs', 'xxl'], 15
+
+    elif filter == 'shiny':
+            return ['shiny'], 20
     
     elif filter == 'pvp':
-        return ['gl', 'ul'], 15
+        return ['gl', 'ul'], 20
+
+    elif filter == 'rocket':
+            return ['shadow', 'purified'], 20
+    
+    elif filter == 'size':
+            return ['xxs', 'xxl'], 20
     
     return [], 0
 
 def determineClassification(classification):
-    if classification == 'all':
-        return 'All'
-    elif classification in {'region', 'regional'}:
-        return 'PoGoRegional'
-    elif classification in {'rare'}:
-        return 'PoGoRare'
-    elif classification in {'starter', 'starters', 'firstpartner', 'first-partner'}:
-        return 'Starters'
-    elif classification in {'baby', 'babies', 'eggs'}:
-        return 'Baby'
-    elif classification in {'legendary', 'legends', 'legend', 'raid', 'raids'}:
-        return 'Legendary'
-    elif classification in {'mythical', 'mythicals', 'myth'}:
-        return 'Mythical'
-    elif classification in {'ultrabeast', 'ultrabeasts', 'ultra-beast', 'ultra-beasts', 'ub', 'ubs'}:
-        return 'UltraBeast'
-    elif classification in {'paradox', 'paradoxes', 'past', 'future'}:
-        return 'Paradox'
-    elif classification in {'mega', 'megas', 'ismega', 'is-mega', 'megaevo', 'megaevos', 'mega-evo', 'mega-evos', 'mega-evolution', 'mega-evolutions'}:
-        return 'Mega'
-    elif classification in {'hasmega', 'has-mega', 'megapreevo', 'mega-pre-evo'}:
-        return 'HasMega'
-    elif classification in {'gigantamax', 'gmax', 'g-max'}:
-        return 'Gigantamax'
-    elif classification in {'hasgmax', 'has-gmax', 'gmaxpreevo', 'gmax-pre-evo'}:
-        return 'HasGigantamax'
+    inverse = False
+    if classification.startswith('!'):
+        inverse = True
+        classification = classification[1:]
 
-    return None
+    if classification == 'all':
+        return 'All', False
+    elif classification in {'region', 'regional'}:
+        return 'PoGoRegional', inverse
+    elif classification in {'rare'}:
+        return 'PoGoRare', inverse
+    elif classification in {'starter', 'starters', 'firstpartner', 'first-partner'}:
+        return 'Starters', inverse
+    elif classification in {'baby', 'babies', 'eggs'}:
+        return 'Baby', inverse
+    elif classification in {'legendary', 'legends', 'legend', 'raid', 'raids'}:
+        return 'Legendary', inverse
+    elif classification in {'mythical', 'mythicals', 'myth'}:
+        return 'Mythical', inverse
+    elif classification in {'ultrabeast', 'ultrabeasts', 'ultra-beast', 'ultra-beasts', 'ub', 'ubs'}:
+        return 'UltraBeast', inverse
+    elif classification in {'paradox', 'paradoxes', 'past', 'future'}:
+        return 'Paradox', inverse
+    elif classification in {'mega', 'megas', 'ismega', 'is-mega', 'megaevo', 'megaevos', 'mega-evo', 'mega-evos', 'mega-evolution', 'mega-evolutions'}:
+        return 'Mega', inverse
+    elif classification in {'hasmega', 'has-mega', 'megapreevo', 'mega-pre-evo'}:
+        return 'HasMega', inverse
+    elif classification in {'gigantamax', 'gmax', 'g-max'}:
+        return 'Gigantamax', inverse
+    elif classification in {'hasgmax', 'has-gmax', 'gmaxpreevo', 'gmax-pre-evo'}:
+        return 'HasGigantamax', inverse
+
+    return None, inverse
+
+def inverseClassification(inverse, classificationResult):
+    if inverse:
+        return not classificationResult
+    return classificationResult
 #endregion
 
 #region go stat convert

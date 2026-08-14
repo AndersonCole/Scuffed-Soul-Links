@@ -540,13 +540,16 @@ def getTrackedMonName(dexNum, trackBaseEvo):
     return getMonName(dexNum)
 
 
-def getMinScannerLevel(maxLevel, levelRange):
+def getMinScannerLevel(maxLevel, levelRange, superMegaDiff):
+    if levelRange is None:
+        return 1
+    
     if maxLevel > 30:
         minLevel = 30-levelRange
     else:
         minLevel = math.floor(maxLevel) - levelRange
 
-    return max(1, minLevel)
+    return max(1, minLevel - superMegaDiff)
 
 async def getTrackingString(monName, author, extraInputs=None):
     modifiers = copy.deepcopy(defaultPvpModifiers)
@@ -577,7 +580,7 @@ async def getTrackingString(monName, author, extraInputs=None):
     rank = rankList[0]
 
     trackingString = f'{scannerPrefixes["Start"]}{separator}{getTrackedMonName(dexNum, scannerSystems[userScanner["Scanner"]]["TrackBaseEvo"])}{separator}'
-    trackingString += f'{scannerPrefixes["MinLevel"]}{getMinScannerLevel(rank["Level"], userScanner["LevelRange"])}{separator}{scannerPrefixes["MaxLevel"]}{math.floor(rank["Level"]) - superMegaDiff}{separator}'
+    trackingString += f'{scannerPrefixes["MinLevel"]}{getMinScannerLevel(rank["Level"], userScanner["LevelRange"], superMegaDiff)}{separator}{scannerPrefixes["MaxLevel"]}{math.floor(rank["Level"]) - superMegaDiff}{separator}'
     if rank['Ivs']['Attack'] == 15 and rank['Ivs']['Defence'] == 15 and rank['Ivs']['Stamina'] == 15:
         trackingString += f'{scannerPrefixes["Percentage"]}100{separator}'
     else:
