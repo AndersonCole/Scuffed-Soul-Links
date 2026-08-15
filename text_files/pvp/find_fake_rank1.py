@@ -19,6 +19,7 @@ defaultModifiers = {
 }
 
 async def getFakeR1(leagueLimit):
+    print(f'Starting {leagueLimit}...')
     fakers = []
 
     modifiers = copy.deepcopy(defaultModifiers)
@@ -55,10 +56,28 @@ async def getFakeR1(leagueLimit):
         ), reverse=True)
 
         if rankList[0]['StatProduct'] == rankList[1]['StatProduct'] and not (rankList[0]['Ivs']['Attack'] == 15 and rankList[0]['Ivs']['Defence'] == 15 and rankList[0]['Ivs']['Stamina'] == 15):
-            fakers.append(mon['Name'])
-            print(mon['Name'])
-        
-    with open('fake_rank_ones.txt', 'w') as file:
-        file.write(json.dumps(fakers))
+            fakers.append(mon['DexNum'])
+            print(mon['DexNum'])
 
-#asyncio.run(getFakeR1(1500))
+    print(f'Done for {leagueLimit}')
+    return fakers
+
+async def checkAllLeagues():
+    llFakes = await getFakeR1(500)
+    glFakes = await getFakeR1(1500)
+    ulFakes = await getFakeR1(2500)
+    mlFakes = await getFakeR1(9999)
+
+    pvpFakes = {'ll': llFakes, 'gl': glFakes, 'ul': ulFakes, 'ml': mlFakes}
+
+    fakesList = {}
+    for league, fakers in pvpFakes.items():
+        for dexNum in fakers:
+            fakesList.setdefault(dexNum, []).append(league)
+
+    fakeR1s = [{'DexNum': dexNum, 'Leagues': leagues} for dexNum, leagues in sorted(fakesList.items())]
+
+    with open('temp_fake_r1.txt', 'w') as file:
+        file.write(json.dumps(fakeR1s))
+
+asyncio.run(checkAllLeagues())

@@ -510,16 +510,16 @@ pogoLevels = {
     48.0:	{'PowerUp': {'Stardust': 14000, 'Candy': 0, 'CandyXL': 20}, 'CPM': 0.830299973487854},
     48.5:	{'PowerUp': {'Stardust': 14000, 'Candy': 0, 'CandyXL': 20}, 'CPM': 0.832803753381377},
     49.0:	{'PowerUp': {'Stardust': 15000, 'Candy': 0, 'CandyXL': 20}, 'CPM': 0.835300028324127},
-    49.5:	{'PowerUp': {'Stardust': 15000, 'Candy': 0, 'CandyXL': 20}, 'CPM': .837803755931569},
+    49.5:	{'PowerUp': {'Stardust': 15000, 'Candy': 0, 'CandyXL': 20}, 'CPM': 0.837803755931569},
     50.0:	{'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.840300023555755},
     50.5:	{'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.842803729034748},
     51.0:	{'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.845300018787384},
     51.5:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.847803702398935},
     52.0:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.850300014019012},
-    52.5:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': .852803676019539},
+    52.5:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.852803676019539},
     53.0:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.85530000925064},
     53.5:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.857803649892077},
     54.0:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.860300004482269},
     54.5:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.862803624012168},
-    55.0:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': .865299999713897}
+    55.0:   {'PowerUp': {'Stardust': 0, 'Candy': 0, 'CandyXL': 0}, 'CPM': 0.865299999713897}
 }

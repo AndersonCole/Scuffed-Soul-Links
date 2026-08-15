@@ -742,7 +742,6 @@ async def checkTrackedListMons(classification, filter, user, guild):
         
         if i % pageCount == 0:
             embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
-            print(len(fieldContent[1]))
             fieldContent = ['', '']
     
     if fieldContent[0] != '':

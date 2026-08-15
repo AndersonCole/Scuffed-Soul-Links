@@ -96,7 +96,7 @@ async def listFakeRankOnes(extraInput=None):
     filteredFakeRankOnes = [obj for obj in fakeRankOnes if league in obj['Leagues']]
 
     for i, mon in enumerate(filteredFakeRankOnes, start=1):
-        fieldContent[0] += f'{formatTextForDisplay(mon["Name"])}\n'
+        fieldContent[0] += f'{getMonName(mon["DexNum"])}\n'
         
         if i % pageCount == 0:
             embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)

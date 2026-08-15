@@ -1004,13 +1004,13 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                     bossAtk, bossDef, bossSta, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
 
                     modifiers['Boss']['DexNum'] = bossMon['DexNum']
-                    modifiers['Boss']['Stats']['Attack'] = bossAtk
-                    modifiers['Boss']['Stats']['Defence'] = bossDef
+                    modifiers['Boss']['Stats']['Attack'] = bossAtk + 15
+                    modifiers['Boss']['Stats']['Defence'] = bossDef + 15
                 else:
                     bossMon = [obj for obj in pogoPokemon if obj['Name'] == bossMon['Name']][0]
                     modifiers['Boss']['DexNum'] = bossMon['ImageDexNum']
-                    modifiers['Boss']['Stats']['Attack'] = bossMon['Attack']
-                    modifiers['Boss']['Stats']['Defence'] = bossMon['Defence']
+                    modifiers['Boss']['Stats']['Attack'] = bossMon['Attack'] + 15
+                    modifiers['Boss']['Stats']['Defence'] = bossMon['Defence'] + 15
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid pokemon name! Or PokeAPI is having issues!\n'
         elif input.startswith('tier'):
@@ -1219,7 +1219,7 @@ async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifi
     fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
-    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss, modifiers['ApplyEnergyPenalty'])
+    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], dpsBoss, modifiers['ApplyEnergyPenalty'])
 
     fastMovesPerCharged = calcFastMovesPerCharged(fastMove['Duration'], fastEps, chargedMoveEnergy, dpsBoss)
 
@@ -1242,7 +1242,7 @@ async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers)
     fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
     fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
-    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], chargedMove['DamageWindow'], dpsBoss, modifiers['ApplyEnergyPenalty'])
+    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], dpsBoss, modifiers['ApplyEnergyPenalty'])
 
     chargedMaxEps = await calcChargedMaxEPS(chargedMove['Damage'], chargedMove['Duration'], attack, modifiers)
     chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
@@ -1272,9 +1272,9 @@ async def calcMaxFastAlone(attack, fastMove, modifiers):
 
     return fastMaxDps, fastMaxEps
     
-async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, chargedWindow, dpsBoss, applyEnergyPenalty):
+async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, dpsBoss, applyEnergyPenalty):
     if chargedEnergyDelta == 100 and applyEnergyPenalty:
-        chargedEnergy = chargedEnergyDelta + 0.5*(fastEnergy - 1) + chargedWindow*0.5*dpsBoss
+        chargedEnergy = chargedEnergyDelta + 0.5*(fastEnergy - 1) + 0.5*dpsBoss
     else:
         chargedEnergy = chargedEnergyDelta
     return int(chargedEnergy)
