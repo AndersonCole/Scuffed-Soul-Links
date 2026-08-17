@@ -144,7 +144,7 @@ def assignReactionEmoji(command):
     return rollForShiny(reactionEmojis.get(command).get('Normal'), reactionEmojis.get(command).get('Shiny'))
 
 def loadShucklePersonality(variant):
-    with open(f'text_files/chat_gpt_instructions/{variant}Shuckle.txt', 'r') as file:
+    with open(f'text_files/chat_gpt_instructions/{variant}_shuckle.txt', 'r') as file:
         systemContent = file.read()
 
     return systemContent

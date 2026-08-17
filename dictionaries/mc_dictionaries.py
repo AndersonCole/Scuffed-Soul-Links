@@ -1,10 +1,10 @@
 mcFileLocations = {
-    'ServerPort': 'text_files/minecraft_server/serverPort.txt',
-    'RconIp': 'text_files/minecraft_server/rconIp.txt',
-    'RconPort': 'text_files/minecraft_server/rconPort.txt',
-    'RconPassword': 'text_files/minecraft_server/rconPassword.txt',
-    'GoogleDrive': 'text_files/minecraft_server/googleDriveLink.txt',
-    'ModInfo': 'text_files/minecraft_server/modInfo.txt',
+    'ServerPort': 'text_files/minecraft_server/server_port.txt',
+    'RconIp': 'text_files/minecraft_server/rcon_ip.txt',
+    'RconPort': 'text_files/minecraft_server/rcon_port.txt',
+    'RconPassword': 'text_files/minecraft_server/rcon_password.txt',
+    'GoogleDrive': 'text_files/minecraft_server/google_drive_link.txt',
+    'ModInfo': 'text_files/minecraft_server/mod_info.txt',
     'Moai': 'text_files/minecraft_server/moai.txt',
     'Boats': 'text_files/minecraft_server/boats.txt'
 }

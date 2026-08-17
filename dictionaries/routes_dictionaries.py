@@ -1,6 +1,6 @@
 routesFileLocations = {
-    'Routes': 'text_files/routes/routes.txt',
-    'WalkedRoutes': 'text_files/routes/walked_routes.txt'
+    'Routes': 'text_files/pogo/routes/routes.txt',
+    'WalkedRoutes': 'text_files/pogo/routes/walked_routes.txt'
 }
 
 routesImagePaths = {

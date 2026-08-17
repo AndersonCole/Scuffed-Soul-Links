@@ -514,7 +514,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
                           color=getTypeColour(monTypes[0]))
     
     if battleSystem == 'dmax':
-        maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], monAttack, modifiers)
+        maxMoveDamage = calcMaxMoveDamage(modifiers['MaxMovePower'], monAttack, modifiers)
 
     for fastMove in fastMoves:
         modifiers['FastSTABMultiplier'] = determineSTAB(modifiers['ForceNoFastSTAB'], modifiers['ForceFastSTAB'], fastMove, monTypes)
@@ -534,10 +534,10 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
                 modifiers['FastMegaMultiplier'] = activeModifiers.get('MegaMultiplier').get('DiffType')
 
         if battleSystem == 'dmax' and modifiers['SimFastAlone']:
-            fastDps, fastEps = await calcMaxFastAlone(monAttack, fastMove, modifiers)
+            fastDps, fastEps = calcMaxFastAlone(monAttack, fastMove, modifiers)
 
             if modifiers['ShowCycleDps']:
-                maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(fastDps, fastEps, maxMoveDamage, modifiers)
+                maxMoveDamage, cycleDps, timeToDmax = calcFullCycleDps(fastDps, fastEps, maxMoveDamage, modifiers)
 
                 dpsResults.append({
                     'FastName': fastMove['Name'],
@@ -564,7 +564,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
             if modifiers['ApplyMegaBoost']:
                 modifiers['ChargedMegaMultiplier'] = determineMegaMultiplier(modifiers['MegaTypes'], chargedMove)
             
-            dps = await calcOverallDPS(monAttack, monDefence, monStamina, fastMove, chargedMove, modifiers)
+            dps = calcOverallDPS(monAttack, monDefence, monStamina, fastMove, chargedMove, modifiers)
 
             if battleSystem == 'raids':
                 dpsResults.append({
@@ -578,11 +578,11 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
                 })
 
             elif battleSystem == 'dmax':
-                maxEPS = await calcMaxEPS(monAttack, monDefence, monStamina, fastMove, chargedMove, modifiers)
+                maxEPS = calcMaxEPS(monAttack, monDefence, monStamina, fastMove, chargedMove, modifiers)
                 
                 if modifiers['ShowCycleDps']:
                     dps = dps * modifiers['CyclePlayers']
-                    maxMoveDamage, cycleDps, timeToDmax = await calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers)
+                    maxMoveDamage, cycleDps, timeToDmax = calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers)
 
                     dpsResults.append({
                         'FastName': fastMove['Name'],
@@ -713,10 +713,10 @@ def getCalculatedStats(mon, modifiers):
 
     return monAttack, monDefence, monStamina, monCP
 
-async def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
+def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
     if modifiers['CycleWillSwap']:
         swapMonAttack = (modifiers['CycleSwapMon']['Stats']['Attack'] + 15)*getPoGoCPMultiplier(modifiers['CycleSwapMon']['Level'])
-        maxMoveDamage = await calcMaxMoveDamage(modifiers['MaxMovePower'], swapMonAttack, modifiers)
+        maxMoveDamage = calcMaxMoveDamage(modifiers['MaxMovePower'], swapMonAttack, modifiers)
 
     timeToDmax = calcTimeToMax(maxEPS)
     totalCycleDps = calcEntireCycleDps(dps, timeToDmax, maxMoveDamage, modifiers)
@@ -1213,45 +1213,43 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
 #endregion
 
 #region math calculations
-async def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
-    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['Boss']['Stats']['Attack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
+def calcOverallDPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
+    dpsBoss = calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['Boss']['Stats']['Attack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
 
-    fastDps = await calcFastDPS(fastMove['Damage'], fastMove['Duration'], modifiers)
-    fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
+    fastDps = calcFastDPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers['Boss']['Stats']['Defence'], modifiers)
+    fastEps = calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
-    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], dpsBoss, modifiers['ApplyEnergyPenalty'])
+    chargedMoveEnergy = checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], dpsBoss, modifiers['ApplyEnergyPenalty'])
 
     fastMovesPerCharged = calcFastMovesPerCharged(fastMove['Duration'], fastEps, chargedMoveEnergy, dpsBoss)
 
-    chargedDps = await calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], fastMovesPerCharged, modifiers)
-    chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
+    chargedDps = calcChargedDPS(chargedMove['Damage'], chargedMove['Duration'], fastMovesPerCharged, attack, modifiers['Boss']['Stats']['Defence'], modifiers)
+    chargedEps = calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
-    energyEfficiency = await calcEnergyEfficiency(fastDps, fastEps, chargedDps, chargedEps)
+    energyEfficiency = calcEnergyEfficiency(fastDps, fastEps, chargedDps, chargedEps)
 
-    weaveDps = await calcWeaveDPS(fastDps, fastEps, energyEfficiency, dpsBoss)
+    weaveDps = calcWeaveDPS(fastDps, fastEps, energyEfficiency, dpsBoss)
 
-    movesetDps = await calcFinalMovesetDPS(fastDps, chargedDps, chargedMove['Duration'], weaveDps, dpsBoss, stamina)
-
-    finalDps = await calcFinalDPS(movesetDps, attack, modifiers['Boss']['Stats']['Defence'])
+    finalDps = calcFinalDPS(fastDps, chargedDps, chargedMove['Duration'], weaveDps, dpsBoss, stamina)
 
     return finalDps
 
-async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
-    dpsBoss = await calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['Boss']['Stats']['Attack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
+def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers):
+    dpsBoss = calcBossDPS(modifiers['EnemyDpsScaling'], modifiers['Boss']['Stats']['Attack'], defence, modifiers['ShadowMultiplier'], modifiers['ZamazentaMultiplier'])
 
-    fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
-    fastEps = await calcFastEPS(fastMove['Energy'], fastMove['Duration'])
+    fastMaxEps = calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
+    fastEps = calcFastEPS(fastMove['Energy'], fastMove['Duration'])
 
-    chargedMoveEnergy = await checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], dpsBoss, modifiers['ApplyEnergyPenalty'])
+    chargedMoveEnergy = checkChargedEnergy(fastMove['Energy'], chargedMove['Energy'], dpsBoss, modifiers['ApplyEnergyPenalty'])
 
-    chargedMaxEps = await calcChargedMaxEPS(chargedMove['Damage'], chargedMove['Duration'], attack, modifiers)
-    chargedEps = await calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
+    chargedMaxEps = calcChargedMaxEPS(chargedMove['Damage'], chargedMove['Duration'], attack, modifiers)
+    chargedEps = calcChargedEPS(chargedMoveEnergy, chargedMove['Duration'])
 
-    energyEfficiency = await calcEnergyEfficiency(fastMaxEps, fastEps, chargedMaxEps, chargedEps)
+    energyEfficiency = calcEnergyEfficiency(fastMaxEps, fastEps, chargedMaxEps, chargedEps)
 
-    weaveMaxEps = await calcWeaveDPS(fastMaxEps, fastEps, energyEfficiency, dpsBoss)
+    weaveMaxEps = calcWeaveDPS(fastMaxEps, fastEps, energyEfficiency, dpsBoss)
 
-    movesetMaxEps = await calcFinalMovesetDPS(fastMaxEps, chargedMaxEps, chargedMove['Duration'], weaveMaxEps, dpsBoss, stamina)
+    movesetMaxEps = calcFinalDPS(fastMaxEps, chargedMaxEps, chargedMove['Duration'], weaveMaxEps, dpsBoss, stamina)
 
     movesetMaxEps = movesetMaxEps * modifiers['CyclePlayers']
 
@@ -1260,9 +1258,9 @@ async def calcMaxEPS(attack, defence, stamina, fastMove, chargedMove, modifiers)
 
     return movesetMaxEps
 
-async def calcMaxFastAlone(attack, fastMove, modifiers):
-    fastMaxDps = await calcFastMaxDps(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
-    fastMaxEps = await calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
+def calcMaxFastAlone(attack, fastMove, modifiers):
+    fastMaxDps = calcFastMaxDps(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
+    fastMaxEps = calcFastMaxEPS(fastMove['Damage'], fastMove['Duration'], attack, modifiers)
     
     fastMaxDps = fastMaxDps * modifiers['CyclePlayers']
     fastMaxEps = fastMaxEps * modifiers['CyclePlayers']
@@ -1272,18 +1270,18 @@ async def calcMaxFastAlone(attack, fastMove, modifiers):
 
     return fastMaxDps, fastMaxEps
     
-async def checkChargedEnergy(fastEnergy, chargedEnergyDelta, dpsBoss, applyEnergyPenalty):
+def checkChargedEnergy(fastEnergy, chargedEnergyDelta, dpsBoss, applyEnergyPenalty):
     if chargedEnergyDelta == 100 and applyEnergyPenalty:
         chargedEnergy = chargedEnergyDelta + 0.5*(fastEnergy - 1) + 0.5*dpsBoss
     else:
         chargedEnergy = chargedEnergyDelta
     return int(chargedEnergy)
     
-async def calcBossDPS(enemyScaling, bossAttack, defence, SHADOW_MULTIPLIER, ZAMA_BOOST):
+def calcBossDPS(enemyScaling, bossAttack, defence, SHADOW_MULTIPLIER, ZAMA_BOOST):
     dpsBoss = enemyScaling*bossAttack/(defence * ZAMA_BOOST * (2.0 - SHADOW_MULTIPLIER))
     return dpsBoss
 
-async def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
+def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
     weatherMultiplier = 1.0
     megaMultiplier = 1.0
     partyPower = 1.0
@@ -1304,50 +1302,46 @@ async def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
 
     return modifierVal
 
-async def calcFastDPS(fastDamage, fastDuration, modifiers):
-    modifierVal = await calcModifierValue(modifiers, 'Fast')
-    dmgFast = (fastDamage * modifierVal) + modifiers['ExtraDpsValue']
+def calcFastDPS(fastDamage, fastDuration, attack, defBoss, modifiers):
+    modifierVal = calcModifierValue(modifiers, 'Fast')
+    dmgFast = (0.5 * fastDamage * (attack/defBoss) * modifierVal) + modifiers['ExtraDpsValue']
     dpsFast = dmgFast/fastDuration
     return dpsFast
 
-async def calcFastEPS(fastEnergy, fastDuration):
+def calcFastEPS(fastEnergy, fastDuration):
     epsFast = fastEnergy/fastDuration
     return epsFast
 
-async def calcChargedDPS(chargedDamage, chargedDuration, fastMovesPerCharged, modifiers):
-    modifierVal = await calcModifierValue(modifiers, 'Charged', fastMovesPerCharged)
-    dmgCharged = (chargedDamage * modifierVal) + modifiers['ExtraDpsValue']
+def calcChargedDPS(chargedDamage, chargedDuration, fastMovesPerCharged, attack, defBoss, modifiers):
+    modifierVal = calcModifierValue(modifiers, 'Charged', fastMovesPerCharged)
+    dmgCharged = (0.5 * chargedDamage * (attack/defBoss) * modifierVal) + modifiers['ExtraDpsValue']
     dpsCharged = dmgCharged/chargedDuration
     return dpsCharged
 
-async def calcChargedEPS(chargedEnergy, chargedDuration):
+def calcChargedEPS(chargedEnergy, chargedDuration):
     epsCharged = chargedEnergy/chargedDuration
     return epsCharged
 
-async def calcEnergyEfficiency(dpsFast, epsFast, dpsCharged, epsCharged):
+def calcEnergyEfficiency(dpsFast, epsFast, dpsCharged, epsCharged):
     energyEff = (dpsCharged - dpsFast)/(epsFast + epsCharged)
     return energyEff
 
-async def calcWeaveDPS(dpsFast, epsFast, energyEff, dpsBoss):
+def calcWeaveDPS(dpsFast, epsFast, energyEff, dpsBoss):
     dpsWeave = dpsFast + energyEff * (epsFast + (0.5 * dpsBoss))
     return dpsWeave
 
-async def calcFinalMovesetDPS(dpsFast, dpsCharged, chargedDuration, dpsWeave, dpsBoss, stamina):
+def calcFinalDPS(dpsFast, dpsCharged, chargedDuration, dpsWeave, dpsBoss, stamina):
     dpsMoveset = dpsWeave - (dpsBoss/(2*stamina)) * chargedDuration * (dpsCharged - dpsFast)
     return dpsMoveset
 
-async def calcFinalDPS(dpsMoveset, attack, defBoss):
-    dpsFinal = dpsMoveset * (0.5*attack/defBoss)
-    return dpsFinal
-
-async def calcFastMaxDps(fastDamage, fastDuration, attack, modifiers):
-    modifierVal = await calcModifierValue(modifiers, 'Fast')
+def calcFastMaxDps(fastDamage, fastDuration, attack, modifiers):
+    modifierVal = calcModifierValue(modifiers, 'Fast')
     dmgFast = (0.5 * fastDamage * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal) + modifiers['ExtraDpsValue']
     dpsFast = dmgFast/fastDuration
     return dpsFast
     
-async def calcFastMaxEPS(fastDamage, fastDuration, attack, modifiers):
-    modifierVal = await calcModifierValue(modifiers, 'Fast')
+def calcFastMaxEPS(fastDamage, fastDuration, attack, modifiers):
+    modifierVal = calcModifierValue(modifiers, 'Fast')
     dmgFast = (0.5 * fastDamage * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal) + modifiers['ExtraDpsValue']
     if modifiers['UseNewMaxFormula']:
         attackEnergy = dmgFast/(modifiers['Boss']['Stats']['Health'] * (0.005 / modifiers['Boss']['EnergyMultiplier']))
@@ -1356,8 +1350,8 @@ async def calcFastMaxEPS(fastDamage, fastDuration, attack, modifiers):
     epsFast = max(attackEnergy, 1)/fastDuration
     return epsFast
 
-async def calcChargedMaxEPS(chargedDamage, chargedDuration, attack, modifiers):
-    modifierVal = await calcModifierValue(modifiers, 'Charged')
+def calcChargedMaxEPS(chargedDamage, chargedDuration, attack, modifiers):
+    modifierVal = calcModifierValue(modifiers, 'Charged')
     dmgCharged = (0.5 * chargedDamage * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal) + modifiers['ExtraDpsValue']
     if modifiers['UseNewMaxFormula']:
         attackEnergy = dmgCharged/(modifiers['Boss']['Stats']['Health'] * (0.005 / modifiers['Boss']['EnergyMultiplier']))
@@ -1366,9 +1360,9 @@ async def calcChargedMaxEPS(chargedDamage, chargedDuration, attack, modifiers):
     epsCharged = max(attackEnergy, 1)/chargedDuration
     return epsCharged
 
-async def calcMaxMoveDamage(movePower, attack, modifiers):
-    modifierVal = await calcModifierValue(modifiers, 'Max')
-    dmgMax = math.floor((0.5 * movePower * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal) + modifiers['ExtraDpsValue'])
+def calcMaxMoveDamage(movePower, attack, modifiers):
+    modifierVal = calcModifierValue(modifiers, 'Max')
+    dmgMax = math.floor((0.5 * movePower * (attack/modifiers['Boss']['Stats']['Defence']) * modifierVal)) + 1
     return dmgMax
 
 def getMaxOrbEps():

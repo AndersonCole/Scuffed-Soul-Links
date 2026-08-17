@@ -1,6 +1,6 @@
 pvpFileLocations = {
-    'FakeR1': 'text_files/pvp/fake_rank_ones.txt',
-    'Scanners': 'text_files/pvp/scanner_systems.txt'
+    'FakeR1': 'text_files/pogo/pvp/fake_rank_ones.txt',
+    'Scanners': 'text_files/pogo/pvp/scanner_systems.txt'
 }
 
 defaultPvpModifiers = {
