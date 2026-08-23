@@ -1,15 +1,32 @@
 from functions.pogo_functions import *
-from functions.shared_functions import pogoAddMon, pogoDeleteMon, pogoListMons
+from functions.shared_functions import pogoAddMon, pogoDeleteMon, pogoListMons, formatTextForBackend
 
 async def pogoMiscCommands(userInput, author, guild):
     if userInput == 'help':
         response = await pogoHelp()
 
+    #region events
     elif userInput == 'events help':
         response = await pogoEventsHelp()
 
     elif userInput.startswith('events '):
         response = await createEventsEmbeds(userInput[7:])
+    #endregion
+
+    #region odds
+    elif userInput == 'odds modifiers':
+        response = oddsModifiers()
+
+    elif userInput.startswith('odds '):
+        if ',' in userInput:
+            splitInput = re.split(r'[,]+', userInput[5:])
+            if len(splitInput) >= 2:
+                response = await calculateOdds(splitInput[0].strip(), splitInput[1:])
+            else:
+                response = 'I don\'t know wtf you\'re trying to input!'
+        else:
+            response = await calculateOdds(userInput[5:].strip())
+    #endregion
 
     elif userInput.startswith('stats '):
         if ',' in userInput:
@@ -25,18 +42,8 @@ async def pogoMiscCommands(userInput, author, guild):
         else:
             response = await convertToGoStatsFromName(userInput[6:])
 
-    elif userInput == 'odds modifiers':
-        response = oddsModifiers()
-
-    elif userInput.startswith('odds '):
-        if ',' in userInput:
-            splitInput = re.split(r'[,]+', userInput[5:])
-            if len(splitInput) >= 2:
-                response = await calculateOdds(splitInput[0].strip(), splitInput[1:])
-            else:
-                response = 'I don\'t know wtf you\'re trying to input!'
-        else:
-            response = await calculateOdds(userInput[5:].strip())
+    elif userInput.startswith('make-csv '):
+        response = await getCSVFromInput(formatTextForBackend(userInput[8:]))
 
     #region tracking commands
     elif userInput.startswith('user-nickname '):
@@ -77,7 +84,20 @@ async def pogoMiscCommands(userInput, author, guild):
             response = await checkTrackedMon(userInput[8:], author.mention, guild)
 
     elif userInput.startswith('tracked-list '):
-        if ',' in userInput:
+        if '{' in userInput and '}' in userInput:
+            monGroup = re.search(r'\{([^}]*)\}', userInput[13:])
+            userInput = userInput.replace(monGroup.group(1), '')
+
+            splitInput = re.split(r'[,]+', userInput[13:])
+            splitMonInput = re.split(r'[,]+', monGroup.group(1))
+            if len(splitInput) == 2:
+                response = await checkTrackedListMons(splitMonInput, splitInput[1], author.mention, guild)
+            elif len(splitInput) == 3:
+                response = await checkTrackedListMons(splitMonInput, splitInput[1], splitInput[2].strip(), guild)
+            else:
+                response = 'I don\'t know wtf you\'re trying to input!'
+
+        elif ',' in userInput:
             splitInput = re.split(r'[,]+', userInput[13:])
             if len(splitInput) == 2:
                 response = await checkTrackedListMons(splitInput[0], splitInput[1], author.mention, guild)

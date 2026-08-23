@@ -19,7 +19,7 @@ from functions.shared_functions import (
     formatTextForDisplay, getMonFromName, getRegionFromDexNum,
     getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, verifyRegion, getMon, addPaginatedEmbedFields,
     rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats,
-    loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, pogoPokemon
+    loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, pogoPokemon, pokemon
 )
 
 trackedMons = loadDataVariableFromFile(pogoFileLocations.get('TrackedMons'))
@@ -36,10 +36,12 @@ async def pogoHelp():
                                         '```$pogo stats Kartana, noNerf``` Calculates what it would be like without any stat nerfs\n`noNerf`, `3Nerf` and `9Nerf` are the allowed nerf exceptions\n'
                                         '```$pogo stats 59, 181, 131, 59, 31, 109``` Calculates stats for Go based on the entered HP, Atk, Def, SpAtk, SpDef and Spd stats\nNerf exceptions can be applied here too\n\n'
                                         '```$pogo user-nickname John Alola, @Logan``` Adds a user nickname to be used when tracking\n' +
+                                        '```$pogo make-csv I <3 kanto, ooooo charizard!``` Takes any text input, and pulls out the pokemon names within, giving you a csv list of matching names\n'
                                         '```$pogo track bulbasaur, xxs, xxl``` Adds a mon to your tracking list\nAllowed options are `all` `hundo` `lucky` `shiny` `gl` `ul` `shadow` `purified` `xxs` `xxl`\n' +
                                         '```$pogo untrack bulbasaur, all``` Removes a mon from your tracking list. Uses the same allowed options\n' +
                                         '```$pogo tracked bulbasaur, John Alola``` Shows what a user has tracked for a specific pokemon\n' +
                                         '```$pogo tracked-list region/class, filter, John Alola``` Shows what a user has tracked for either a region or a class of pokemon\n' + 
+                                        '```$pogo tracked-list \{bulbasaur,charmander,squirtle\}, filter, John Alola``` Shows what a user has tracked for either a custom, csv list of pokemon\nGet the list from the `$pogo make-csv` command\n' + 
                                         'Allowed region/class options are every region name `all` `regional` `rare` `starters` `baby` `legendary` `mythical` `ultra-beast` `paradox` `mega` `hasMega` `gmax` `hasGmax`\n' +
                                         'Allowed filter options are `all` `hundo` `lucky` `shiny` `pvp` `rocket` `size`\n\n' +
                                         '```$pogo events help``` Shows all event searches\n\n' +
@@ -410,6 +412,24 @@ def determineOddsModifierValues(extraInputs, modifiers):
     return modifiers, errorText
 #endregion
 
+def csvSortKey(mon):
+    return getDexNum(mon)
+
+async def getCSVFromInput(text):
+    monNames = [mon['Name'] for mon in pokemon]
+    matchingMonOutput = ''
+    matchingMonNames = set()
+    for name in reversed(monNames):
+        if name in text:
+            matchingMonNames.add(name)
+            text = text.replace(name, '')
+    matchingMonNames = sorted(list(matchingMonNames), key=csvSortKey)
+
+    for mon in matchingMonNames:
+        matchingMonOutput += f'{mon},'
+
+    return f'```{{{matchingMonOutput[:-1]}}}```'
+
 #region track commands
 async def trackMon(monName, extraInputs, author):
     if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
@@ -673,6 +693,35 @@ async def checkTrackedMon(monName, user, guild):
 
     return embed
 
+def recurseEvoChain(mon, expandedMonGroup):
+    if mon['Name'] in expandedMonGroup:
+        return
+    expandedMonGroup.add(mon['Name'])
+
+    if checkClassification(mon['DexNum'], 'HasMega') and len(mon['Evolves-Into']) == 0:
+        megaEvos = [megaMon for megaMon in pokemon if (mon['DexNum'] == megaMon['Evolves-From']) and (checkClassification(megaMon['DexNum'], 'Mega'))]
+        for megaEvo in megaEvos:
+            expandedMonGroup.add(megaEvo['Name'])
+
+    for evo in mon['Evolves-Into']:
+        nextMon = getMon(evo['DexNum'])
+        recurseEvoChain(nextMon, expandedMonGroup)
+
+def createExpandedMonGroup(monGroup):
+    expandedMonGroup = set()
+
+    for mon in monGroup:
+        basePokemon = getMonFromName(mon)
+        while basePokemon['Evolves-From'] is not None:
+            if checkClassification(basePokemon['Evolves-From'], 'Baby'):
+                break
+            basePokemon = getMon(basePokemon['Evolves-From'])
+
+        recurseEvoChain(basePokemon, expandedMonGroup)
+
+    return list(expandedMonGroup)
+
+
 async def checkTrackedListMons(classification, filter, user, guild):
     author = getAuthorFromNickname(user)
 
@@ -691,7 +740,8 @@ async def checkTrackedListMons(classification, filter, user, guild):
         return 'This user doesn\'t have anything tracked!'
 
     filter = formatTextForBackend(filter)
-    classification = formatTextForBackend(classification)
+    if not (isinstance(classification, list)):
+        classification = formatTextForBackend(classification)
 
     toDisplay, pageCount = determineDisplay(filter)
     if len(toDisplay) == 0:
@@ -701,7 +751,19 @@ async def checkTrackedListMons(classification, filter, user, guild):
 
     trackedList = []
 
-    if verifyRegion(classification):
+    if (isinstance(classification, list)):
+        expandedMonGroup = createExpandedMonGroup(classification)
+        
+        for tracked in userTracked:
+            if getMon(tracked['DexNum'])['Name'] in expandedMonGroup:
+                trackedToDisplay = set(tracked['Tracked']) & set(toDisplay)
+                if trackedToDisplay:
+                    trackedList.append({
+                        'DexNum': tracked['DexNum'],
+                        'Tracked': list(trackedToDisplay)
+                    })
+
+    elif verifyRegion(classification):
         for tracked in userTracked:
             if classification == getRegionFromDexNum(tracked['DexNum']):
                 trackedToDisplay = set(tracked['Tracked']) & set(toDisplay)
@@ -727,9 +789,14 @@ async def checkTrackedListMons(classification, filter, user, guild):
     if len(trackedList) == 0:
         return f'{formatTextForDisplay(discordUser.name)} does not need anything {formatTextForDisplay(filter)} from {formatTextForDisplay(classification)}!'
 
+    if not (isinstance(classification, list)):
+        classificationTitle = formatTextForDisplay(classification)
+    else:
+        classificationTitle = 'Custom List'
+
     embeds = []
 
-    embed = discord.Embed(title=f'{formatTextForDisplay(classification)}, {formatTextForDisplay(filter)} Pokemon tracked by {formatTextForDisplay(discordUser.name)}',
+    embed = discord.Embed(title=f'{classificationTitle}, {formatTextForDisplay(filter)} Pokemon tracked by {formatTextForDisplay(discordUser.name)}',
                             description='',
                             color=sharedEmbedColours.get('Default'))
     
