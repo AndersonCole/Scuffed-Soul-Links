@@ -1,5 +1,5 @@
 import discord
-from functions.shared_functions import assignReactionEmoji, loadDataVariableFromFile
+from functions.shared_functions import assignReactionEmoji, loadDataVariableFromFile, formatTextForBackend
 from dictionaries.shared_dictionaries import sharedFileLocations
 from commands.misc_commands import miscShuckleCommands
 from commands.soul_link_commands import soulLinkCommands
@@ -29,61 +29,80 @@ class DiscordClient(discord.Client):
         response = None
         file = None
 
-        #region bot commands
-        if message.content.startswith('$shuckle '):
-            await message.add_reaction(assignReactionEmoji('Shuckle'))
-            
-            response = await miscShuckleCommands(message.content[9:], message.author, message.guild)
+        if message.content.startswith('$'):
+            message.content = message.content.lower()
 
-        elif message.content.startswith('$sl '):
+        elif 'is about to be grinded into kakera by **anderson499**' in message.content:
+            await message.add_reaction(assignReactionEmoji('Shuckle'))
+
+            response = await miscShuckleCommands('mudae ' + message.content)
+
+        #region bot commands
+        if message.content.startswith('$shuckle'):
+            await message.add_reaction(assignReactionEmoji('Shuckle'))
+
+            userCommand = message.content[len('$shuckle'):].lstrip('-, ')
+            
+            response = await miscShuckleCommands(userCommand, message.author, message.guild)
+
+        elif message.content.startswith('$sl'):
             await message.add_reaction(assignReactionEmoji('Soul Links'))
 
-            response = await soulLinkCommands(message.content[4:], message.author, message.guild)
+            userCommand = message.content[len('$sl'):].lstrip('-, ')
 
-        elif message.content.startswith('$routes '):
+            response = await soulLinkCommands(userCommand, message.author, message.guild)
+
+        elif message.content.startswith('$routes'):
             await message.add_reaction(assignReactionEmoji('Routes'))
-            
-            response = await routesCommands(message.content[8:], message.author, message.guild)
 
-        elif message.content.startswith('$dps '):
+            userCommand = message.content[len('$routes'):].lstrip('-, ')
+
+            response = await routesCommands(userCommand, message.author, message.guild)
+
+        elif message.content.startswith('$dps'):
             await message.add_reaction(assignReactionEmoji('DPS'))
-            
-            response, file = await dpsCommands(message.content[5:], message.author)
 
-        elif message.content.startswith('$max '):
+            userCommand = message.content[len('$dps'):].lstrip('-, ')
+
+            response, file = await dpsCommands(userCommand, message.author)
+
+        elif message.content.startswith('$max'):
             await message.add_reaction(assignReactionEmoji('Max'))
 
-            response, file = await maxCommands(message.content[5:], message.author)
+            userCommand = message.content[len('$max'):].strip('-, ')
 
-        elif message.content.startswith('$pogo '):
+            response, file = await maxCommands(userCommand, message.author)
+
+        elif message.content.startswith('$pogo'):
             await message.add_reaction(assignReactionEmoji('PoGo'))
 
-            response = await pogoMiscCommands(message.content[6:], message.author, message.guild)
+            userCommand = message.content[len('$pogo'):].strip('-, ')
 
-        elif message.content.startswith('$pvp '):
+            response = await pogoMiscCommands(userCommand, message.author, message.guild)
+
+        elif message.content.startswith('$pvp'):
             await message.add_reaction(assignReactionEmoji('PVP'))
 
-            response = await pvpCommands(message.content[5:], message.author)
+            userCommand = message.content[len('$pogo'):].strip('-, ')
 
-        elif message.content.startswith('$mc '):
+            response = await pvpCommands(userCommand, message.author)
+
+        elif message.content.startswith('$mc'):
             await message.add_reaction(assignReactionEmoji('Minecraft'))
 
-            response = await minecraftCommands(message.content[4:], message.author)
+            userCommand = message.content[len('$mc'):].strip('-, ')
+
+            response = await minecraftCommands(userCommand, message.author)
 
         elif message.content == '$coins':
             await message.add_reaction(assignReactionEmoji('Coins'))
 
             response = await miscShuckleCommands(message.content[1:])
 
-        elif message.content.startswith('$format '):
+        elif message.content.startswith('$format'):
             await message.add_reaction(assignReactionEmoji('Mimikyu'))
 
             response = await miscShuckleCommands(message.content[1:])
-
-        elif 'is about to be grinded into kakera by **anderson499**' in message.content:
-            await message.add_reaction(assignReactionEmoji('Shuckle'))
-
-            response = await miscShuckleCommands('mudae ' + message.content)
         #endregion
 
         if response is not None:

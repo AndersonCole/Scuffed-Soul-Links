@@ -19,8 +19,8 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         formatCapitalize, formatTextForBackend, formatTextForDisplay,
                                         getTypesFromPokeAPI, getTypeColour, 
                                         getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, checkDuplicatePoGoMon, pogoRound, addPaginatedEmbedFields,
-                                        getMonFromName, getPokeApiJsonData, calcPoGoStatsFromBaseStats,
-                                        loadShucklePersonality, rollForShiny, getMon, checkClassification, pokemon, pogoPokemon)
+                                        getPokeApiJsonData, calcPoGoStatsFromBaseStats, getDexNum, getMonName,
+                                        loadShucklePersonality, rollForShiny, getMon, checkClassification, pogoPokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather
 
@@ -228,6 +228,13 @@ def determineMegaMultiplier(megaTypes, fastMove):
     if fastMove['MoveType'] in megaTypes:
         return activeModifiers.get('MegaMultiplier').get('SameType')
     return activeModifiers.get('MegaMultiplier').get('DiffType')
+
+def checkIsPlusMove(chargedMove):
+    if (chargedMove['Name'].endswith('+')
+        and not chargedMove['Name'].startswith('aeroblast')
+        and not chargedMove['Name'].startswith('sacred-fire')):
+        return True
+    return False
 #endregion
 
 #region dps moves add read delete
@@ -319,10 +326,12 @@ async def dpsDeleteMove(moveName):
 async def dpsAddMoveset(monName, newMoves):
     monName = checkForNickname(monName)
 
-    if not checkDuplicatePoGoMon(monName):
+    dexNum = getDexNum(monName)
+
+    if not checkDuplicatePoGoMon(dexNum):
         return 'That pokemon is not registered!'
     
-    mon = [obj for obj in pogoPokemon if obj['Name'] == formatTextForBackend(monName)][0]
+    mon = [obj for obj in pogoPokemon if obj['DexNum'] == dexNum][0]
 
     output = ''
 
@@ -353,10 +362,12 @@ async def dpsAddMoveset(monName, newMoves):
 async def dpsRemoveMoveset(monName, delMoves):
     monName = checkForNickname(monName)
 
-    if not checkDuplicatePoGoMon(monName):
+    dexNum = getDexNum(monName)
+
+    if not checkDuplicatePoGoMon(dexNum):
         return 'That pokemon is not registered!'
     
-    mon = [obj for obj in pogoPokemon if obj['Name'] == monName][0]
+    mon = [obj for obj in pogoPokemon if obj['DexNum'] == dexNum][0]
 
     output = ''
 
@@ -416,16 +427,18 @@ async def dpsListMoves():
 
 async def addSuperMax(monName):
     monName = checkForNickname(monName)
-    
-    if not checkDuplicatePoGoMon(monName):
+        
+    dexNum = getDexNum(monName)
+
+    if not checkDuplicatePoGoMon(dexNum):
         return 'That pokemon is not registered!'
+    
+    mon = [obj for obj in pogoPokemon if obj['DexNum'] == dexNum][0]
 
-    mon = [obj for obj in pogoPokemon if obj['Name'] == monName][0]
-
-    if not checkClassification(mon['ImageDexNum'], 'Mega'):
+    if not checkClassification(mon['DexNum'], 'Mega'):
         return 'That pokemon isn\'t a mega!'
 
-    superMaxMegas.append(mon['ImageDexNum'])
+    superMaxMegas.append(mon['DexNum'])
 
     await saveDataVariableToFile(dpsFileLocations.get('SuperMax'), superMaxMegas)
 
@@ -453,30 +466,33 @@ async def batchDpsCheck(monNames, battleSystem, author):
 async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     modifiers = getDefaultModifiers(battleSystem, author)
 
-    if extraInputs != None:
-        modifiers, errorText = await determineModifierValues([str(i).strip().lower() for i in extraInputs], battleSystem, author)
+    if extraInputs is not None:
+        modifiers, errorText = await determineModifierValues(extraInputs, battleSystem, author)
         if errorText != '':
             return errorText, None
     
     monName = checkForNickname(monName)
+        
+    dexNum = getDexNum(monName)
 
-    if not checkDuplicatePoGoMon(monName):
+    if not checkDuplicatePoGoMon(dexNum):
         return 'That pokemon is not registered!', None
     
-    mon = [obj for obj in pogoPokemon if obj['Name'] == monName][0]
+    mon = [obj for obj in pogoPokemon if obj['DexNum'] == dexNum][0]
 
-    monTypes = await getTypesFromPokeAPI(mon['ImageDexNum'])
+    monTypes = await getTypesFromPokeAPI(mon['DexNum'])
     bossTypes = await getTypesFromPokeAPI(modifiers['Boss']['DexNum'])
 
     moveset = copy.deepcopy(mon['Moves'])
 
-    if checkClassification(mon['ImageDexNum'], 'Mega'):
-        if not modifiers['LevelSet'] and mon['ImageDexNum'] in superMaxMegas:
+    if checkClassification(mon['DexNum'], 'Mega'):
+        if modifiers['AutoSuperMega'] and mon['DexNum'] in superMaxMegas:
             modifiers['Level'] = min(55.0, modifiers['Level'] + 2.0)
+            modifiers['PlusMoveMultiplier'] = activeModifiers.get('PlusMoveMultiplier').get('4')
         
-        preMegaName = getMon(getMon(mon['ImageDexNum'])['Evolves-From'])['Name']
-        if checkDuplicatePoGoMon(preMegaName):
-            moveset.extend([obj for obj in pogoPokemon if obj['Name'] == preMegaName][0]['Moves'])
+        preMega = getMon(getMon(mon['DexNum'])['EvolvesFrom'])['DexNum']
+        if checkDuplicatePoGoMon(preMega):
+            moveset.extend([obj for obj in pogoPokemon if obj['DexNum'] == preMega][0]['Moves'])
     
     fastMoves = []
     chargedMoves = []
@@ -554,6 +570,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
                 })
 
         for chargedMove in chargedMoves:
+            modifiers['IsPlusMove'] = checkIsPlusMove(chargedMove)
             modifiers['ChargedSTABMultiplier'] = determineSTAB(modifiers['ForceNoChargedSTAB'], modifiers['ForceChargedSTAB'], chargedMove, monTypes)
 
             if modifiers['CalculateChargedEffectiveness']:
@@ -680,10 +697,10 @@ def getEmbedTitle(mon, modifiers, battleSystem):
     cycleSwapText = ''
     playerText = ''
 
-    if mon['Name'] == 'eternatus':
+    if mon['DexNum'] == getDexNum('eternatus'):
         gmaxText = ''
     else:
-        gmaxText = modifiers['GMaxText']
+        gmaxText = 'Gmax' if modifiers['UsingGmax'] else ''
 
     if battleSystem == 'dmax':
         titleStart = 'Max '
@@ -695,12 +712,12 @@ def getEmbedTitle(mon, modifiers, battleSystem):
     if modifiers['CycleWillSwap']:
         chargerTxt = '(Charging)'
         gmaxText = ''
-        cycleSwapText = f' and{modifiers["ShadowText"]}{modifiers["GMaxText"]} {formatTextForDisplay(modifiers["CycleSwapMon"]["Name"])}(Max Move) at Lv {str(modifiers["CycleSwapMon"]["Level"]).rstrip("0").rstrip(".")}'
+        cycleSwapText = f' and{modifiers["ShadowText"]}{gmaxText} {formatTextForDisplay(getMonName(modifiers["CycleSwapMon"]["DexNum"]))}(Max Move) at Lv {str(modifiers["CycleSwapMon"]["Level"]).rstrip("0").rstrip(".")}'
 
     if modifiers['CyclePlayers'] > 1:
         playerText = f', with {int(modifiers["CyclePlayers"])} trainers'
 
-    return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatTextForDisplay(mon["Name"])}{chargerTxt} at Lv {lvlText}{cycleSwapText}{playerText}'
+    return f'{titleStart}DPS Calculations for{modifiers["ShadowText"]}{gmaxText} {formatTextForDisplay(getMonName(mon["DexNum"]))}{chargerTxt} at Lv {lvlText}{cycleSwapText}{playerText}'
 
 def getCalculatedStats(mon, modifiers):
     cpMultiplier = getPoGoCPMultiplier(modifiers['Level'])
@@ -724,24 +741,22 @@ def calcFullCycleDps(dps, maxEPS, maxMoveDamage, modifiers):
     return maxMoveDamage, totalCycleDps, timeToDmax
 
 async def getEmbedImage(mon, modifiers, embedColour):
-    imageMon = [obj for obj in pokemon if obj['Name'] == formatTextForBackend(f'{mon["Name"]}{modifiers["GMaxText"]}')]
-    if len(imageMon) > 0:
-        imageDexNum = imageMon[0]['DexNum']
-    else:
-        imageDexNum = mon['ImageDexNum']
+    dexNum = mon['DexNum']
+    if modifiers['UsingGmax']:
+        if checkClassification(getDexNum(f'{getMonName(dexNum)}-gmax'), 'Gigantamax'):
+            dexNum = getDexNum(f'{getMonName(dexNum)}-gmax')
 
     if modifiers['CycleWillSwap']:
-        imageCycleMon = [obj for obj in pokemon if obj['Name'] == formatTextForBackend(f'{modifiers["CycleSwapMon"]["Name"]}{modifiers["GMaxText"]}')]
-        if len(imageCycleMon) > 0:
-            imageCycleDexNum = imageCycleMon[0]['DexNum']
-        else:
-            imageCycleDexNum = modifiers['CycleSwapMon']['ImageDexNum']
+        cycleDexNum = modifiers["CycleSwapMon"]["DexNum"]
+        if modifiers['UsingGmax']:
+            if checkClassification(getDexNum(f'{getMonName(dexNum)}-gmax'), 'Gigantamax'):
+                cycleDexNum = getDexNum(f'{getMonName(dexNum)}-gmax')
 
-        combinedMonImage = await createCombinedMonsImage(mon['ImageDexNum'], imageCycleDexNum, embedColour)
+        combinedMonImage = await createCombinedMonsImage(mon['DexNum'], cycleDexNum, embedColour)
 
         return f'attachment://maxCycle.png', combinedMonImage
     
-    return getPokeAPISpriteUrl(imageDexNum), None
+    return getPokeAPISpriteUrl(dexNum), None
 
 async def createCombinedMonsImage(chargingMonDex, maxMonDex, embedColour):
     chargingMonImg = await openHttpImage(getPokeAPISpriteUrl(chargingMonDex))
@@ -811,7 +826,7 @@ async def setUserModifiers(extraInputs, battleSystem, author):
             'dmax': {}
         })
 
-    modifiers, errorText = await determineModifierValues([str(i).strip().lower() for i in extraInputs], battleSystem, author)
+    modifiers, errorText = await determineModifierValues(extraInputs, battleSystem, author)
     if errorText != '':
         return errorText
     
@@ -872,7 +887,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 if 1.0 > val or val > 55.0:
                     raise Exception
                 modifiers['Level'] = float(input)
-                modifiers['LevelSet'] = True
+                modifiers['AutoSuperMega'] = False
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid level! Keep it between 1 and 51!\n'
         elif '/' in input and not input.startswith('cycle'):
@@ -893,24 +908,24 @@ async def determineModifierValues(extraInputs, battleSystem, author):
             try:
                 if input[-1:] != 'x':
                     raise Exception
-                val = float(input[13:-1])
+                val = float(input[len('fasteffective'):-1])
                 if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['FastEffectiveness'] = val
                 modifiers['CalculateFastEffectiveness'] = False
             except:
-                errorText += f'\'{input[13:]}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
+                errorText += f'\'{input[len("fasteffective"):]}\' wasn\'t understood as a valid fast effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif input.startswith('chargedeffective'):
             try:
                 if input[-1:] != 'x':
                     raise Exception
-                val = float(input[16:-1])
+                val = float(input[len('chargedeffective'):-1])
                 if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['ChargedEffectiveness'] = val
                 modifiers['CalculateChargedEffectiveness'] = False
             except:
-                errorText += f'\'{input[16:]}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
+                errorText += f'\'{input[len("chargedeffective"):]}\' wasn\'t understood as a valid charged effectiveness value! Keep it between 0.1 and 10! And don\'t forget the x at the end!\n'
         elif input == 'nofaststab':
             modifiers['ForceNoFastSTAB'] = True
         elif input == 'nochargedstab':
@@ -927,11 +942,11 @@ async def determineModifierValues(extraInputs, battleSystem, author):
             if input == 'weatherboost':
                 modifiers['WeatherTypes'] = [obj['Name'] for obj in types]
             else:
-                weatherTypes = weather.get(formatTextForBackend(input[:-12]), None)
+                weatherTypes = weather.get(formatTextForBackend(input[:-len('weatherboost')]), None)
                 if weatherTypes is not None:
                     modifiers['WeatherTypes'] = weatherTypes
                 else:
-                    errorText += f'\'{input[:-12]}\' wasn\'t understood as a valid weather type!\n'
+                    errorText += f'\'{input[:-len("weatherboost")]}\' wasn\'t understood as a valid weather type!\n'
         elif 'megaboost' in input or 'primalboost' in input:
             if input == 'megaboost':
                 modifiers['MegaTypes'] = [obj['Name'] for obj in types]
@@ -940,24 +955,23 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 modifiers['ApplyMegaBoost'] = True
             else:
                 try:
-                    megaMon = checkForNickname(input[:-5])
-                    if not checkDuplicatePoGoMon(megaMon):
+                    megaDexNum = getDexNum(input[:-len('boost')])
+                    if not checkClassification(megaDexNum, 'Mega'):
                         raise Exception
-                    megaMon = [obj for obj in pogoPokemon if obj['Name'] == formatTextForBackend(megaMon)][0]
-                    match megaMon['Name']:
-                        case 'groudon-primal':
+                    match megaDexNum:
+                        case getDexNum('groudon-primal'):
                             megaTypes = weather.get('sunny')
-                        case 'kyogre-primal':
+                        case getDexNum('kyogre-primal'):
                             megaTypes = weather.get('rainy')
-                        case 'rayquaza-mega':
+                        case getDexNum('rayquaza-mega'):
                             megaTypes = weather.get('windy')
                         case _:
-                            megaTypes = await getTypesFromPokeAPI(megaMon['ImageDexNum'])
+                            megaTypes = await getTypesFromPokeAPI(megaDexNum)
 
                     modifiers['MegaTypes'] = megaTypes
                     modifiers['ApplyMegaBoost'] = True
                 except:
-                    errorText += f'\'{input}\' wasn\'t understood as a valid mega name! Make sure it\'s registered!\n'
+                    errorText += f'\'{input[:-len("boost")]}\' wasn\'t understood as a valid mega name! Make sure it\'s registered!\n'
         elif input == 'behemothblade':
             modifiers['ZacianMultiplier'] = activeModifiers.get('ZacianMultiplier').get(battleSystem)
             if not modifiers['UsingAdventureEffect']:
@@ -972,7 +986,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 errorText += 'You can only use one adventure effect at a time!'
         elif input.startswith('bossatk'):
             try:
-                atkVal = int(input[7:])
+                atkVal = int(input[len('bossatk'):])
                 if 1 > atkVal or atkVal > 1000:
                     raise Exception
                 modifiers['Boss']['Stats']['Attack'] = atkVal
@@ -980,7 +994,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss attack value! Keep it between 1 and 1000!\n'
         elif input.startswith('bossdef'):
             try:
-                defVal = int(input[7:])
+                defVal = int(input[len('bossdef'):])
                 if 1 > defVal or defVal > 1000:
                     raise Exception
                 modifiers['Boss']['Stats']['Defence'] = defVal
@@ -988,10 +1002,10 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 errorText += f'\'{input}\' wasn\'t understood as a valid boss defence value! Keep it between 1 and 1000!\n'
         elif input.startswith('boss'):
             try:
-                bossMon = getMonFromName(input[4:])
+                bossDexNum = getDexNum(input[len('boss'):])
 
-                if not checkDuplicatePoGoMon(bossMon['Name']):
-                    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{bossMon["DexNum"]}')
+                if not checkDuplicatePoGoMon(bossDexNum):
+                    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{bossDexNum}')
 
                     if monData is None:
                         raise Exception
@@ -1007,18 +1021,19 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                     modifiers['Boss']['Stats']['Attack'] = bossAtk + 15
                     modifiers['Boss']['Stats']['Defence'] = bossDef + 15
                 else:
-                    bossMon = [obj for obj in pogoPokemon if obj['Name'] == bossMon['Name']][0]
-                    modifiers['Boss']['DexNum'] = bossMon['ImageDexNum']
+                    bossMon = [obj for obj in pogoPokemon if obj['DexNum'] == bossDexNum][0]
+                    modifiers['Boss']['DexNum'] = bossMon['DexNum']
                     modifiers['Boss']['Stats']['Attack'] = bossMon['Attack'] + 15
                     modifiers['Boss']['Stats']['Defence'] = bossMon['Defence'] + 15
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid pokemon name! Or PokeAPI is having issues!\n'
         elif input.startswith('tier'):
-            modifiers['Boss']['Tier'] = input[4:].lower()
-            modifiers['Boss']['Stats']['Health'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('bossHealth', None)
-            modifiers['Boss']['Cpm'] = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('cpmMultiplier', None)
-            attackMultiplier = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('attackMultiplier', None)
-            energyMultiplier = battleTierStats.get(input[4:], {}).get(battleSystem, {}).get('energyMultiplier', None)
+            tierInput = input[len('tier'):]
+            modifiers['Boss']['Tier'] = tierInput
+            modifiers['Boss']['Stats']['Health'] = battleTierStats.get(tierInput, {}).get(battleSystem, {}).get('bossHealth', None)
+            modifiers['Boss']['Cpm'] = battleTierStats.get(tierInput, {}).get(battleSystem, {}).get('cpmMultiplier', None)
+            attackMultiplier = battleTierStats.get(tierInput, {}).get(battleSystem, {}).get('attackMultiplier', None)
+            energyMultiplier = battleTierStats.get(tierInput, {}).get(battleSystem, {}).get('energyMultiplier', None)
 
             if attackMultiplier is not None:
                 modifiers['Boss']['AttackMultiplier'] = attackMultiplier
@@ -1047,7 +1062,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
         modifiers, errorText = await determineMaxModifierValues(modifiers, systemSpecificInputs, errorText)
 
     if modifiers['Boss']['DexNum'] != -1:
-        bossName = [obj for obj in pokemon if obj['DexNum'] == modifiers['Boss']['DexNum']][0]['Name']
+        bossName = getMonName(modifiers['Boss']['DexNum'])
         hpOverride = battleStatOverrides.get(modifiers['Boss']['Tier'], {}).get(battleSystem, {}).get(bossName, {}).get('bossHealth', None)
         attackOverride = battleStatOverrides.get(modifiers['Boss']['Tier'], {}).get(battleSystem, {}).get(bossName, {}).get('attackMultiplier', None)
         energyOverride = battleStatOverrides.get(modifiers['Boss']['Tier'], {}).get(battleSystem, {}).get(bossName, {}).get('energyMultiplier', None)
@@ -1082,6 +1097,25 @@ async def determineRaidModifierValues(modifiers, raidInputs, errorText):
 
             if modifiers['PartyPowerGain'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid amount of trainers in a party! Keep it between 2 and 4!\n'
+        elif input.startswith('mega'):
+            try:
+                megaLvl = int(input[len('mega'):])
+                if 1 > megaLvl or megaLvl > 4:
+                    raise Exception
+                if megaLvl != 4:
+                    modifiers['AutoSuperMega'] = False
+                modifiers['PlusMoveMultiplier'] = activeModifiers.get('PlusMoveMultiplier').get(str(megaLvl))
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid mega level! Keep it between 1 and 4!\n'
+        elif input.startswith('dynamicpunch'):
+            modifiers['MegaMewtwoXMultiplier'] = activeModifiers.get('MegaMewtwoXMultiplier')
+            if not modifiers['UsingAdventureEffect']:
+                if checkClassification(modifiers['Boss']['DexNum'], 'Mega'):
+                    modifiers['UsingAdventureEffect'] = True
+                else:
+                    errorText += 'This adventure effect only works against mega pokemon! Make the boss a mega pokemon!'
+            else:
+                errorText += 'You can only use one adventure effect at a time!'
         
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
@@ -1104,7 +1138,7 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
             try:
                 if input[-1:] != 'x':
                     raise Exception
-                val = float(input[12:-1])
+                val = float(input[len('maxeffective'):-1])
                 if 0.1 > val or val > 10.0:
                     raise Exception
                 modifiers['MaxEffectiveness'] = val
@@ -1113,19 +1147,19 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
         elif input == 'nomaxstab':
             modifiers['MaxSTABMultiplier'] = 1.0
         elif input.startswith('powerspotboost'):
-            modifiers['PowerSpotMultiplier'] = activeModifiers.get('PowerSpotMultiplier', {}).get(input[14:], None)
+            modifiers['PowerSpotMultiplier'] = activeModifiers.get('PowerSpotMultiplier', {}).get(input[len('powerspotboost'):], None)
 
             if modifiers['PowerSpotMultiplier'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid power spot level! The boost level should be the amount of icons you see!\n'
         elif input == 'mushroomboost':
             modifiers['MushroomMultiplier'] = activeModifiers.get('MushroomMultiplier')
         elif input.startswith('dmax') or input.startswith('gmax'):
-            maxMoveLevel = input[4:]
-            modifiers['MaxMovePower'] = activeModifiers.get('MaxMovePower', {}).get(input[:4], {}).get(maxMoveLevel, None)
+            maxMoveLevel = input[len('dmax'):]
+            modifiers['MaxMovePower'] = activeModifiers.get('MaxMovePower', {}).get(input[:len('dmax')], {}).get(maxMoveLevel, None)
             modifiers['MaxMoveText'] = f'Lv {maxMoveLevel} {input[0].upper()}Max '
             
             if input.startswith('gmax'):
-                modifiers['GMaxText'] = ' Gmax'
+                modifiers['UsingGmax'] = True
 
             if modifiers['MaxMovePower'] is None:
                 errorText += f'\'{input}\' wasn\'t understood as a valid dynamax move level!\n'
@@ -1139,15 +1173,14 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
             modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
         elif input.startswith('cycleswapto'):
             try:
-                swapMon = checkForNickname(input[11:])
-                if not checkDuplicatePoGoMon(swapMon):
+                swapDexNum = getDexNum(input[len('cycleswapto'):])
+                if not checkDuplicatePoGoMon(swapDexNum):
                     raise Exception
-                swapMon = [obj for obj in pogoPokemon if obj['Name'] == formatTextForBackend(swapMon)][0]
+                swapMon = [obj for obj in pogoPokemon if obj['DexNum'] == swapDexNum][0]
                 modifiers['ShowCycleDps'] = True
                 modifiers['ResultSortOrder'] = defaultModifiers.get('ResultSortOrder').get('dmax-cycle')
                 modifiers['CycleWillSwap'] = True
-                modifiers['CycleSwapMon']['Name'] = swapMon['Name']
-                modifiers['CycleSwapMon']['ImageDexNum'] = swapMon['ImageDexNum']
+                modifiers['CycleSwapMon']['DexNum'] = swapMon['DexNum']
                 modifiers['CycleSwapMon']['Stats']['Attack'] = swapMon['Attack']
                 modifiers['CycleSwapMon']['Stats']['Defence'] = swapMon['Defence']
                 modifiers['CycleSwapMon']['Stats']['Stamina'] = swapMon['Stamina']
@@ -1155,19 +1188,21 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                 errorText += f'\'{input}\' wasn\'t understood as a valid mon name! Make sure it\'s registered!\n'
         elif input.startswith('cycleswaplevel'): 
             try:
-                if re.fullmatch(r'\d+(\.5|\.0)?', input[14:]):
-                    val = float(input[14:])
+                levelInput = input[len('cycleswaplevel'):]
+                if re.fullmatch(r'\d+(\.5|\.0)?', levelInput):
+                    val = float(levelInput)
                     if 1.0 > val or val > 55.0:
                         raise Exception
-                    modifiers['CycleSwapMon']['Level'] = float(input[14:])
+                    modifiers['CycleSwapMon']['Level'] = float(levelInput)
                 else:
                     raise Exception
             except:
-                errorText += f'\'{input[14:]}\' wasn\'t understood as a valid level for the swapped mon! Keep it between 1 and 51!\n'
+                errorText += f'\'{levelInput}\' wasn\'t understood as a valid level for the swapped mon! Keep it between 1 and 51!\n'
         elif input.startswith('cycleswapivs'):
             try:
-                if '/' in input[12:]:
-                    ivs = re.split(r'[/]+', input[12:])
+                ivInput = input[len('cycleswapivs'):]
+                if '/' in ivInput:
+                    ivs = re.split(r'[/]+', ivInput)
                     for iv in ivs:
                         if 0 > int(iv) or int(iv) > 15:
                             raise Exception
@@ -1177,15 +1212,15 @@ async def determineMaxModifierValues(modifiers, dynamaxInputs, errorText):
                 else:
                     raise Exception
             except:
-                errorText += f'\'{input[12:]}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!\n'
+                errorText += f'\'{ivInput}\' wasn\'t understood as a valid iv combo! Format it like 15/15/15! And keep them between 0-15!\n'
         elif input.startswith('players'):
             try:
-                playerCount = input[7:]
+                playerCount = input[len('players'):]
                 if 1 > int(playerCount) or int(playerCount) > 4:
                     raise Exception
                 modifiers['CyclePlayers'] = float(int(playerCount))
             except:
-                errorText += f'\'{input[12:]}\' wasn\'t understood as a valid player amount! Keep it between 1 and 4!\n'
+                errorText += f'\'{input[len("players"):]}\' wasn\'t understood as a valid player amount! Keep it between 1 and 4!\n'
         elif input == 'oldenergycalc':
             modifiers['UseNewMaxFormula'] = False
         elif input == 'nofastmovecalc':
@@ -1284,6 +1319,7 @@ def calcBossDPS(enemyScaling, bossAttack, defence, SHADOW_MULTIPLIER, ZAMA_BOOST
 def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
     weatherMultiplier = 1.0
     megaMultiplier = 1.0
+    plusMoveMultiplier = 1.0
     partyPower = 1.0
     if moveType == 'Fast':
         weatherMultiplier = modifiers['FastWeatherMultiplier']
@@ -1292,13 +1328,18 @@ def calcModifierValue(modifiers, moveType, fastMovesPerCharged=0.0):
         weatherMultiplier = modifiers['ChargedWeatherMultiplier']
         megaMultiplier = modifiers['ChargedMegaMultiplier']
         partyPower = calculatePartyPowerMultiplier(fastMovesPerCharged, modifiers)
+        plusMoveMultiplier = modifiers['PlusMoveMultiplier'] if modifiers['IsPlusMove'] else 1.0
     elif moveType == 'Max':
         if len(modifiers['WeatherTypes']) > 0:
             weatherMultiplier = activeModifiers.get('WeatherMultiplier').get('active')
         if modifiers['ApplyMegaBoost']:
             megaMultiplier = activeModifiers.get('MegaMultiplier').get('SameType')
-    
-    modifierVal = modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * weatherMultiplier * megaMultiplier * modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * modifiers['ZacianMultiplier'] * partyPower
+            
+    modifierVal = (modifiers[f'{moveType}Effectiveness'] * modifiers[f'{moveType}STABMultiplier'] * 
+                   modifiers['ShadowMultiplier'] * modifiers['FriendMultiplier'] * 
+                   weatherMultiplier * megaMultiplier * modifiers['MegaMewtwoXMultiplier'] *
+                   plusMoveMultiplier * partyPower *
+                   modifiers['PowerSpotMultiplier'] * modifiers['MushroomMultiplier'] * modifiers['ZacianMultiplier'])
 
     return modifierVal
 

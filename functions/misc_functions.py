@@ -1,8 +1,10 @@
 import discord
 import copy
+import regex as re
 from dictionaries.shared_dictionaries import sharedImagePaths, sharedFileLocations, sharedEmbedColours
 from functions.shared_functions import (
-   checkForNickname, getMonFromName, formatTextForBackend, formatTextForDisplay, buildNicknameLookupTable, saveDataVariableToFile, rollForShiny, pokemon
+   checkForNickname, getMonFromName, formatTextForBackend, formatTextForDisplay, buildNicknameLookupTable, 
+   saveDataVariableToFile, rollForShiny, pokemon, users, getUserIdFromNickname, getDexNum, getUserPing
 )
 
 def shuckleHelp():
@@ -15,10 +17,14 @@ def shuckleHelp():
                                             '```$pogo help``` Shows all the PoGo event commands\n' +
                                             '```$mc help``` Shows all minecraft server commands\n' +
                                             '```$format help``` Shows how to call the mimikyu format command\n' +
-                                            '```$coins``` Gets the coins link\n\n'
-                                            '```$shuckle add-nickname Ttar, Tyranitar``` Adds nicknames to link to original names\n' +
+                                            '```$coins``` Gets the coins link\n' +
+                                            '```$shuckle make-csv I <3 kanto, ooooo charizard!``` Takes any text input, and pulls out the pokemon names within, giving you a csv list of matching names\n\n' +
+                                            '```$shuckle add-nickname Ttar, Tyranitar``` Adds a nickname to a pokemon\n' +
+                                            '```$shuckle add-nickname nickname, @user``` Adds a nicknames to a user\n' +
                                             '```$shuckle remove-nickname Ttar``` Removes a nickname from a pokemon\n' +
-                                            '```$shuckle nicknames``` Prints out all nicknames',
+                                            '```$shuckle remove-nickname nickname``` Removes a nickname from a user\n\n' +
+                                            '```$shuckle mon-nicknames``` Prints out all pokemon nicknames\n' +
+                                            '```$shuckle user-nicknames``` Prints out all user nicknames',
                                 color=sharedEmbedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
@@ -55,25 +61,83 @@ def mimikyuFormat(userInput):
                 'Only send messages like this ```$format Misty, 20, Route 3, Route 4```' +
                 'In this order, name of the next battle ex. Gym 2 or Misty, level cap for the next battle, then all the encounters before the next battle.')
 
+def csvSortKey(mon):
+    return getDexNum(mon)
+
+async def getCSVFromInput(text):
+    monNames = [mon['Name'] for mon in pokemon]
+    matchingMonOutput = ''
+    matchingMonNames = set()
+    for name in reversed(monNames):
+        if name in text:
+            matchingMonNames.add(name)
+            text = text.replace(name, '')
+    matchingMonNames = sorted(list(matchingMonNames), key=csvSortKey)
+
+    for mon in matchingMonNames:
+        matchingMonOutput += f'{mon},'
+
+    return f'```{{{matchingMonOutput[:-1]}}}```'
+
 #region nicknames
-async def saveNicknameData():
+async def saveMonNicknameData():
     buildNicknameLookupTable()
 
     await saveDataVariableToFile(sharedFileLocations.get('Pokemon'), pokemon)
 
-async def addNickname(nickname, originalName):
+async def addNickname(nickname, original):
+    if getMonFromName(original):
+        return await addMonNickname(nickname, original)
+    return await addUserNickname(nickname, original)
+
+async def removeNickname(nickname):
+    if getMonFromName(nickname):
+        return await removeMonNickname(nickname)
+    return await removeUserNickname(nickname)
+
+async def addMonNickname(nickname, originalName):
     mon = getMonFromName(originalName)
 
     if mon is None:
         return f'\'{originalName}\' is not a valid mon!'
 
+    if getMonFromName(nickname):
+        return 'You can\'t make a nickname the same as another pokemon\'s name! Be original!'
+
+    if getUserIdFromNickname(nickname):
+        return 'You can\'t make a pokemon nickname the same as a user nickname! Be original!'
+
     mon['Nicknames'].append(formatTextForBackend(nickname))
 
-    await saveNicknameData()
+    await saveMonNicknameData()
 
     return f'Nickname \'{nickname}\' successfully added for {formatTextForDisplay(mon["Name"])}'
 
-async def removeNickname(nickname):
+async def addUserNickname(nickname, originalId):
+    if re.search(r'<@\d+>', originalId) is None:
+        return 'You have to specify a user to make a nickname for by pinging them!'
+
+    originalId = getUserIdFromNickname(originalId)
+    
+    if getMonFromName(nickname):
+        return 'You can\'t make a user nickname the same as a pokemon name! Be original!'
+
+    if getUserIdFromNickname(nickname):
+        return 'You can\'t make a user nickname the same as another user\'s nickname! Be original!'
+
+    if len([obj for obj in users if obj['User'] == originalId]) == 0:
+            users.append({
+                'User': originalId,
+                'Nicknames': []
+            })
+
+    [obj for obj in users if obj['User'] == originalId][0]['Nicknames'].append(formatTextForBackend(nickname))
+
+    await saveDataVariableToFile(sharedFileLocations.get('UserNicknames'), users)
+
+    return f'Nickname \'{formatTextForDisplay(nickname)}\' successfully added for {getUserPing(originalId)}!'
+
+async def removeMonNickname(nickname):
     originalMonName = checkForNickname(nickname)
 
     if originalMonName is None:
@@ -86,14 +150,29 @@ async def removeNickname(nickname):
 
     mon['Nicknames'].remove(formatTextForBackend(nickname))
 
-    await saveNicknameData()
+    await saveMonNicknameData()
 
     return f'Nickname \'{nickname}\' successfully removed from {formatTextForDisplay(mon["Name"])}'
 
-def listNicknames():
+async def removeUserNickname(nickname):
+    originalUser = getUserIdFromNickname(nickname)
+
+    if originalUser is None:
+        return f'\'{nickname}\' is not a valid nickname!'
+
+    if originalUser == nickname:
+        return f'\'{nickname}\' is not a valid nickname!'
+
+    [obj for obj in users if obj['User'] == originalUser][0]['Nicknames'].remove(formatTextForBackend(nickname))
+
+    await saveMonNicknameData()
+
+    return f'Nickname \'{nickname}\' successfully removed from {originalUser}'
+
+def listMonNicknames():
     embeds = []
 
-    embed = discord.Embed(title='Shuckle\'s Nicknames', 
+    embed = discord.Embed(title='Shuckle\'s Pokemon Nicknames', 
                           color=sharedEmbedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
@@ -143,6 +222,32 @@ def listNicknames():
                         inline=True)
         embeds.append(embed)
         
+    return embeds
+
+def listUserNicknames():
+    embeds = []
+
+    embed = discord.Embed(title='Shuckle\'s User Nicknames', 
+                          color=sharedEmbedColours.get('Default'))
+
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
+
+    for user in users:
+        embed.description = f'{getUserPing(user["User"])}\'s Nicknames'
+
+        for nickname in user['Nicknames']:
+            nicknameText = ''
+
+            nicknameText += f'{nickname}\n'
+
+            embed.add_field(name='',
+                            value=nicknameText,
+                            inline=False)
+
+        embeds.append(copy.deepcopy(embed))
+        
+        embed.clear_fields()
+
     return embeds
 #endregion
 

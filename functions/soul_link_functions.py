@@ -11,10 +11,10 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from io import BytesIO
 from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
-                                        getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage,
-                                        getDexNum, formatTextForDisplay, getMon, getMonName,
-                                        getTypeEmoji, getTypeColour, addPaginatedEmbedFields,
-                                        loadShucklePersonality, rollForShiny, checkClassification)
+                                        getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage, getUserPing, recurseEvoChain,
+                                        getDexNum, formatTextForDisplay, formatTextForBackend, getMon, getMonName,
+                                        getTypeEmoji, getTypeColour, addPaginatedEmbedFields, getUserIdFromNickname,
+                                        loadShucklePersonality, rollForShiny, checkClassification, pokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
 from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
 
@@ -26,7 +26,7 @@ currentRun = copy.deepcopy(defaultRun)
 
 #region help command
 #dev commands, undo-death {name}, reset, undo-status
-async def help():
+async def soulLinksHelp():
     embed = discord.Embed(title=f'Scuffed Soul Link Bot Commands',
                           description='```$sl new-sl HeartGold, HGAttempt1, @Player1, @Player2...``` Creates a new soul link run linked to the users specified\n' +
                                       '```$sl encounter Starter, Bulbasaur``` Adds data to an encounter, the other users in the sl can call the command again to set their encountered mon\n' +
@@ -66,13 +66,12 @@ async def help():
 #region text parsing functions
 def getGroup(game):
     try:
-        return [obj for obj in games if any(group.lower() == game.lower() for group in obj['Games'])][0]['Name']
+        return [obj for obj in games if any(group == game for group in obj['Games'])][0]['Name']
     except:
         return None
 
 def checkDuplicateName(name):
-    temp = [obj for obj in runs if obj['Name'] == name]
-    if len(temp) >= 1:
+    if len([obj for obj in runs if obj['Name'] == name]) >= 1:
         return True
     return False
 
@@ -82,13 +81,26 @@ def formatVersionGroupName(versionGroup):
     elif versionGroup == 'legends-za':
         versionGroupName = 'Legends Z-A'
     else:
-        versionGroupName = re.split(r'[\s-.]+', versionGroup)
-        versionGroupName = ' '.join(word.capitalize() for word in versionGroupName)
+        versionGroupName = formatTextForDisplay(versionGroup)
 
     return versionGroupName
 
+def formatEncounterNameForDisplay(encounterName):
+    if 'hau-oli' in encounterName:
+        encounterName = encounterName.replace('hau-oli', 'Hau\'oli')
+    elif 'ula-ula' in encounterName:
+        encounterName = encounterName.replace('ula-ula', 'Ula\'Ula')
+    elif 'kala-e' in encounterName:
+        encounterName = encounterName.replace('kala-e', 'Kala\'e')
+    else:
+        return formatTextForDisplay(encounterName)
+    
+    words = re.split(r'[\s-.]+', encounterName)
+    text = ' '.join(word.capitalize() for word in words)
+    return text
+
 def getSerebiiLink(gameGen, monData):
-    serebiiLink = f'https://www.serebii.net/pokedex{gameGen["Serebii-Link"]}/'
+    serebiiLink = f'https://www.serebii.net/pokedex{gameGen["SerebiiLink"]}/'
 
     zeroFilledDexNum = str(monData["species"]["url"][42:].strip("/")).zfill(3)
 
@@ -133,18 +145,18 @@ def formatMonForSerebii(dexNum):
 
 def getRun(runName):
     try:
-        return [obj for obj in runs if obj['Name'].lower() == runName.strip().lower()][0]
+        return [obj for obj in runs if obj['Name'] == formatTextForBackend(runName)][0]
     except:
         return None
     
 def matchPlayer(player, run):
     try:
-        return run['Players'].index(player)
+        return run['Players'].index(getUserIdFromNickname(player))
     except:
         return None
     
 def checkEncounter(name, run):
-    return any(encounter['Name'].lower() == name.lower() for encounter in run['Encounters'])
+    return any(encounter['Name'] == formatTextForBackend(name) for encounter in run['Encounters'])
 
 def determineGenSpecificSprite(gameGen, versionGroup):
     baseUrlAddition = ''
@@ -166,7 +178,7 @@ def determineGenSpecificSprite(gameGen, versionGroup):
         if gameGen['Name'] == 1:
             rollShiny = False
 
-        baseUrlAddition += f'/versions/generation-{gameGen["Roman-Numeral"].lower()}/{versionName}/'
+        baseUrlAddition += f'/versions/generation-{gameGen["RomanNumeral"]}/{versionName}/'
         
         if gameGen['Name'] == 5:
             baseUrlAddition += 'animated/'
@@ -176,10 +188,10 @@ def determineGenSpecificSprite(gameGen, versionGroup):
 
 def addMoveData(moveset, moveData):
     for move, data in zip(moveset, moveData):
-        move['Type'] = str(data['type']['name']).capitalize()
-        move['Category'] = str(data['damage_class']['name']).capitalize()
-        move['Power'] = '᲼\-᲼' if data['power'] is None else str(data['power']).rjust(3, '᲼')
-        move['Accuracy'] = '᲼\-' if data['accuracy'] is None else str(data['accuracy']).rjust(3, '᲼')
+        move['Type'] = data['type']['name'].capitalize()
+        move['Category'] = data['damage_class']['name'].capitalize()
+        move['Power'] = '᲼\-᲼' if data['power'] is None else data['power'].rjust(3, '᲼')
+        move['Accuracy'] = '᲼\-' if data['accuracy'] is None else data['accuracy'].rjust(3, '᲼')
 
     return moveset
 
@@ -191,7 +203,7 @@ def getGameData(gameName):
 
 def getGroupGen(versionGroup):
     try:
-        return [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["Version-Groups"])][0]
+        return [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["VersionGroups"])][0]
     except:
         return None
 
@@ -207,28 +219,39 @@ def getGameMascot(gameName):
         gameData = getGameData(gameName)
         return gameData["Mascot"][[game for game in gameData["Games"]].index(gameName)]
     except:
-        return 213
+        return getDexNum('shuckle')
     
 def getGameLinkEmoji(gameName):
     try:
         gameData = getGameData(gameName)
-        return gameData['Link-Emoji'][[game for game in gameData['Games']].index(gameName)]
+        return gameData['LinkEmoji'][[game for game in gameData['Games']].index(gameName)]
     except:
         return ''
 #endregion
 
 #region $sl new-sl command and createRole func
-async def createNewRun(game, name, players, guild):
-    versionGroup = getGroup(game)
+async def createNewRun(gameName, runName, players, guild):
+    gameName = formatTextForBackend(gameName)
+    runName = formatTextForBackend(runName)
+
+    versionGroup = getGroup(gameName)
 
     if versionGroup is None:
         return 'The name of the game wasn\'t recognized!'
     
-    if len(name) > 50:
+    if len(runName) > 50:
         return 'Limit the name of the run to less than 50 characters!'
     
-    if checkDuplicateName(name):
-        return 'The run name has been used before! Use unique names!'
+    if checkDuplicateName(runName):
+        return 'That run name has been used before! Use unique names!'
+
+    for player in players:
+        playerId = getUserIdFromNickname(player)
+
+        if playerId is None:
+            return f'\'{player}\' wasn\'t recognized as a valid user!'
+
+    playerIds = [getUserIdFromNickname(player) for player in players]
 
     encounters = []
     encounterList = [obj for obj in games if obj['Name'] == versionGroup][0]['Progression'][0]['Encounters']
@@ -239,59 +262,60 @@ async def createNewRun(game, name, players, guild):
             'Pokemon': [-1 for i in players],
             'Completed': False,
             'Alive': True,
-            'Death-Reason': ''
+            'DeathReason': None
         })
 
     runs.append({
-        'Name': name,
-        'Game': game,
-        'Version-Group': versionGroup,
-        'Current-Progress': 0,
-        'Players': players,
+        'Name': runName,
+        'Game': gameName,
+        'VersionGroup': versionGroup,
+        'CurrentProgress': 0,
+        'Players': playerIds,
         'Encounters': encounters,
-        'Run-Status': 'In Progress',
+        'RunStatus': 'In Progress',
         'Teams': [[]],
-        'Run-Notes': ''
+        'RunNotes': ''
     })
 
     currentRun['VersionGroup'] = versionGroup
-    currentRun['RunName'] = name
+    currentRun['RunName'] = runName
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    await createRole(players, guild)
+    await createRole(playerIds, guild)
 
-    return 'Run Created! Focus set to the newly created run!'
+    return f'Run \'{formatTextForDisplay(runName)}\' in {formatTextForDisplay(gameName)} created! Shuckle\'s focus was set to the newly created run!'
 
-async def createRole(players, guild):
+async def createRole(playerIds, guild):
     try:
         run = getRun(currentRun['RunName'])
         
         if run is None:
             raise Exception('Somehow the run name is invalid. Get Anderson to look into it lol')
 
+        runName = formatTextForDisplay(currentRun['RunName'])
+
         rand_num = random.randint(1, 5)
         match rand_num:
             case 1:
-                role_name = f'{currentRun["RunName"]} Gamers'
+                role_name = f'{runName} Gamers'
             case 2:
-                role_name = f'{currentRun["RunName"]} Runners'
+                role_name = f'{runName} Runners'
             case 3:
-                role_name = f'Lobotomy Patients Attempt {currentRun["RunName"]}'
+                role_name = f'Lobotomy Patients Attempt {runName}'
             case 4:
-                role_name = f'Haha Funny {currentRun["RunName"]} Ping Role' 
+                role_name = f'Haha Funny {runName} Ping Role' 
             case 5:
-                role_name = f'Gaslighting Central at {currentRun["RunName"]}'
+                role_name = f'Gaslighting Central at {runName}'
             case _:
-                role_name = currentRun['RunName']
+                role_name = runName
                 
         role = await guild.create_role(name=role_name)
 
         await role.edit(color=getGameEmbedColour(run['Game']))
 
-        for player in players:
-            userId = int(player[2:-1])
-            user = guild.get_member(userId)
+        for id in playerIds:
+            user = guild.get_member(id)
 
             await user.add_roles(role)
         
@@ -300,11 +324,58 @@ async def createRole(players, guild):
 #endregion
 
 #region $sl encounter command
+def checkForMonForms(monName):
+    toCheck = [monName]
+    forms = set()
+
+    if ('-' in monName
+        and not checkClassification(getDexNum(monName), 'Paradox') 
+        and not monName.startswith('nidoran-')
+        and not monName.startswith('tapu')
+        and not monName == 'ho-oh'
+        and not monName == 'wo-chien'
+        and not monName == 'chi-yu'):
+
+        splitInput = re.split(r'[-]+', monName)
+        toCheck.append(splitInput[0])
+
+    for mon in pokemon:
+        for name in toCheck:
+            if mon['Name'].startswith(name):
+                forms.add(mon['DexNum'])
+
+    return forms
+
+def createMonDuplicateGroup(monName):
+    monGroup = set()
+
+    monForms = checkForMonForms(monName)
+
+    for mon in monForms:
+        basePokemon = getMon(mon)
+        while basePokemon['EvolvesFrom'] is not None:
+            basePokemon = getMon(basePokemon['EvolvesFrom'])
+
+        recurseEvoChain(basePokemon, 'DexNum', monGroup)
+
+    return monGroup
+
+def checkDuplicateEncounter(dexNum, playerIndex, run):
+    monDupeGroup = createMonDuplicateGroup(getMon(dexNum)['Name'])
+
+    encounteredMons = {encounter['Pokemon'][playerIndex] for encounter in run['Encounters']}
+
+    if monDupeGroup.intersection(encounteredMons):
+        return True
+    return False
+
 async def encounterMon(encounterName, encounter, player):
     run = getRun(currentRun['RunName'])
 
     if run is None:
         return 'Specify a run first!'
+
+    encounterName = formatTextForBackend(encounterName)
 
     playerIndex = matchPlayer(player, run)
     dexNum = getDexNum(encounter)
@@ -317,8 +388,13 @@ async def encounterMon(encounterName, encounter, player):
     
     if not checkEncounter(encounterName, run):
         return f'\'{encounterName}\' was not recognized as a valid area for an encounter! Make sure to use the \'$sl progress\' command after each major battle to unlock new encounters!'
-    
-    encounterData = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounterName.lower()][0]
+
+    dupeMessage = ''
+
+    if checkDuplicateEncounter(dexNum, playerIndex, run):
+        dupeMessage = 'You\'ve already caught something from that evolution line!\nIf you\'re playing with dupes clause go reroll it! Otherwise, '
+
+    encounterData = [obj for obj in run['Encounters'] if obj['Name'] == encounterName][0]
 
     encounterData['Pokemon'][playerIndex] = dexNum
 
@@ -327,44 +403,42 @@ async def encounterMon(encounterName, encounter, player):
     
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'{formatTextForDisplay(encounter)} successfully added for {player} for {formatTextForDisplay(encounterName)}!'
+    return f'{dupeMessage}{formatTextForDisplay(encounter)} added for {player} for {formatEncounterNameForDisplay(encounterName)}!'
     
-async def encounterMonGroup(encounterName, encounters):
+async def encounterMonGroup(encounterName, extraInputs):
     run = getRun(currentRun['RunName'])
 
     if run is None:
         return 'Specify a run first!'
 
+    encounterName = formatTextForBackend(encounterName)
+
     if not checkEncounter(encounterName, run):
         return f'\'{encounterName}\' was not recognized as a valid area for an encounter! Make sure to use the \'$sl progress\' command after each major battle to unlock new encounters!'
     
-    encounterData = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounterName.lower()][0]
+    encounterData = [obj for obj in run['Encounters'] if obj['Name'] == encounterName][0]
 
     responseText = ''
+    playerIndex = None
+    dexNum = -1
 
-    for encounter in encounters:
-        encounter = re.split(r'[\s]+', encounter.strip())
-        if len(encounter) < 2:
-            responseText += f'\'{encounter}\' was formatted incorrectly!\n'
-            continue
-        else:
-            player = encounter[0].strip()
-            encounter = ' '.join(word.lower().capitalize() for word in encounter[1:])
+    for i, userInput in enumerate(extraInputs, start=1):
+        playerIndex = matchPlayer(userInput, run)
+        dexNum = getDexNum(userInput)
 
-        playerIndex = matchPlayer(player, run)
-        dexNum = getDexNum(encounter)
+        if i % 2:
+            if playerIndex is None or dexNum == -1:
+                responseText += f'\'{extraInputs[i-2]}\' and \'{extraInputs[i-1]}\' were not recognized as a valid encounter and player pair!\n'
 
-        if playerIndex is None:
-            responseText += f'\'{player}\' was not recogized as a player in the currently selected run!\n'
-            continue
-    
-        if dexNum == -1:
-            responseText += f'\'{encounter}\' was not recognized as a pokemon!\n'
-            continue
+            else:
+                dupeMessage = ''
+                
+                if checkDuplicateEncounter(dexNum, playerIndex, run):
+                    dupeMessage = 'You\'ve already caught something from that evolution line!\nIf you\'re playing with dupes clause go reroll it! Otherwise, '
 
-        encounterData['Pokemon'][playerIndex] = dexNum
+                encounterData['Pokemon'][playerIndex] = dexNum
 
-        responseText += f'{formatTextForDisplay(encounter)} successfully added for {player} for {formatTextForDisplay(encounterName)}!\n'
+                responseText += f'{dupeMessage}{getMonName(dexNum)} added for {getUserPing(run["Players"][playerIndex])} for {formatEncounterNameForDisplay(encounterName)}!\n'
     
     if all(num != -1 for num in encounterData['Pokemon']):
         encounterData['Completed'] = True
@@ -394,7 +468,7 @@ async def listEncounters():
     embed = discord.Embed(title=f'{currentRun["RunName"]} Available Encounters',
                           color=getGameEmbedColour(run['Game']))
     
-    if run['Current-Progress'] <= 1 and run['Version-Group'] == 'heartgold-soulsilver':
+    if run['CurrentProgress'] <= 1 and run['VersionGroup'] == 'heartgold-soulsilver':
         embed.set_author(name='Egg Id Website', url='https://www.pokewiki.de/Spezial:Geheimcode-Generator?uselang=en')
     
     embed.set_thumbnail(url=getPokeAPISpriteUrl(getGameMascot(run['Game'])))
@@ -558,7 +632,7 @@ async def evolveMon(monName, player):
     if playerIndex is None:
         return 'The author of this input was not recognized as a player in the currently selected run!'
     
-    if len(mon['Evolves-Into']) == 0:
+    if len(mon['EvolvesInto']) == 0:
         return f'{formatTextForDisplay(monName)} can\'t evolve!'
     
     encounterData = [obj for obj in run['Encounters'] if obj['Pokemon'][playerIndex] == dexNum and obj['Completed'] and obj['Alive']]
@@ -568,7 +642,7 @@ async def evolveMon(monName, player):
     else:
         return f'You do not own a {formatTextForDisplay(monName)}!'
     
-    evoMon = getMon(mon['Evolves-Into'][0]['DexNum'])
+    evoMon = getMon(mon['EvolvesInto'][0]['DexNum'])
 
     encounterData['Pokemon'][playerIndex] = evoMon['DexNum']
 
@@ -593,7 +667,7 @@ async def undoEvolveMon(monName, player):
     if playerIndex is None:
         return 'The author of this input was not recognized as a player in the currently selected run!'
     
-    if mon['Evolves-From'] is None:
+    if mon['EvolvesFrom'] is None:
         return f'{formatTextForDisplay(monName)} doesn\'t have a pre-evo!'
     
     encounterData = [obj for obj in run['Encounters'] if obj['Pokemon'][playerIndex] == dexNum and obj['Completed'] and obj['Alive']]
@@ -603,7 +677,7 @@ async def undoEvolveMon(monName, player):
     else:
         return f'You do not own a {formatTextForDisplay(monName)}!'
     
-    pre_evo_mon = getMon(mon['Evolves-From'])
+    pre_evo_mon = getMon(mon['EvolvesFrom'])
 
     encounterData['Pokemon'][playerIndex] = pre_evo_mon['DexNum']
 
@@ -628,7 +702,7 @@ async def newDeath(encounterName, reason):
     encounterData = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounterName.lower()][0]
     
     encounterData['Alive'] = False
-    encounterData['Death-Reason'] = reason
+    encounterData['DeathReason'] = reason
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
@@ -649,7 +723,7 @@ async def undoDeath(encounterName):
         return f'The encounter from {encounterData["Name"]} is alive and well! Use $sl death {encounterData["Name"]} if you wanted to mark the encounter as dead!'
 
     encounterData['Alive'] = True
-    encounterData['Death-Reason'] = ''
+    encounterData['DeathReason'] = None
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
@@ -719,7 +793,7 @@ async def listDeaths():
                 encountersText += f'{monName}{linkEmoji}'
 
         embed.add_field(name=encountersText,
-                        value=encounter['Death-Reason'],
+                        value=encounter['DeathReason'],
                         inline=True)
             
         embeds.append(copy.deepcopy(embed))
@@ -738,10 +812,10 @@ def selectRun(name):
     if run is None:
         return 'The name of the run wasn\'t recognized!'
     
-    currentRun['VersionGroup'] = copy.deepcopy(run['Version-Group'])
+    currentRun['VersionGroup'] = copy.deepcopy(run['VersionGroup'])
     currentRun['RunName'] = copy.deepcopy(run['Name'])
 
-    return f'Focus set to run \'{run["Name"]}\'!'
+    return f'Focus set to run \'{formatTextForDisplay(run["Name"])}\'!'
 
 def resetFocus():
     global currentRun
@@ -758,13 +832,13 @@ async def listRuns():
     
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
-    fieldTitles = ['Run Names', 'Players', 'Status']
+    fieldTitles = ['Run Names', 'Status', 'Players']
     fieldContent = ['', '', '']
     pageCount = 10
 
     for i, run in enumerate(runs, start=1):
-        fieldContent[0] += f'{run["Name"]}\n'
-        fieldContent[1] += f'{run["Run-Status"]}\n'
+        fieldContent[0] += f'{formatTextForDisplay(run["Name"])}\n'
+        fieldContent[1] += f'{run["RunStatus"]}\n'
         fieldContent[2] += f'{len(run["Players"])}\n'
         
         if i % pageCount == 0:
@@ -808,13 +882,13 @@ async def chooseTeam(links, player):
         else:
             return f'\'{formatTextForDisplay(tempLink)}\' was not recognized as a pokemon you own! Make sure you\'re listing out your pokemon, and not everyone elses pokemon'
     
-    run['Teams'][run['Current-Progress']] = encounterData
+    run['Teams'][run['CurrentProgress']] = encounterData
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
     randomUser = await pingUser()
 
-    return f'Team successfully set for the upcoming battle with {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run["Current-Progress"]]["Battle-Name"]}. {randomUser} gets to go first.\nUse the $sl random command if you want to reroll who starts the battle first!'
+    return f'Team successfully set for the upcoming battle with {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][run["CurrentProgress"]]["BattleName"]}. {randomUser} gets to go first.\nUse the $sl random command if you want to reroll who starts the battle first!'
 #endregion
 
 #region $sl next-battle command
@@ -824,7 +898,7 @@ async def nextBattle():
     if run is None:
         return 'Specify a run first!'
     
-    return f'The next battle is with {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run["Current-Progress"]]["Battle-Name"]}, and the level cap is {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run["Current-Progress"]]["Level-Cap"]}.'
+    return f'The next battle is with {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][run["CurrentProgress"]]["BattleName"]}, and the level cap is {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][run["CurrentProgress"]]["LevelCap"]}.'
 #endregion
 
 #region $sl progress command
@@ -834,18 +908,18 @@ async def progressRun():
     if run is None:
         return 'Specify a run first!'
     
-    if (len([obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"]) - 1) > run['Current-Progress']:
-        run['Current-Progress'] += 1
+    if (len([obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"]) - 1) > run['CurrentProgress']:
+        run['CurrentProgress'] += 1
 
         run['Teams'].append([])
 
-        for newEncounter in [obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][run['Current-Progress']]['Encounters']:
+        for newEncounter in [obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][run['CurrentProgress']]['Encounters']:
             run['Encounters'].append({
                 'Name': newEncounter,
                 'Pokemon': [-1 for i in run['Players']],
                 'Completed': False,
                 'Alive': True,
-                'Death-Reason': ''
+                'DeathReason': None
             })
     else:
         return 'We\'re already in the end-game!'
@@ -878,7 +952,7 @@ async def addNote(note):
     if len(note) > 250:
         return 'Keep the notes short. Less than 250 characters.'
     
-    run['Run-Notes'] += f'{note}\n'
+    run['RunNotes'] += f'{note}\n'
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
@@ -910,10 +984,10 @@ async def seeStats():
     
     embeds = []
 
-    if run['Run-Status'] == 'In Progress':
+    if run['RunStatus'] == 'In Progress':
         descriptionText = 'This run is currently In Progress!'
     else:
-        descriptionText = f'This run ended in {run["Run-Status"]}!'
+        descriptionText = f'This run ended in {run["RunStatus"]}!'
 
     descriptionText += '\nTo see active and dead links, use the $sl links and $sl deaths commands!'
 
@@ -933,8 +1007,8 @@ async def seeStats():
     
     embed.set_thumbnail(url=getPokeAPISpriteUrl(getGameMascot(run['Game'])))
     
-    for progress_index in range(run['Current-Progress'] + 1):
-        embed.title = f'{currentRun["RunName"]} Info\nThe Team vs. {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Battle-Name"]} at Lv. {[obj for obj in games if obj["Name"] == run["Version-Group"]][0]["Progression"][progress_index]["Level-Cap"]}!'
+    for progress_index in range(run['CurrentProgress'] + 1):
+        embed.title = f'{currentRun["RunName"]} Info\nThe Team vs. {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][progress_index]["BattleName"]} at Lv. {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][progress_index]["LevelCap"]}!'
         
         if len(run['Teams'][progress_index]) > 0:
             for encounter in run['Teams'][progress_index]:
@@ -961,7 +1035,7 @@ async def seeStats():
     embed.title = f'{currentRun["RunName"]} Info\nRun Notes'
     embed.description = descriptionText
 
-    for note in splitRunNotes(run['Run-Notes']):
+    for note in splitRunNotes(run['RunNotes']):
         embed.add_field(name='',
                         value=note,
                         inline=True)
@@ -979,7 +1053,7 @@ async def setRunStatus(status, guild):
     if run is None:
         return 'Specify a run first!'
     
-    if run['Run-Status'] == status:
+    if run['RunStatus'] == status:
         return f'The runs status is already {status}!'
     
     allRoles = await guild.fetch_roles()
@@ -991,7 +1065,7 @@ async def setRunStatus(status, guild):
     except Exception as ex:
         print(ex)
 
-    run['Run-Status'] = status
+    run['RunStatus'] = status
     
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
@@ -1060,15 +1134,15 @@ async def createEvoChainImage(dexNum, type):
     basePokemon = getMon(dexNum)
 
     if not checkClassification(dexNum, 'Mega') and not checkClassification(dexNum, 'Gigantamax'):
-        while basePokemon['Evolves-From'] is not None:
-            basePokemon = getMon(basePokemon['Evolves-From'])
+        while basePokemon['EvolvesFrom'] is not None:
+            basePokemon = getMon(basePokemon['EvolvesFrom'])
     
     evoChainLength = 1
-    if len(basePokemon['Evolves-Into']) > 0:
+    if len(basePokemon['EvolvesInto']) > 0:
         evoChainLength = 2
-        for evo in basePokemon['Evolves-Into']:
+        for evo in basePokemon['EvolvesInto']:
             evo = getMon(evo['DexNum'])
-            if len(evo['Evolves-Into']) > 0:
+            if len(evo['EvolvesInto']) > 0:
                 evoChainLength = 3
 
     backgroundImage = Image.open(f'images/type_backgrounds/{type}.png')
@@ -1083,30 +1157,30 @@ async def createEvoChainImage(dexNum, type):
         
     elif evoChainLength == 2:
         #2 stage evo line, like vulpix
-        if len(basePokemon['Evolves-Into']) == 1:
+        if len(basePokemon['EvolvesInto']) == 1:
             #only one evo
-            evoMons = [basePokemon, basePokemon['Evolves-Into'][0]]
+            evoMons = [basePokemon, basePokemon['EvolvesInto'][0]]
             monPositions = [[75, 50], [225, 50]]
             arrowPositions = [[175, 90, 0]]
 
-        elif len(basePokemon['Evolves-Into']) == 2:
+        elif len(basePokemon['EvolvesInto']) == 2:
             #2 evos, like slowpoke
-            evoMons = [basePokemon, basePokemon['Evolves-Into'][0], basePokemon['Evolves-Into'][1]]
+            evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1]]
             monPositions = [[75, 50], [225, 0], [225, 100]]
             arrowPositions = [[175, 55, 45], [175, 125, -45]]
 
-        elif len(basePokemon['Evolves-Into']) == 3:
+        elif len(basePokemon['EvolvesInto']) == 3:
             #3 evos, like tyrogue
-            evoMons = [basePokemon, basePokemon['Evolves-Into'][0], basePokemon['Evolves-Into'][1], basePokemon['Evolves-Into'][2]]
+            evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1], basePokemon['EvolvesInto'][2]]
             monPositions = [[75, 50], [225, 0], [225, 100], [300, 50]]
             arrowPositions = [[175, 55, 45], [175, 125, -45], [200, 90, 0]]
 
-        elif len(basePokemon['Evolves-Into']) == 8:
+        elif len(basePokemon['EvolvesInto']) == 8:
             #eevee
-            evoMons = [basePokemon, basePokemon['Evolves-Into'][0], basePokemon['Evolves-Into'][1], 
-                       basePokemon['Evolves-Into'][2], basePokemon['Evolves-Into'][3], 
-                       basePokemon['Evolves-Into'][4], basePokemon['Evolves-Into'][5], 
-                       basePokemon['Evolves-Into'][6], basePokemon['Evolves-Into'][7]]
+            evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1], 
+                       basePokemon['EvolvesInto'][2], basePokemon['EvolvesInto'][3], 
+                       basePokemon['EvolvesInto'][4], basePokemon['EvolvesInto'][5], 
+                       basePokemon['EvolvesInto'][6], basePokemon['EvolvesInto'][7]]
             monPositions = [[148, 50], [225, 0], [225, 100],
                             [300, 100], [75, 0], [0, 100],
                             [0, 0], [75, 100], [300, 0]]
@@ -1114,60 +1188,60 @@ async def createEvoChainImage(dexNum, type):
             
     elif evoChainLength == 3:
             #3 stage evo line
-            if len(basePokemon['Evolves-Into']) == 1:
+            if len(basePokemon['EvolvesInto']) == 1:
                 #only one middle evo
-                middlePokemon = getMon(basePokemon['Evolves-Into'][0]['DexNum'])
-                if len(middlePokemon['Evolves-Into']) == 1:
+                middlePokemon = getMon(basePokemon['EvolvesInto'][0]['DexNum'])
+                if len(middlePokemon['EvolvesInto']) == 1:
                     #only one final evo, like venusaur
-                    evoMons = [basePokemon, basePokemon['Evolves-Into'][0], middlePokemon['Evolves-Into'][0]]
+                    evoMons = [basePokemon, basePokemon['EvolvesInto'][0], middlePokemon['EvolvesInto'][0]]
                     monPositions = [[0, 50], [150, 50], [300, 50]]
                     arrowPositions = [[100, 90, 0], [250, 90, 0]]
 
-                elif len(middlePokemon['Evolves-Into']) == 2:
+                elif len(middlePokemon['EvolvesInto']) == 2:
                     #two final evos like kirlia
-                    evoMons = [basePokemon, basePokemon['Evolves-Into'][0], 
-                               middlePokemon['Evolves-Into'][0], middlePokemon['Evolves-Into'][1]]
+                    evoMons = [basePokemon, basePokemon['EvolvesInto'][0], 
+                               middlePokemon['EvolvesInto'][0], middlePokemon['EvolvesInto'][1]]
                     monPositions = [[0, 50], [150, 50], [300, 0], [300, 100]]
                     arrowPositions = [[100, 90, 0], [250, 55, 45], [250, 125, -45]]
 
-            elif len(basePokemon['Evolves-Into']) == 2:
+            elif len(basePokemon['EvolvesInto']) == 2:
                 #2 middle evos, like mr mime
-                middlePokemon = [getMon(basePokemon['Evolves-Into'][0]['DexNum']), getMon(basePokemon['Evolves-Into'][1]['DexNum'])]
+                middlePokemon = [getMon(basePokemon['EvolvesInto'][0]['DexNum']), getMon(basePokemon['EvolvesInto'][1]['DexNum'])]
 
-                evoMons = [basePokemon, basePokemon['Evolves-Into'][0], basePokemon['Evolves-Into'][1]]
+                evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1]]
                 monPositions = [[0, 50], [150, 0], [150, 100]]
                 arrowPositions = [[100, 55, 45], [100, 125, -45]]
 
-                if len(middlePokemon[0]['Evolves-Into']) != 0:
-                    evoMons.append(middlePokemon[0]['Evolves-Into'][0])
+                if len(middlePokemon[0]['EvolvesInto']) != 0:
+                    evoMons.append(middlePokemon[0]['EvolvesInto'][0])
                     monPositions.append([300, 0])
                     arrowPositions.append([250, 55, 0])
                     
-                if len(middlePokemon[1]['Evolves-Into']) != 0:
-                    evoMons.append(middlePokemon[1]['Evolves-Into'][0])
+                if len(middlePokemon[1]['EvolvesInto']) != 0:
+                    evoMons.append(middlePokemon[1]['EvolvesInto'][0])
                     monPositions.append([300, 100])
                     arrowPositions.append([250, 125, 0])
                 
-            elif len(basePokemon['Evolves-Into']) == 3:
+            elif len(basePokemon['EvolvesInto']) == 3:
                 #3 evos with a 3rd stage, like applin
-                middlePokemon = [getMon(basePokemon['Evolves-Into'][0]['DexNum']), getMon(basePokemon['Evolves-Into'][1]['DexNum']), getMon(basePokemon['Evolves-Into'][2]['DexNum'])]
+                middlePokemon = [getMon(basePokemon['EvolvesInto'][0]['DexNum']), getMon(basePokemon['EvolvesInto'][1]['DexNum']), getMon(basePokemon['EvolvesInto'][2]['DexNum'])]
 
-                evoMons = [basePokemon, basePokemon['Evolves-Into'][0], basePokemon['Evolves-Into'][1], basePokemon['Evolves-Into'][2]]
+                evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1], basePokemon['EvolvesInto'][2]]
                 monPositions = [[0, 50], [150, 0], [150, 100], [200, 50]]
                 arrowPositions = [[100, 55, 45], [100, 125, -45], [125, 90, 0]]
 
-                if len(middlePokemon[0]['Evolves-Into']) != 0:
-                    evoMons.append(middlePokemon[0]['Evolves-Into'][0])
+                if len(middlePokemon[0]['EvolvesInto']) != 0:
+                    evoMons.append(middlePokemon[0]['EvolvesInto'][0])
                     monPositions.append([275, 0])
                     arrowPositions.append([250, 55, 0])
 
-                if len(middlePokemon[1]['Evolves-Into']) != 0:
-                    evoMons.append(middlePokemon[1]['Evolves-Into'][0])
+                if len(middlePokemon[1]['EvolvesInto']) != 0:
+                    evoMons.append(middlePokemon[1]['EvolvesInto'][0])
                     monPositions.append([275, 100])
                     arrowPositions.append([250, 125, 0])
 
-                if len(middlePokemon[2]['Evolves-Into']) != 0:
-                    evoMons.append(middlePokemon[2]['Evolves-Into'][0])
+                if len(middlePokemon[2]['EvolvesInto']) != 0:
+                    evoMons.append(middlePokemon[2]['EvolvesInto'][0])
                     monPositions.append([315, 50])
                     arrowPositions.append([275, 90, 0])
        
@@ -1562,7 +1636,7 @@ async def calculateCatchRate(mon, level):
 
     capture_rate = monSpecies['capture_rate']
 
-    gen = [obj for obj in gens if any(group["Name"] == currentRun["VersionGroup"] for group in obj["Version-Groups"])][0]
+    gen = [obj for obj in gens if any(group["Name"] == currentRun["VersionGroup"] for group in obj["VersionGroups"])][0]
 
     if dexNum == 292:
         hp_stat = 1

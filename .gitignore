@@ -4,6 +4,7 @@ tokens/coins.txt
 text_files/shared/shiny_days.txt
 text_files/shared/owner.txt
 text_files/shared/admins.txt
+text_files/shared/user_nicknames.txt
 text_files/chat_gpt_instructions/*
 text_files/minecraft_server/rcon_ip.txt
 text_files/minecraft_server/rcon_password.txt

@@ -1,6 +1,6 @@
 import regex as re
 from dictionaries.shared_dictionaries import sharedFileLocations
-from functions.shared_functions import loadDataVariableFromFile
+from functions.shared_functions import formatCommand, formatSplitInput, loadDataVariableFromFile
 from functions.misc_functions import *
 
 admins = loadDataVariableFromFile(sharedFileLocations.get('Admins'), readJson=True)
@@ -9,19 +9,29 @@ async def miscShuckleCommands(userInput, author=None, guild=None):
 
     if userInput == 'help':
         response = shuckleHelp()
+
+    elif userInput.startswith('make-csv'):
+        response = await getCSVFromInput(formatTextForBackend(formatCommand('make-csv', userInput)))
+
+    elif userInput.startswith('add-nickname'):
+        splitInput = formatSplitInput(formatCommand('add-nickname', userInput))
+        
+        if splitInput is None:
+            response = 'Invalid input! Use commas \',\' in between values!'
     
-    elif userInput.startswith('add-nickname '):
-        splitInput = re.split(r'[,]+', userInput[13:])
         if len(splitInput) == 2:
             response = await addNickname(splitInput[0], splitInput[1])
         else:
             response = 'Invalid input! Use commas \',\' in between values!'
 
-    elif userInput.startswith('remove-nickname '):
-        response = await removeNickname(userInput[16:])
+    elif userInput.startswith('remove-nickname'):
+        response = await removeNickname(formatCommand('remove-nickname', userInput))
 
-    elif userInput == 'nicknames':
-        response = listNicknames()
+    elif userInput == 'mon-nicknames':
+        response = listMonNicknames()
+
+    elif userInput == 'user-nicknames':
+        response = listUserNicknames()
 
     elif userInput == 'coins':
         with open('tokens/coins.txt') as file:
@@ -44,6 +54,6 @@ async def miscShuckleCommands(userInput, author=None, guild=None):
                     f'But make sure to get that Mr. Krabs gif ready!\n```$divorce {userInput[6:].split("**")[1]}```')
     
     else:
-        response = 'I don\'t know what you\'re trying to input!'
+        response = 'I\'ve never seen that command before! You typed it horribly wrong! Get some `$shuckle help`!'
 
     return response

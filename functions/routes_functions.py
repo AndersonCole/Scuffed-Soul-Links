@@ -1,7 +1,7 @@
 import discord
 import copy
 from datetime import datetime
-from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, addPaginatedEmbedFields
+from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, addPaginatedEmbedFields, formatTextForBackend, formatTextForDisplay, getUserPing
 from dictionaries.routes_dictionaries import routesFileLocations, routesImagePaths, routesEmbedColour
 
 routes = loadDataVariableFromFile(routesFileLocations.get('Routes'))
@@ -32,7 +32,7 @@ async def routesHelp():
 #region text parsing functions
 def getRoute(routeName, user):
     try:
-        return [obj for obj in routes if obj['Name'].lower() == routeName.lower() and obj['User'] == user][0]
+        return [obj for obj in routes if obj['Name'] == routeName and obj['User'] == user][0]
     except:
         return None
 
@@ -61,7 +61,7 @@ def getDirection(direction):
 #region routes commands
 async def addRoute(routeName, distance, timesWalked, user):
     routes.append({
-        'Name': routeName,
+        'Name': formatTextForBackend(routeName),
         'Distance': distance,
         'TimesWalked': timesWalked,
         'User': user
@@ -73,7 +73,7 @@ async def addRoute(routeName, distance, timesWalked, user):
 
 async def walkRoute(routeName, distance, direction, cellCount, user):
 
-    routeData = getRoute(routeName, user)
+    routeData = getRoute(formatTextForBackend(routeName), user)
 
     if routeData == None:
         return 'The name of the route was invalid, or you were not the one who created this route!'
@@ -90,7 +90,7 @@ async def walkRoute(routeName, distance, direction, cellCount, user):
         'User': user
     })
 
-    [obj for obj in routes if obj['Name'].lower() == routeName.lower() and obj['User'] == user][0]['TimesWalked'] += 1
+    [obj for obj in routes if obj['Name'] == routeName and obj['User'] == user][0]['TimesWalked'] += 1
 
     await saveDataVariableToFile(routesFileLocations.get('WalkedRoutes'), walkedRoutes)
     await saveDataVariableToFile(routesFileLocations.get('Routes'), routes)
@@ -127,7 +127,7 @@ async def listRoutes(user):
 
     pageCount = 20
     for i, route in enumerate(usersRoutes, start=1):
-        fieldContent[0] += f'{route["Name"]}\n'
+        fieldContent[0] += f'{formatTextForDisplay(route["Name"])}\n'
 
         if i % pageCount == 0:
                 embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
@@ -145,7 +145,7 @@ async def printoutDay(user):
         return 'No routes logged today! Get out there soldier, Zygarde needs YOUR help to destroy ML!', None
 
     embed = discord.Embed(title=f'Today\'s Routes',
-                          description=f'{user}',
+                          description=f'{getUserPing(user)}',
                           color=routesEmbedColour)
     
     routesText = ''
@@ -153,7 +153,7 @@ async def printoutDay(user):
     for todayRoute in todaysRoutes:
         route = [obj for obj in routes if obj['Name'] == todayRoute['Name'] and obj['User'] == user][0]
 
-        routesText += (f'Name: {todayRoute["Name"]}\n'
+        routesText += (f'Name: {formatTextForDisplay(todayRoute["Name"])}\n'
                           f'Distance: {todayRoute["Distance"]}m/{route["Distance"]}m\n'
                           f'Direction: {getDirection(todayRoute["Direction"])}\n'
                           f'Cells: {todayRoute["Cells"]}\n'
@@ -178,8 +178,8 @@ async def printoutRoutes(user):
     sortedRoutes = sorted(usersRoutes, key=lambda x: x['TimesWalked'], reverse=True)
 
     for route in sortedRoutes:
-        embed = discord.Embed(title=f'{route["Name"]}',
-                        description=f'Stats for {route["User"]}',
+        embed = discord.Embed(title=f'{formatTextForDisplay(route["Name"])}',
+                        description=f'Stats for {getUserPing(route["User"])}',
                         color=routesEmbedColour)
         
         timesWalked = [0, 0, 0, 0]

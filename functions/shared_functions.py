@@ -39,6 +39,8 @@ pokemon = loadDataVariableFromFile(sharedFileLocations.get('Pokemon'))
 
 pogoPokemon = loadDataVariableFromFile(sharedFileLocations.get('PoGoPokemon'))
 
+users = loadDataVariableFromFile(sharedFileLocations.get('UserNicknames'))
+
 #region poke api
 async def getPokeApiJsonData(url, session=None):
     if '/pokemon/' in url:
@@ -167,7 +169,7 @@ def addPaginatedEmbedFields(fieldTitle, fieldContent, embed, embeds, extraEmbedD
 
 #region text formatting
 def formatTextForBackend(text):
-    formattedText = re.sub(r'\s', '-', str(text).strip().lower())
+    formattedText = re.sub(r'[\s\']+', '-', str(text).strip().lower())
     return formattedText
 
 def formatTextForDisplay(text):
@@ -178,6 +180,18 @@ def formatTextForDisplay(text):
 def formatCapitalize(text):
     text = text.lower()
     return text.capitalize()
+
+def formatCommand(commandName, text):
+    formattedText = text[len(commandName):].strip(' -,')
+    return formattedText
+
+def formatSplitInput(text):
+    if ',' in text:
+        splitInput = re.split(r'[,]+', text)
+        splitInput = [input.strip(' -') for input in splitInput]
+        return [input for input in splitInput if input]
+    else:
+        return None
 #endregion
 
 def getTypeEmoji(type, moveCategory=None):
@@ -204,9 +218,30 @@ def checkForNickname(monName):
 
     return nicknameLookup.get(monName)
 
+def getUserIdFromNickname(nickname):
+    if isinstance(nickname, str):
+        if nickname.startswith('<@') and nickname.endswith('>'):
+            return int(nickname[2:-1])
+    elif isinstance(nickname, int):
+        return nickname
+    
+    nickname = formatTextForBackend(nickname)
+
+    if len([obj for obj in users if str(obj['User']) == nickname]) > 0:
+        return int(nickname)
+    
+    for user in users:
+        if nickname in user['Nicknames']:
+            return int(user['User'])
+        
+    return None
+
+def getUserPing(userId):
+    return f'<@{userId}>'
+
 def getMonFromName(monName):
     monName = checkForNickname(monName)
-
+    
     try:
         return [obj for obj in pokemon if obj['Name'] == monName][0]
     except:
@@ -230,7 +265,21 @@ def getMonName(dexNum):
         return formatTextForDisplay(mon)
     except:
         return None
-    
+
+def recurseEvoChain(mon, key, monGroup):
+    if mon[key] in monGroup:
+        return
+    monGroup.add(mon[key])
+
+    if checkClassification(mon['DexNum'], 'HasMega') and len(mon['EvolvesInto']) == 0:
+        megaEvos = [megaMon for megaMon in pokemon if (mon['DexNum'] == megaMon['EvolvesFrom']) and (checkClassification(megaMon['DexNum'], 'Mega'))]
+        for megaEvo in megaEvos:
+            monGroup.add(megaEvo[key])
+
+    for evo in mon['EvolvesInto']:
+        nextMon = getMon(evo['DexNum'])
+        recurseEvoChain(nextMon, key, monGroup)
+
 def buildNicknameLookupTable():
     global nicknameLookup
 
@@ -295,8 +344,8 @@ def buildHasSpecialEvoList(classification):
     
     for dexNum in pokemonClassifications.get(classification.lstrip('Has')):
         basePokemon = getMon(dexNum)
-        while basePokemon['Evolves-From'] is not None:
-            basePokemon = getMon(basePokemon['Evolves-From'])
+        while basePokemon['EvolvesFrom'] is not None:
+            basePokemon = getMon(basePokemon['EvolvesFrom'])
             preEvoMons.append(basePokemon['DexNum'])
 
     return preEvoMons
@@ -382,30 +431,38 @@ def calcPoGoStatsFromBaseStats(hp, attack, defence, spAttack, spDefence, speed, 
 #endregion
 
 #region PoGo mon registry
-def checkDuplicatePoGoMon(monName):
-    monName = formatTextForBackend(monName)
-
-    if len([obj for obj in pogoPokemon if obj['Name'] == monName]) >= 1:
+def checkDuplicatePoGoMon(dexNum):
+    if len([obj for obj in pogoPokemon if obj['DexNum'] == dexNum]) >= 1:
         return True
     return False
 
-async def pogoAddMon(monName, attack, defence, stamina):
-    monName = checkForNickname(monName)
-
-    if checkDuplicatePoGoMon(monName):
-        return 'That pokemon is already registered!'
-
-    if (1000 < attack or attack <= 0) or (1000 < defence or defence <= 0) or (1000 < stamina or stamina <= 0):
-        return 'Make sure the stats are greater than 0 or less than 1000!'
+async def handleAddPoGoMon(userInput, helpCommand):
+    userInput = formatCommand('add-mon', userInput)
+            
+    splitInput = formatSplitInput(userInput)
     
+    if splitInput is None:
+        return 'Invalid input! Use commas \',\' in between values!'
+
+    if len(splitInput) == 4:
+        return await pogoAddMon(splitInput[0], int(splitInput[1]), int(splitInput[2]), int(splitInput[3]))
+    else:
+        return f'Invalid input! Get some `{helpCommand}`!'
+
+async def pogoAddMon(monName, attack, defence, stamina):
     dexNum = getDexNum(monName)
 
     if dexNum == -1:
         return f'The pokemon \'{formatTextForDisplay(monName)}\' was not recognized!'
+    
+    if checkDuplicatePoGoMon(dexNum):
+        return 'That pokemon is already registered!'
+
+    if (1000 < attack or attack <= 0) or (1000 < defence or defence <= 0) or (1000 < stamina or stamina <= 0):
+        return 'Make sure the stats are greater than 0 or less than 1000!'
 
     pogoPokemon.append({
-        'Name': monName,
-        'ImageDexNum': dexNum,
+        'DexNum': dexNum,
         'Attack': attack,
         'Defence': defence,
         'Stamina': stamina,
@@ -414,16 +471,19 @@ async def pogoAddMon(monName, attack, defence, stamina):
 
     await saveDataVariableToFile(sharedFileLocations.get('PoGoPokemon'), pogoPokemon)
 
-    return f'Pokemon \'{formatTextForDisplay(monName)}\' added successfully!'
+    return f'Pokemon \'{formatTextForDisplay(getMonName(dexNum))}\' added successfully!'
 
 async def pogoDeleteMon(monName):
-    monName = checkForNickname(monName)
-
-    if not checkDuplicatePoGoMon(monName):
-        return 'That pokemon is not even registered yet!'
+    dexNum = getDexNum(monName)
+    
+    if dexNum == -1:
+        return f'The pokemon \'{formatTextForDisplay(monName)}\' was not recognized!'
+    
+    if not checkDuplicatePoGoMon(dexNum):
+        return 'That pokemon is already registered!'
 
     for mon in pogoPokemon:
-        if mon['Name'] == monName:
+        if mon['DexNum'] == dexNum:
             pogoPokemon.remove(mon)
             break
 
@@ -443,7 +503,7 @@ async def pogoListMons():
     pageCount = 15
 
     for i, mon in enumerate(pogoPokemon, start=1):
-        fieldContent[0] += f'{formatTextForDisplay(mon["Name"])}\n'
+        fieldContent[0] += f'{formatTextForDisplay(getMonName(mon["DexNum"]))}\n'
         fieldContent[1] += f'{mon["Attack"]} | {mon["Defence"]} | {mon["Stamina"]}\n'
         
         if i % pageCount == 0:

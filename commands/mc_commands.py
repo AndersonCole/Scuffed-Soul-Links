@@ -1,6 +1,6 @@
 import regex as re
 from dictionaries.shared_dictionaries import sharedFileLocations
-from functions.shared_functions import loadDataVariableFromFile
+from functions.shared_functions import formatCommand, formatSplitInput, loadDataVariableFromFile
 from functions.mc_server_functions import *
 
 owner = int(loadDataVariableFromFile(sharedFileLocations.get('Owner'), readJson=False))
@@ -30,35 +30,41 @@ async def minecraftCommands(userInput, author):
         else:
             response = 'The server\'s offline!'
 
-    elif userInput == 'locate help':
-        response = await mcLocateHelp()
+    elif userInput.startswith('locate'):
+        userInput = formatCommand('locate', userInput)
 
-    elif userInput.startswith('locate '):
-        if await serverOnline():
-            if ',' in userInput:
-                splitInput = re.split(r'[,]+', userInput[7:].strip())
-                if len(splitInput) >= 2:
-                    response = await mcLocate(author.name, splitInput)
-                else:
-                    response = 'I don\'t know wtf you\'re trying to input!'
+        if userInput == 'help':
+            response = await mcLocateHelp()
+
+        elif await serverOnline():
+            splitInput = formatSplitInput(userInput)
+        
+            if splitInput is None:
+                response = await mcLocate(author.name, userInput)
+        
+            if len(splitInput) >= 2:
+                response = await mcLocate(author.name, splitInput)
             else:
-                response = await mcLocate(author.name, [userInput[7:].strip()])
+                response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
         else:
             response = 'The server\'s offline!'
 
-    elif userInput.startswith('loot '):
-        if ',' in userInput:
-            splitInput = re.split(r'[,]+', userInput[5:].strip())
-            if len(splitInput) == 2:
-                response = await mcLoot(splitInput[0].lower().strip(), splitInput[1].lower().strip())
-            else:
-               response = 'I don\'t know wtf you\'re trying to input!'
-        else:
-            response = 'I don\'t know wtf you\'re trying to input!'
+    elif userInput.startswith('loot'):
+        userInput = formatCommand('loot', userInput)
+                        
+        splitInput = formatSplitInput(userInput)
+    
+        if splitInput is None:
+            response = 'I don\'t understand your input as a valid XYZ co-ordinate!'
 
-    elif userInput[0:4] == 'say ':
+        if len(splitInput) == 2:
+            response = await mcLoot(splitInput[0], splitInput[1])
+        else:
+            response = 'I don\'t understand your input as a valid XYZ co-ordinate!'
+
+    elif userInput.startswith('say'):
         if await serverOnline():
-            await mcSay(userInput[4:], author.name.capitalize())
+            await mcSay(formatCommand('say', userInput), author.name.capitalize())
         
             response = 'Sent the server a message!'
         else:
@@ -118,9 +124,8 @@ async def minecraftCommands(userInput, author):
                 await mcOfflineBackup()
         else:
             response = 'Get outta here, admins only!'
-                 
 
     else:
-        response = 'I don\'t know wtf you\'re trying to input!'
+        response = 'I\'ve never seen that minecraft server command before! You typed it horribly wrong! Get some `$mc help`!'
     
     return response

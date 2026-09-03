@@ -3,6 +3,7 @@ sharedFileLocations = {
     'ChatGPT': 'tokens/openai_key.txt',
     'Owner': 'text_files/shared/owner.txt',
     'Admins': 'text_files/shared/admins.txt',
+    'UserNicknames': 'text_files/shared/user_nicknames.txt',
     'Pokemon': 'text_files/shared/pokemon.txt',
     'PoGoPokemon': 'text_files/shared/pogo_pokemon.txt',
     'ShinyDays': 'text_files/shared/shiny_days.txt'

@@ -1,1 +1,1 @@
-[{"User": "<@341722760852013066>", "Scanner": "poracle", "LevelRange": 10, "Distance": null}]
+[{"User": 341722760852013066, "Scanner": "poracle", "LevelRange": 10, "Distance": null}]

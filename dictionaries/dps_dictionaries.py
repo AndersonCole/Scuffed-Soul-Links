@@ -13,7 +13,6 @@ defaultModifiers = {
         'raids': 50.0,
         'dmax': 40.0
     },
-    'LevelSet': False,
     'Ivs': {
         'Attack': 15,
         'Defence': 15,
@@ -56,18 +55,22 @@ defaultModifiers = {
     'UsingAdventureEffect': False,
     'ZacianMultiplier': 1.0,
     'ZamazentaMultiplier': 1.0,
+    'MegaMewtwoXMultiplier': 1.0,
+
+    'AutoSuperMega': True,
+    'IsPlusMove': False,
+    'PlusMoveMultiplier': 1.0,
 
     'MaxEffectiveness': 1.0,
     'MaxSTABMultiplier': 1.2,
-    'MaxMovePower': 300,
-    'GMaxText': '',
-    'MaxMoveText': 'Lv 2 DMax ',
+    'MaxMovePower': 350,
+    'UsingGmax': False,
+    'MaxMoveText': 'Lv 3 DMax ',
 
     'CyclePlayers': 1.0,
     'ShowCycleDps': False,
     'CycleWillSwap': False,
     'CycleSwapMon': {
-        'Name': '',
         'ImageDexNum': -1,
         'Level': 40.0,
         'Stats': {
@@ -177,6 +180,14 @@ activeModifiers = {
     'ZamazentaMultiplier': {
         'raids': 1.1,
         'dmax': 1.05
+    },
+    'MegaMewtwoXMultiplier': 1.15,
+
+    'PlusMoveMultiplier': {
+        '1': 1.0,
+        '2': 1.1,
+        '3': 1.2,
+        '4': 1.3
     },
 
     #beak blast clone

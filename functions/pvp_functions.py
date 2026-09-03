@@ -77,7 +77,7 @@ def getRankSortOrderText(order):
         return 'Defence and Stat Product'
     return ''
 
-async def listFakeRankOnes(extraInput=None):
+async def listFakeRankOnes(extraInput):
     embeds = []
 
     leagueLimit, league = determineLeague(extraInput)
@@ -108,7 +108,7 @@ async def listFakeRankOnes(extraInput=None):
     return embeds
 
 def determineLeague(extraInput):
-    if extraInput is None:
+    if extraInput is None or extraInput == '':
         leagueLimit = 1500
         league = 'gl'
 
@@ -141,10 +141,10 @@ async def showPreMegaCP(dexNum, rank, superMega, show):
         if not checkClassification(dexNum, 'Mega'):
             raise Exception
 
-        pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['ImageDexNum'] == mon['Evolves-From']), None)
+        pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == mon['EvolvesFrom']), None)
 
         if pogoMon is None:
-            monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{mon["Evolves-From"]}')
+            monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{mon["EvolvesFrom"]}')
     
             if monData is None:
                 raise FileNotFoundError
@@ -266,7 +266,7 @@ async def pvpRankCheck(monName, extraInputs=None):
     return embed
 
 async def getPvpRankList(dexNum, modifiers):
-    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['ImageDexNum'] == dexNum), None)
+    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == dexNum), None)
     
     if pogoMon is not None:
         modifiers['BaseStats']['Attack'] = pogoMon['Attack']
@@ -530,10 +530,10 @@ def getTrackedMonName(dexNum, trackBaseEvo):
     if trackBaseEvo:
         basePokemon = getMon(dexNum)
         
-        while basePokemon['Evolves-From'] is not None:
-            if checkClassification(basePokemon['Evolves-From'], 'Baby'):
+        while basePokemon['EvolvesFrom'] is not None:
+            if checkClassification(basePokemon['EvolvesFrom'], 'Baby'):
                 break
-            basePokemon = getMon(basePokemon['Evolves-From'])
+            basePokemon = getMon(basePokemon['EvolvesFrom'])
 
         dexNum = basePokemon['DexNum']
 

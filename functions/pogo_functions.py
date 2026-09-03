@@ -16,10 +16,10 @@ from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColour
 from dictionaries.pogo_dictionaries import pogoFileLocations, eventColours, filterLists, timezones, defaultOddsModifiers, trackedEmojis
 from dictionaries.pvp_dictionaries import pvpFileLocations
 from functions.shared_functions import (
-    formatTextForDisplay, getMonFromName, getRegionFromDexNum,
-    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, verifyRegion, getMon, addPaginatedEmbedFields,
+    formatTextForDisplay, getMonFromName, getRegionFromDexNum, getUserIdFromNickname,
+    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, verifyRegion, getMon, addPaginatedEmbedFields, getUserPing,
     rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats,
-    loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, pogoPokemon, pokemon
+    loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, recurseEvoChain, pogoPokemon
 )
 
 trackedMons = loadDataVariableFromFile(pogoFileLocations.get('TrackedMons'))
@@ -35,13 +35,11 @@ async def pogoHelp():
                                         '```$pogo stats Kartana``` Calculates what the pokemons stats would be like in Go using its most recent main series stats\n'
                                         '```$pogo stats Kartana, noNerf``` Calculates what it would be like without any stat nerfs\n`noNerf`, `3Nerf` and `9Nerf` are the allowed nerf exceptions\n'
                                         '```$pogo stats 59, 181, 131, 59, 31, 109``` Calculates stats for Go based on the entered HP, Atk, Def, SpAtk, SpDef and Spd stats\nNerf exceptions can be applied here too\n\n'
-                                        '```$pogo user-nickname John Alola, @Logan``` Adds a user nickname to be used when tracking\n' +
-                                        '```$pogo make-csv I <3 kanto, ooooo charizard!``` Takes any text input, and pulls out the pokemon names within, giving you a csv list of matching names\n'
                                         '```$pogo track bulbasaur, xxs, xxl``` Adds a mon to your tracking list\nAllowed options are `all` `hundo` `lucky` `shiny` `gl` `ul` `shadow` `purified` `xxs` `xxl`\n' +
                                         '```$pogo untrack bulbasaur, all``` Removes a mon from your tracking list. Uses the same allowed options\n' +
                                         '```$pogo tracked bulbasaur, John Alola``` Shows what a user has tracked for a specific pokemon\n' +
-                                        '```$pogo tracked-list region/class, filter, John Alola``` Shows what a user has tracked for either a region or a class of pokemon\n' + 
-                                        '```$pogo tracked-list \{bulbasaur,charmander,squirtle\}, filter, John Alola``` Shows what a user has tracked for either a custom, csv list of pokemon\nGet the list from the `$pogo make-csv` command\n' + 
+                                        '```$pogo tracked region/class, filter, John Alola``` Shows what a user has tracked for either a region or a class of pokemon\n' + 
+                                        '```$pogo tracked \{bulbasaur,charmander,squirtle\}, filter, John Alola``` Shows what a user has tracked for either a custom, csv list of pokemon\nGet the csv list from the `$shuckle make-csv` command\n' + 
                                         'Allowed region/class options are every region name `all` `regional` `rare` `starters` `baby` `legendary` `mythical` `ultra-beast` `paradox` `mega` `hasMega` `gmax` `hasGmax`\n' +
                                         'Allowed filter options are `all` `hundo` `lucky` `shiny` `pvp` `rocket` `size`\n\n' +
                                         '```$pogo events help``` Shows all event searches\n\n' +
@@ -149,7 +147,7 @@ def doubleSpacing(length):
     return ''
 
 async def createEventsEmbeds(filterFor):
-    filterList = filterLists.get(filterFor.lower().strip(), None)
+    filterList = filterLists.get(filterFor, None)
     if filterList is None:
         return 'I don\'t understand what events you\'re trying to get info on!\n\nCheck `$pogo help` to see all valid searches!'
     
@@ -166,7 +164,7 @@ async def createEventsEmbeds(filterFor):
     embed = discord.Embed()
 
     firstEmbed = discord.Embed(title='Upcoming PoGo Events',
-                                color=eventColours.get(filterFor.lower().strip(), sharedEmbedColours.get('Default')))
+                                color=eventColours.get(filterFor, sharedEmbedColours.get('Default')))
     firstEmbed.set_author(name='More Info at LeekDuck', url='https://leekduck.com/events')
 
     firstEmbed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
@@ -257,7 +255,7 @@ async def calculateOdds(monName, extraInputs=None):
     modifiers = copy.deepcopy(defaultOddsModifiers)
 
     if extraInputs != None:
-        modifiers, errorText = determineOddsModifierValues([str(i).strip().lower() for i in extraInputs], modifiers)
+        modifiers, errorText = determineOddsModifierValues(extraInputs, modifiers)
         if errorText != '':
             return errorText
         
@@ -412,32 +410,11 @@ def determineOddsModifierValues(extraInputs, modifiers):
     return modifiers, errorText
 #endregion
 
-def csvSortKey(mon):
-    return getDexNum(mon)
-
-async def getCSVFromInput(text):
-    monNames = [mon['Name'] for mon in pokemon]
-    matchingMonOutput = ''
-    matchingMonNames = set()
-    for name in reversed(monNames):
-        if name in text:
-            matchingMonNames.add(name)
-            text = text.replace(name, '')
-    matchingMonNames = sorted(list(matchingMonNames), key=csvSortKey)
-
-    for mon in matchingMonNames:
-        matchingMonOutput += f'{mon},'
-
-    return f'```{{{matchingMonOutput[:-1]}}}```'
-
 #region track commands
 async def trackMon(monName, extraInputs, author):
-    if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
+    if len([obj for obj in trackedMons if obj['User'] == author]) == 0:
         trackedMons.append({
-            'User': {
-                'Id': author,
-                'Nicknames': []
-            },
+            'User': author,
             'Pokemon': []
         })
 
@@ -446,11 +423,11 @@ async def trackMon(monName, extraInputs, author):
     if mon is None:
         return f'\'{monName}\' was not recognized as a valid pokemon!'
 
-    toTrack, errorText = determineTracking([str(i).strip().lower() for i in extraInputs])
+    toTrack, errorText = determineTracking(extraInputs)
     if errorText != '':
         return errorText
     
-    userTracked = [obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']
+    userTracked = [obj for obj in trackedMons if obj['User'] == author][0]['Pokemon']
 
     if len([obj for obj in userTracked if obj['DexNum'] == mon['DexNum']]) == 0:
         userTracked.append({
@@ -467,7 +444,7 @@ async def trackMon(monName, extraInputs, author):
     return f'Tracking for \'{formatTextForDisplay(monName)}\' updated!'
 
 async def removeTrackedMon(monName, extraInputs, author):
-    if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
+    if len([obj for obj in trackedMons if obj['User'] == author]) == 0:
         return 'You don\'t even have anything tracked yet!'
     
     mon = getMonFromName(monName)
@@ -475,11 +452,11 @@ async def removeTrackedMon(monName, extraInputs, author):
     if mon is None:
         return f'\'{monName}\' was not recognized as a valid pokemon!'
     
-    toRemove, errorText = determineTracking([str(i).strip().lower() for i in extraInputs])
+    toRemove, errorText = determineTracking(extraInputs)
     if errorText != '':
         return errorText
     
-    userTracked = [obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']
+    userTracked = [obj for obj in trackedMons if obj['User'] == author][0]['Pokemon']
 
     if len(userTracked) == 0:
         return 'You don\'t even have anything tracked yet!'
@@ -521,7 +498,11 @@ def determineTracking(extraInputs):
         elif input in {'ul', 'ultra'}:
             toTrack.append('ul')
 
-        elif input in {'shadow', 'rocket'}:
+        elif input in {'rocket'}:
+            toTrack.append('shadow')
+            toTrack.append('purified')
+
+        elif input in {'shadow'}:
             toTrack.append('shadow')
 
         elif input in {'puri', 'purified'}:
@@ -537,32 +518,6 @@ def determineTracking(extraInputs):
             errorText += f'The input \'{input}\' wasn\'t recognized!\n'
 
     return set(toTrack), errorText
-
-async def addUserNickname(nickname, originalId):
-    if len([obj for obj in trackedMons if obj['User']['Id'] == originalId]) == 0:
-        trackedMons.append({
-            'User': {
-                'Id': originalId,
-                'Nicknames': []
-            },
-            'Pokemon': []
-        })
-
-    [obj for obj in trackedMons if obj['User']['Id'] == originalId][0]['User']['Nicknames'].append(formatTextForBackend(nickname))
-
-    await saveDataVariableToFile(pogoFileLocations.get('TrackedMons'), trackedMons)
-
-    return f'Nickname \'{formatTextForDisplay(nickname)}\' successfully added!'
-
-def getAuthorFromNickname(nickname):
-    if len([obj for obj in trackedMons if obj['User']['Id'] == nickname]) > 0:
-        return nickname
-    
-    for user in trackedMons:
-        if formatTextForBackend(nickname) in user['User']['Nicknames']:
-            return user['User']['Id']
-        
-    return None
 
 def trackedSortKey(tracked):
     if tracked == 'hundo':
@@ -625,6 +580,86 @@ def getTrackedEmojis(tracked, isList):
 
     return emojiText
 
+async def determineTrackedResponse(inputs, author, guild, monGroup=None):
+    monName = None
+    classification = None
+    filter = None
+    user = None
+    showAll = False
+    errorText = ''
+
+    for input in inputs:
+        formattedInput = formatTextForBackend(input[1:]) if input.startswith('!') else formatTextForBackend(input)
+        
+        if formattedInput == 'all':
+            showAll = True
+
+        elif formattedInput == '{}':
+            pass
+        
+        elif verifyRegion(formattedInput):
+            if input.startswith('!'):
+                errorText += 'Inverse region searching isn\'t supported! Just scroll past the region, you\'ll live!\n'
+            elif classification is not None:
+                errorText += 'You can only specify one region/classification at a time!\n'
+            else:
+                classification = formattedInput
+
+        elif determineClassification(formattedInput)[0] is not None:
+            if classification is not None:
+                errorText += 'You can only specify one region/classification at a time!\n'
+            else:
+                classification = input
+
+        elif len(determineDisplay(formattedInput)[0]) > 0:
+            if filter is not None:
+                errorText += 'You can only specify one filter for emojis at a time!\n'
+            else:
+                filter = formattedInput
+
+        elif getMonFromName(formattedInput):
+            if monName is not None:
+                errorText += 'You can only specify one pokemon at a time! If you want to see more, use a classification or a csv list from `$shuckle make-csv`!\n'
+            if monGroup is not None:
+                errorText += 'You can\'t specify a csv list of mons and another individual pokemon at the same time!\n'
+            else:
+                monName = formattedInput
+
+        elif getUserIdFromNickname(formattedInput):
+            if user is not None:
+                errorText += 'You can only specify one user\'s list of tracked mons at a time!\n'
+            else:
+                user = formattedInput
+        
+        else:
+            errorText += f'The input \'{input}\' wasn\'t recognized!\n'
+            
+    if errorText != '':
+        return errorText
+
+    if user is None:
+        user = author
+
+    if monGroup is not None:
+        if classification is not None:
+            return 'You can\'t specify a region/classification at the same time as a csv list!'
+        return await checkTrackedListMons(monGroup, filter or 'all', user, guild)
+
+    if monName is not None:
+        if classification is not None or filter is not None:
+            return 'You can\'t look up a single pokemon with any extra region/classifications or emoji filters!'
+        return await checkTrackedMon(monName, user or author, guild)
+
+    if classification is not None:
+        return await checkTrackedListMons(classification, filter or 'all', user, guild)
+
+    if filter is not None:
+        return await checkTrackedListMons(classification or 'all', filter, user, guild)
+
+    if showAll:
+        return await checkTrackedListMons('all', 'all', user, guild)
+    
+    return 'Whatever you inputted wasn\'t recognized as matching anything! Get some `$pogo help`!'
 
 async def checkTrackedMon(monName, user, guild):
     mon = getMonFromName(monName)
@@ -632,32 +667,31 @@ async def checkTrackedMon(monName, user, guild):
     if mon is None:
         return f'\'{monName}\' was not recognized as a valid pokemon!'
     
-    author = getAuthorFromNickname(user)
+    author = getUserIdFromNickname(user)
 
     if author is None:
         return 'This user doesn\'t have anything tracked!'
     
-    discordUser = guild.get_member(int(author[2:-1]))
+    discordUser = guild.get_member(author)
 
-    if discordUser is None:
-        return 'That user is not in your current server!'
+    discordName = getUserPing(author) if discordUser is None else discordUser.name
 
-    if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
+    if len([obj for obj in trackedMons if obj['User'] == author]) == 0:
         return 'This user doesn\'t have anything tracked!'
     
-    if len([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']) == 0:
+    if len([obj for obj in trackedMons if obj['User'] == author][0]['Pokemon']) == 0:
         return 'This user doesn\'t have anything tracked!'
 
-    userTracked = [obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']
+    userTracked = [obj for obj in trackedMons if obj['User']== author][0]['Pokemon']
 
     if len([obj for obj in userTracked if obj['DexNum'] == mon['DexNum']]) == 0:
-        return f'{formatTextForDisplay(discordUser.name)} does not need any {formatTextForDisplay(mon["Name"])}!'
+        return f'{formatTextForDisplay(discordName)} does not need any {formatTextForDisplay(mon["Name"])}!'
     
     userTrackedMon = [obj for obj in userTracked if obj['DexNum'] == mon['DexNum']][0]
 
     monTypes = await getTypesFromPokeAPI(mon['DexNum'])
 
-    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['ImageDexNum'] == mon['DexNum']), {})
+    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == mon['DexNum']), {})
 
     if len(pogoMon) == 0:
         monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{mon["DexNum"]}')
@@ -672,7 +706,7 @@ async def checkTrackedMon(monName, user, guild):
 
         pogoMon['Attack'], pogoMon['Defence'], pogoMon['Stamina'], nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
     
-    embed = discord.Embed(title=f'{formatTextForDisplay(mon["Name"])} tracked by {formatTextForDisplay(discordUser.name)}',
+    embed = discord.Embed(title=f'{formatTextForDisplay(mon["Name"])} tracked by {formatTextForDisplay(discordName)}',
                           description=f'Attack: {pogoMon["Attack"]}\n'
                                       f'Defence: {pogoMon["Defence"]}\n'
                                       f'Stamina: {pogoMon["Stamina"]}',
@@ -693,50 +727,35 @@ async def checkTrackedMon(monName, user, guild):
 
     return embed
 
-def recurseEvoChain(mon, expandedMonGroup):
-    if mon['Name'] in expandedMonGroup:
-        return
-    expandedMonGroup.add(mon['Name'])
-
-    if checkClassification(mon['DexNum'], 'HasMega') and len(mon['Evolves-Into']) == 0:
-        megaEvos = [megaMon for megaMon in pokemon if (mon['DexNum'] == megaMon['Evolves-From']) and (checkClassification(megaMon['DexNum'], 'Mega'))]
-        for megaEvo in megaEvos:
-            expandedMonGroup.add(megaEvo['Name'])
-
-    for evo in mon['Evolves-Into']:
-        nextMon = getMon(evo['DexNum'])
-        recurseEvoChain(nextMon, expandedMonGroup)
-
 def createExpandedMonGroup(monGroup):
     expandedMonGroup = set()
 
     for mon in monGroup:
         basePokemon = getMonFromName(mon)
-        while basePokemon['Evolves-From'] is not None:
-            if checkClassification(basePokemon['Evolves-From'], 'Baby'):
+        while basePokemon['EvolvesFrom'] is not None:
+            if checkClassification(basePokemon['EvolvesFrom'], 'Baby'):
                 break
-            basePokemon = getMon(basePokemon['Evolves-From'])
+            basePokemon = getMon(basePokemon['EvolvesFrom'])
 
-        recurseEvoChain(basePokemon, expandedMonGroup)
+        recurseEvoChain(basePokemon, 'Name', expandedMonGroup)
 
     return list(expandedMonGroup)
 
 
 async def checkTrackedListMons(classification, filter, user, guild):
-    author = getAuthorFromNickname(user)
+    author = getUserIdFromNickname(user)
 
     if author is None:
         return 'This user doesn\'t have anything tracked!'
     
-    discordUser = guild.get_member(int(author[2:-1]))
-
-    if discordUser is None:
-        return 'That user is not in your current server!'
+    discordUser = guild.get_member(author)
     
-    if len([obj for obj in trackedMons if obj['User']['Id'] == author]) == 0:
+    discordName = getUserPing(author) if discordUser is None else discordUser.name
+    
+    if len([obj for obj in trackedMons if obj['User'] == author]) == 0:
         return 'This user doesn\'t have anything tracked!'
     
-    if len([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon']) == 0:
+    if len([obj for obj in trackedMons if obj['User'] == author][0]['Pokemon']) == 0:
         return 'This user doesn\'t have anything tracked!'
 
     filter = formatTextForBackend(filter)
@@ -747,7 +766,7 @@ async def checkTrackedListMons(classification, filter, user, guild):
     if len(toDisplay) == 0:
         return f'{filter} was not not recognized as a valid search term!\nCheck `$pogo help` for valid terms!'
 
-    userTracked = sorted([obj for obj in trackedMons if obj['User']['Id'] == author][0]['Pokemon'], key=lambda x: x['DexNum'])
+    userTracked = sorted([obj for obj in trackedMons if obj['User'] == author][0]['Pokemon'], key=lambda x: x['DexNum'])
 
     trackedList = []
 
@@ -787,7 +806,7 @@ async def checkTrackedListMons(classification, filter, user, guild):
                     })
 
     if len(trackedList) == 0:
-        return f'{formatTextForDisplay(discordUser.name)} does not need anything {formatTextForDisplay(filter)} from {formatTextForDisplay(classification)}!'
+        return f'{formatTextForDisplay(discordName)} does not need anything {formatTextForDisplay(filter)} from {formatTextForDisplay(classification)}!'
 
     if not (isinstance(classification, list)):
         classificationTitle = formatTextForDisplay(classification)
@@ -796,7 +815,7 @@ async def checkTrackedListMons(classification, filter, user, guild):
 
     embeds = []
 
-    embed = discord.Embed(title=f'{classificationTitle}, {formatTextForDisplay(filter)} Pokemon tracked by {formatTextForDisplay(discordUser.name)}',
+    embed = discord.Embed(title=f'{classificationTitle}, {formatTextForDisplay(filter)} Pokemon tracked by {formatTextForDisplay(discordName)}',
                             description='',
                             color=sharedEmbedColours.get('Default'))
     

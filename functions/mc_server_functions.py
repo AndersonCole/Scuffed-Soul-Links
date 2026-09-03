@@ -294,23 +294,23 @@ def getLocateModifiers(inputs):
     errorText = ''
 
     for input in inputs:
-        if str(input).strip().lower() == 'overworld':
+        if input == 'overworld':
             modifiers['Dimension'] = 'minecraft:overworld'
-        elif str(input).strip().lower() == 'nether':
+        elif input == 'nether':
             modifiers['Dimension'] = 'minecraft:the_nether'
-        elif str(input).strip().lower() == 'end':
+        elif input == 'end':
             modifiers['Dimension'] = 'minecraft:the_end'
     
-        elif str(input).strip().lower() == 'biome':
+        elif input == 'biome':
             modifiers['SearchFor'] = 'biome'
-        elif str(input).strip().lower() == 'structure':
+        elif input == 'structure':
             modifiers['SearchFor'] = 'structure'
 
-        elif str(input).strip().lower() == 'gridsearch':
+        elif input == 'gridsearch':
             modifiers['GridSearch'] = True
-        elif str(input).strip().lower()[:9] == 'gridrange':
+        elif input.startswith('gridrange'):
             try:
-                val = int(input.strip()[9:])
+                val = int(input[len('gridrange'):])
                 if 0 > val or val > 1000:
                     raise Exception
                 modifiers['GridRange'] = val
@@ -318,8 +318,8 @@ def getLocateModifiers(inputs):
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid grid search range value! Keep it between 0 and 1000!\n'
             
-        elif bool(re.match(r'^-?\d+(\.\d+)?\s+-?\d+(\.\d+)?$', str(input).strip())):
-            coords = re.split(r'[\s]+', input.strip())
+        elif bool(re.match(r'^-?\d+(\.\d+)?\s+-?\d+(\.\d+)?$', input)):
+            coords = re.split(r'[\s]+', input)
             if len(coords) == 2:
                 try:
                     modifiers['XCoordinate'] = int(coords[0])
@@ -330,7 +330,6 @@ def getLocateModifiers(inputs):
                 errorText += f'\'{input}\' was not understood as valid coordinates!\n'
 
         else:
-            input = str(input).strip().lower()
             if ':' not in input:
                 if input[0] == '#':
                     input = f'#minecraft:{input[1:]}'
@@ -366,7 +365,7 @@ async def mcLocate(author, inputs):
                 for zOffset in [-modifiers['GridRange'], modifiers['GridRange']]:
                     response = rcon.command(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"] + xOffset} 0 {modifiers["ZCoordinate"] + zOffset} run locate {modifiers["SearchFor"]} {modifiers["Target"]}')
                     
-                    if response[:9] == 'Could not':
+                    if response.startswith('Could not'):
                         return f'Could not find a {modifiers["Target"]} {modifiers["SearchFor"].capitalize()} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
                     responseCoords = re.search(r'\[([^\]]+)\]', response).group(1).split(',')
                     targetCoords.append([int(responseCoords[0].strip()), responseCoords[1].strip(), int(responseCoords[2].strip())])
@@ -384,7 +383,7 @@ async def mcLocate(author, inputs):
         with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
             response = rcon.command(f'execute in {modifiers["Dimension"]} positioned {modifiers["XCoordinate"]} 0 {modifiers["ZCoordinate"]} run locate {modifiers["SearchFor"]} {modifiers["Target"]}')
 
-            if response[:9] == 'Could not':
+            if response.startswith('Could not'):
                 return f'Could not find a {modifiers["Target"]} {modifiers["SearchFor"].capitalize()} in the {getDimensionName(modifiers["Dimension"])} near {modifiers["XCoordinate"]} {modifiers["ZCoordinate"]}!'
 
             targetCoords = (re.search(r'\[([^\]]+)\]', response)).group(1).split(',')
