@@ -238,7 +238,7 @@ def listUserNicknames():
         for nickname in user['Nicknames']:
             nicknameText = ''
 
-            nicknameText += f'{nickname}\n'
+            nicknameText += f'{formatTextForDisplay(nickname)}\n'
 
             embed.add_field(name='',
                             value=nicknameText,

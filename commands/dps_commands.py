@@ -15,19 +15,10 @@ async def dpsCommands(userInput, author):
         response, file = await handleDpsCheck(userInput, 'raids', author.id)
 
     elif userInput.startswith('batch-check'):
-        response = handleBatchDpsCheck(userInput, 'raids', author.id)
+        response = await handleBatchDpsCheck(userInput, 'raids', author.id)
 
     elif userInput.startswith('super-max'):
         response = await addSuperMax(formatCommand('super-max', userInput))
-    
-    elif userInput.startswith('add-note'):
-        response = await addDPSNote(formatCommand('add-note', userInput))
-    
-    elif userInput == ('delete-notes'):
-        response = await clearDPSNotes()
-
-    elif userInput.startswith('check-notes'):
-        response = await readDPSNotes(author, formatCommand('check-notes', userInput))
 
     elif userInput.startswith('default-modifiers'):
         response = await getUserModifiers('raids', author.id)
@@ -40,7 +31,7 @@ async def dpsCommands(userInput, author):
 
     #region mons and moves add del read
     elif userInput.startswith('add-mon'):
-        response = await handleAddPoGoMon(userInput, '$max help')
+        response = await handleAddPoGoMon(userInput, '$dps help')
     
     elif userInput.startswith('delete-mon'):
         response = await pogoDeleteMon(formatCommand('delete-mon', userInput))
@@ -55,7 +46,7 @@ async def dpsCommands(userInput, author):
         response = await handleRemovePoGoDpsMoveset(userInput)
 
     elif userInput.startswith('add-move'):
-        response = await handleAddPoGoDpsMove(userInput, '$max help')
+        response = await handleAddPoGoDpsMove(userInput, '$dps help')
     
     elif userInput.startswith('delete-move'):
         response = await dpsDeleteMove(formatCommand('delete-move', userInput))
@@ -84,7 +75,7 @@ async def maxCommands(userInput, author):
         response, file = await handleDpsCheck(userInput, 'dmax', author.id)
 
     elif userInput.startswith('batch-check'):
-        response = handleBatchDpsCheck(userInput, 'dmax', author.id)
+        response = await handleBatchDpsCheck(userInput, 'dmax', author.id)
 
     elif userInput.startswith('default-modifiers'):
         response = await getUserModifiers('dmax', author.id)
@@ -177,9 +168,9 @@ async def handleAddPoGoDpsMove(userInput, helpCommand):
         return 'Invalid input! Use commas \',\' in between values!'
 
     if len(splitInput) == 5:
-        return await dpsAddFastMove(splitInput, int(splitInput[1]), int(splitInput[2]), int(splitInput[3]), splitInput[4])
+        return await dpsAddFastMove(splitInput[0], int(splitInput[1]), int(splitInput[2]), int(splitInput[3]), splitInput[4])
     elif len(splitInput) == 6:
-        return await dpsAddChargedMove(splitInput, int(splitInput[1]), int(splitInput[2]), int(splitInput[3]), int(splitInput[4]), splitInput[5])
+        return await dpsAddChargedMove(splitInput[0], int(splitInput[1]), int(splitInput[2]), int(splitInput[3]), int(splitInput[4]), splitInput[5])
     else:
         return f'Invalid input! Get some `{helpCommand}`!'
     

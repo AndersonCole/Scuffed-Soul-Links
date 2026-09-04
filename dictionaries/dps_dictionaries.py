@@ -1,6 +1,5 @@
 dpsFileLocations = {
     'Moves': 'text_files/pogo/dps/moves.txt',
-    'Notes': 'text_files/pogo/dps/notes.txt',
     'SuperMax': 'text_files/pogo/dps/super_max.txt',
     'UserModifiers': 'text_files/pogo/dps/user_modifiers.txt'
 }

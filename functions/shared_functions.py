@@ -503,7 +503,7 @@ async def pogoListMons():
     pageCount = 15
 
     for i, mon in enumerate(pogoPokemon, start=1):
-        fieldContent[0] += f'{formatTextForDisplay(getMonName(mon["DexNum"]))}\n'
+        fieldContent[0] += f'{getMonName(mon["DexNum"])}\n'
         fieldContent[1] += f'{mon["Attack"]} | {mon["Defence"]} | {mon["Stamina"]}\n'
         
         if i % pageCount == 0:

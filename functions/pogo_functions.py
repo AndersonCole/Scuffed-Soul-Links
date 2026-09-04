@@ -39,7 +39,7 @@ async def pogoHelp():
                                         '```$pogo untrack bulbasaur, all``` Removes a mon from your tracking list. Uses the same allowed options\n' +
                                         '```$pogo tracked bulbasaur, John Alola``` Shows what a user has tracked for a specific pokemon\n' +
                                         '```$pogo tracked region/class, filter, John Alola``` Shows what a user has tracked for either a region or a class of pokemon\n' + 
-                                        '```$pogo tracked \{bulbasaur,charmander,squirtle\}, filter, John Alola``` Shows what a user has tracked for either a custom, csv list of pokemon\nGet the csv list from the `$shuckle make-csv` command\n' + 
+                                        '```$pogo tracked {bulbasaur,charmander,squirtle}, filter, John Alola``` Shows what a user has tracked for either a custom, csv list of pokemon\nGet the csv list from the `$shuckle make-csv` command\n' + 
                                         'Allowed region/class options are every region name `all` `regional` `rare` `starters` `baby` `legendary` `mythical` `ultra-beast` `paradox` `mega` `hasMega` `gmax` `hasGmax`\n' +
                                         'Allowed filter options are `all` `hundo` `lucky` `shiny` `pvp` `rocket` `size`\n\n' +
                                         '```$pogo events help``` Shows all event searches\n\n' +
@@ -149,7 +149,7 @@ def doubleSpacing(length):
 async def createEventsEmbeds(filterFor):
     filterList = filterLists.get(filterFor, None)
     if filterList is None:
-        return 'I don\'t understand what events you\'re trying to get info on!\n\nCheck `$pogo help` to see all valid searches!'
+        return 'I don\'t understand what events you\'re trying to get info on!\n\nCheck `$pogo events help` to see all valid searches!'
     
     events = await retrieveEventsFromAPI(filterList)
 
@@ -594,7 +594,7 @@ async def determineTrackedResponse(inputs, author, guild, monGroup=None):
         if formattedInput == 'all':
             showAll = True
 
-        elif formattedInput == '{}':
+        elif '{}' in formattedInput:
             pass
         
         elif verifyRegion(formattedInput):
@@ -805,13 +805,13 @@ async def checkTrackedListMons(classification, filter, user, guild):
                         'Tracked': list(trackedToDisplay)
                     })
 
-    if len(trackedList) == 0:
-        return f'{formatTextForDisplay(discordName)} does not need anything {formatTextForDisplay(filter)} from {formatTextForDisplay(classification)}!'
-
     if not (isinstance(classification, list)):
         classificationTitle = formatTextForDisplay(classification)
     else:
         classificationTitle = 'Custom List'
+
+    if len(trackedList) == 0:
+        return f'{formatTextForDisplay(discordName)} does not need anything {formatTextForDisplay(filter)} from {classificationTitle}!'
 
     embeds = []
 

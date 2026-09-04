@@ -83,7 +83,7 @@ class DiscordClient(discord.Client):
         elif message.content.startswith('$pvp'):
             await message.add_reaction(assignReactionEmoji('PVP'))
 
-            userCommand = message.content[len('$pogo'):].strip('-, ')
+            userCommand = message.content[len('$pvp'):].strip('-, ')
 
             response = await pvpCommands(userCommand, message.author)
 

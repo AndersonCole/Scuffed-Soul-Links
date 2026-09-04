@@ -26,8 +26,6 @@ from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, ac
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
 
-dpsNotes = loadDataVariableFromFile(dpsFileLocations.get('Notes'), False)
-
 moves = loadDataVariableFromFile(dpsFileLocations.get('Moves'))
 
 superMaxMegas = loadDataVariableFromFile(dpsFileLocations.get('SuperMax'))
@@ -68,9 +66,6 @@ async def dpsHelp():
                                         f'```{commandText} set-modifiers``` Allows you to set default modifiers that will be used for every raid dps check\n' +
                                         f'```{commandText} reset-modifiers``` Resets your custom modifiers back to default\n\n' +
                                         f'```{commandText} super-max Dragonite Mega``` Adds a mega mon to the super max list\n\n' +
-                                        f'```{commandText} add-note Necrozma Dusk Mane does way too much damage``` Adds a note to be processed by Shuckle.\n' +
-                                        f'```{commandText} delete-notes``` Deletes all saved notes.\n' +
-                                        f'```{commandText} check-notes How good is Necrozma Dusk``` Asks shuckle to understand what you\'ve written in the notes.\n\n' +
                                         'Everything should be case insensitive\nAlways assume stats are listed in Attack/Defence/HP order', 
                             color=sharedEmbedColours.get('Default'))
 
@@ -129,8 +124,9 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, BossKyogre``` Boss: Sets the enemy boss attack and defence to that of the specified mon\n' +
                                         f'```{commandText}, Tier3``` Tier: Sets the tier of the battle. Also sets the CPM value\n' +
                                         f'```{commandText}, NoCPM``` NoCPM: If the tier is set, ignores the CPM values\n\n' +
-                                        f'```{commandText}, FunnyMove``` FunnyMove: Adds a 50 energy STAB funny move, just for the one dps check.\n' +
+                                        f'```{commandText}, FunnyMove``` FunnyMove: Adds a 50 energy STAB funny move, just for the one dps check\n' +
                                         f'```{commandText}, VeryFunnyMove``` VeryFunnyMove: Adds a 100 energy STAB funny move, just for the one dps check\n\n' +
+                                        f'```{commandText}, Default``` Deafult: Ignore a users pre set modifiers, just for the one dps check\n' +
                                         f'```{commandText}, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
                                         f'```{commandText}, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will work for both raid and dynamax dps calculations',
@@ -153,6 +149,8 @@ async def raidModifiers():
     embed = discord.Embed(title='Shuckles PoGo Raid Specific Modifiers',
                             description=f'```{commandText}, PartySize2``` PartySize: Calculates the party power boost based on the trainers in the party.\n' +
                                         '2 = Every 18 Attacks\n3 = Every 9 Attacks\n4 = Every 6 Attacks\n\n' +
+                                        f'```{commandText}, Mega4``` Mega: Sets the mega level of your pokemon for plus move damage\n'
+                                        f'```{commandText}, DynamicPunch+``` DynamicPunch+: Adds a 15% boost when fighting megas\n'
                                         'Everything should be case insensitive\nThese modifiers will only work for raid calculations\nDefault check assumes Lv50, Hundo, Not Shadow, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Dps',
                             color=sharedEmbedColours.get('Default'))
 
@@ -438,6 +436,9 @@ async def addSuperMax(monName):
     if not checkClassification(mon['DexNum'], 'Mega'):
         return 'That pokemon isn\'t a mega!'
 
+    if mon['DexNum'] in superMaxMegas:
+        return 'That pokemon is already registered as a super max!'
+    
     superMaxMegas.append(mon['DexNum'])
 
     await saveDataVariableToFile(dpsFileLocations.get('SuperMax'), superMaxMegas)
@@ -852,9 +853,12 @@ async def resetUserModifiers(battleSystem, author):
     return 'Default Modifiers reset!'
 
 
-def getDefaultModifiers(battleSystem, author):
+def getDefaultModifiers(battleSystem, author, useUserModifiers=True):
     try:
-        modifiers = copy.deepcopy([obj for obj in userModifiers if obj['User'] == author][0][battleSystem])
+        if useUserModifiers:
+            modifiers = copy.deepcopy([obj for obj in userModifiers if obj['User'] == author][0][battleSystem])
+        else:
+            modifiers = {}
 
         if modifiers == {}:
             raise Exception
@@ -875,7 +879,11 @@ def getDefaultModifiers(battleSystem, author):
 #FunnyMove, VeryFunnyMove,
 #SortByFastMoves, SortByChargedMoves
 async def determineModifierValues(extraInputs, battleSystem, author):
-    modifiers = getDefaultModifiers(battleSystem, author)
+    if 'default' in extraInputs:
+        extraInputs.remove('default')
+        modifiers = getDefaultModifiers(battleSystem, author, useUserModifiers=False)
+    else:
+        modifiers = getDefaultModifiers(battleSystem, author)
 
     errorText = ''
     systemSpecificInputs = []
@@ -958,15 +966,15 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                     megaDexNum = getDexNum(input[:-len('boost')])
                     if not checkClassification(megaDexNum, 'Mega'):
                         raise Exception
-                    match megaDexNum:
-                        case getDexNum('groudon-primal'):
-                            megaTypes = weather.get('sunny')
-                        case getDexNum('kyogre-primal'):
-                            megaTypes = weather.get('rainy')
-                        case getDexNum('rayquaza-mega'):
-                            megaTypes = weather.get('windy')
-                        case _:
-                            megaTypes = await getTypesFromPokeAPI(megaDexNum)
+
+                    if megaDexNum == getDexNum('kyogre-primal'):
+                        megaTypes = weather.get('rainy')
+                    elif megaDexNum == getDexNum('groudon-primal'):
+                        megaTypes = megaTypes = weather.get('sunny')
+                    elif megaDexNum == getDexNum('rayquaza-mega'):
+                        megaTypes = weather.get('windy')
+                    else:
+                        megaTypes = await getTypesFromPokeAPI(megaDexNum)
 
                     modifiers['MegaTypes'] = megaTypes
                     modifiers['ApplyMegaBoost'] = True
@@ -1003,7 +1011,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
         elif input.startswith('boss'):
             try:
                 bossDexNum = getDexNum(input[len('boss'):])
-
+                
                 if not checkDuplicatePoGoMon(bossDexNum):
                     monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{bossDexNum}')
 
@@ -1011,13 +1019,13 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                         raise Exception
 
                     stats = []
-
+                    
                     for i in range(6):
                         stats.append(int(monData['stats'][i]['base_stat']))
-
+                    
                     bossAtk, bossDef, bossSta, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
-
-                    modifiers['Boss']['DexNum'] = bossMon['DexNum']
+                    
+                    modifiers['Boss']['DexNum'] = bossDexNum
                     modifiers['Boss']['Stats']['Attack'] = bossAtk + 15
                     modifiers['Boss']['Stats']['Defence'] = bossDef + 15
                 else:
@@ -1026,7 +1034,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                     modifiers['Boss']['Stats']['Attack'] = bossMon['Attack'] + 15
                     modifiers['Boss']['Stats']['Defence'] = bossMon['Defence'] + 15
             except:
-                errorText += f'\'{input}\' wasn\'t understood as a valid pokemon name! Or PokeAPI is having issues!\n'
+                errorText += f'\'{input[len("boss"):]}\' wasn\'t understood as a valid pokemon name! Or PokeAPI is having issues!\n'
         elif input.startswith('tier'):
             tierInput = input[len('tier'):]
             modifiers['Boss']['Tier'] = tierInput
@@ -1450,57 +1458,4 @@ def calcAveragePartyBoost(fastMovesPerCharged, modifiers):
     return min(1.0, partyEnergyPerCharged/activeModifiers.get('PartyPowerReadyAt'))
 #endregion
 #endregion
-
-#region chatgpt notes
-async def addDPSNote(note):
-    global dpsNotes
-
-    dpsNotes += f'{note}\n'
-
-    await saveDataVariableToFile(dpsFileLocations.get('Notes'), dpsNotes)
-
-    return 'Note added successfully!'
-
-async def clearDPSNotes():
-    global dpsNotes
-
-    noteDeletionMessage = f'All notes were deleted! Here\'s what was in there, for posterity:\n{dpsNotes}'
-
-    dpsNotes = ''
-
-    await saveDataVariableToFile(dpsFileLocations.get('Notes'), dpsNotes)
-
-    return noteDeletionMessage[:2000]
-
-async def readDPSNotes(user, userInput):
-    rand_num = random.randint(1, 100)
-    if rand_num > 95:
-        systemContent = loadShucklePersonality('drunk')
-
-    elif rand_num > 90:
-        systemContent = loadShucklePersonality('distracted')
-
-    elif rand_num > 85:
-        systemContent = loadShucklePersonality('hollow')
-
-    elif rand_num > 75:
-        systemContent = loadShucklePersonality('haunted')
-
-    else:
-        systemContent = loadShucklePersonality('smart')
-
-    messages = [
-        {'role':'system', 'content':systemContent},
-        {'role':'user', 'content':f'Here are the notes I, {user} have saved:\n{dpsNotes}'},
-        {'role':'user', 'content':userInput}
-    ]  
-
-    try:
-        response = openai.chat.completions.create(model="gpt-4o-mini", messages = messages, temperature=0.8, max_tokens=500)
-
-        return response.choices[0].message.content[:2000]
-    except Exception as ex:
-        return 'Anderson ran out of open ai credits lmaoooo. We wasted $25 bucks of open ai resources. Pog!'
-#endregion
-
 #endregion

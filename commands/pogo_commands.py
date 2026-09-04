@@ -27,9 +27,9 @@ async def pogoMiscCommands(userInput, author, guild):
             splitInput = formatSplitInput(userInput)
                     
             if splitInput is None:
-                await calculateOdds(userInput)
+                response = await calculateOdds(userInput)
 
-            if len(splitInput) >= 2:
+            elif len(splitInput) >= 2:
                 response = await calculateOdds(splitInput[0], splitInput[1:])
             else:
                 response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
@@ -44,7 +44,7 @@ async def pogoMiscCommands(userInput, author, guild):
         if splitInput is None:
             response = await convertToGoStatsFromName(userInput)
 
-        if len(splitInput) == 7:
+        elif len(splitInput) == 7:
             response = await convertToGoStats(splitInput[:-1], nerfOverride=splitInput[-1])
         elif len(splitInput) == 6:
             response = await convertToGoStats(splitInput)
@@ -66,12 +66,13 @@ async def pogoMiscCommands(userInput, author, guild):
             if '{' in userInput and '}' in userInput:
                 csvMonGroup = re.search(r'\{([^}]*)\}', userInput)
                 userInput = userInput.replace(f'{csvMonGroup.group(1)}', '')
+                csvMonGroup = formatSplitInput(csvMonGroup.group(1))
 
             splitInput = formatSplitInput(userInput)
 
             userInput = [userInput] if splitInput is None else splitInput
 
-            response = await determineTrackedResponse(userInput, author.id, guild, monGroup=formatSplitInput(csvMonGroup.group(1)))
+            response = await determineTrackedResponse(userInput, author.id, guild, monGroup=csvMonGroup)
 
     elif userInput.startswith('track'):
         userInput = formatCommand('track', userInput)
@@ -81,7 +82,7 @@ async def pogoMiscCommands(userInput, author, guild):
         if splitInput is None:
             response = 'Invalid input! Use commas \',\' in between values!'
 
-        if len(splitInput) >= 2:
+        elif len(splitInput) >= 2:
             response = await trackMon(splitInput[0], splitInput[1:], author.id)
         else:
             response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
@@ -94,7 +95,7 @@ async def pogoMiscCommands(userInput, author, guild):
         if splitInput is None:
             response = 'Invalid input! Use commas \',\' in between values!'
 
-        if len(splitInput) >= 2:
+        elif len(splitInput) >= 2:
             response = await removeTrackedMon(splitInput[0], splitInput[1:], author.id)
         else:
             response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'

@@ -486,6 +486,11 @@ async def specifyScannerSystem(system, author, extraInputs=None):
 
     userScanner = [obj for obj in scanners if obj['User'] == author][0]
 
+    modifiers = modifiers = {
+        'Distance': None,
+        'LevelRange': None
+    }
+
     if extraInputs != None:
         modifiers, errorText = determineScannerModifierValues([str(i).strip().lower() for i in extraInputs])
         if errorText != '':

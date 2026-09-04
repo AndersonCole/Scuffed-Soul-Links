@@ -8,7 +8,7 @@ async def pvpCommands(userInput, author):
     elif userInput == 'modifiers':
         response = pvpModifiers()
 
-    elif userInput.startswith('check '):
+    elif userInput.startswith('check'):
         userInput = formatCommand('check', userInput)
             
         splitInput = formatSplitInput(userInput)
@@ -16,7 +16,7 @@ async def pvpCommands(userInput, author):
         if splitInput is None:
             response = await pvpRankCheck(userInput)
     
-        if len(splitInput) >= 2:
+        elif len(splitInput) >= 2:
             response = await pvpRankCheck(splitInput[0], splitInput[1:])
         else:
             response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
@@ -32,7 +32,7 @@ async def pvpCommands(userInput, author):
         if splitInput is None:
             response = await specifyScannerSystem(userInput, author.id)
 
-        if len(splitInput) >= 2:
+        elif len(splitInput) >= 2:
             response = await specifyScannerSystem(splitInput[0], author.id, splitInput[1:])
         else:
             response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
@@ -45,7 +45,7 @@ async def pvpCommands(userInput, author):
         if splitInput is None:
             response = await getTrackingString(userInput, author.id)
         
-        if len(splitInput) >= 2:
+        elif len(splitInput) >= 2:
             response = await getTrackingString(splitInput[0], author.id, splitInput[1:])
         else:
             response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'

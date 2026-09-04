@@ -90,7 +90,7 @@ async def walkRoute(routeName, distance, direction, cellCount, user):
         'User': user
     })
 
-    [obj for obj in routes if obj['Name'] == routeName and obj['User'] == user][0]['TimesWalked'] += 1
+    [obj for obj in routes if obj['Name'] == formatTextForBackend(routeName) and obj['User'] == user][0]['TimesWalked'] += 1
 
     await saveDataVariableToFile(routesFileLocations.get('WalkedRoutes'), walkedRoutes)
     await saveDataVariableToFile(routesFileLocations.get('Routes'), routes)
@@ -117,7 +117,7 @@ async def listRoutes(user):
     embeds = []
 
     embed = discord.Embed(title=f'Routes',
-                          description=f'{user}',
+                          description=f'{getUserPing(user)}',
                           color=routesEmbedColour)
     
     embed.set_thumbnail(url=routesImagePaths.get('ZygardeCell'))
