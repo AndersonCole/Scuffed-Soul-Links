@@ -66,7 +66,7 @@ async def pogoMiscCommands(userInput, author, guild):
             if '{' in userInput and '}' in userInput:
                 csvMonGroup = re.search(r'\{([^}]*)\}', userInput)
                 userInput = userInput.replace(f'{csvMonGroup.group(1)}', '')
-                csvMonGroup = formatSplitInput(csvMonGroup.group(1))
+                csvMonGroup = formatSplitInput(csvMonGroup.group(1), returnTxtList=True)
 
             splitInput = formatSplitInput(userInput)
 

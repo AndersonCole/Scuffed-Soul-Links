@@ -182,10 +182,10 @@ async def handleAddPoGoDpsMoveset(userInput):
     if splitInput is None:
         return 'Invalid input! Use commas \',\' in between values!'
 
-    if len(splitInput) >= 2:
-        return await dpsAddMoveset(splitInput[0], splitInput[1:])
-    else:
-        return 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
+    if 'force' in splitInput:
+        splitInput.remove('force')
+        return await dpsAddMoveset(splitInput[0], splitInput[1:], forceAddToMega=True)
+    return await dpsAddMoveset(splitInput[0], splitInput[1:])
 
 async def handleRemovePoGoDpsMoveset(userInput):
     userInput = formatCommand('remove-moveset', userInput)
@@ -195,9 +195,6 @@ async def handleRemovePoGoDpsMoveset(userInput):
     if splitInput is None:
         return 'Invalid input! Use commas \',\' in between values!'
 
-    if len(splitInput) >= 2:
-        return await dpsRemoveMoveset(splitInput[0], splitInput[1:])
-    else:
-        return 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
+    return await dpsRemoveMoveset(splitInput[0], splitInput[1:])
 #endregion
 #endregion

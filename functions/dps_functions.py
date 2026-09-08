@@ -228,9 +228,9 @@ def determineMegaMultiplier(megaTypes, fastMove):
     return activeModifiers.get('MegaMultiplier').get('DiffType')
 
 def checkIsPlusMove(chargedMove):
-    if (chargedMove['Name'].endswith('+')
-        and not chargedMove['Name'].startswith('aeroblast')
-        and not chargedMove['Name'].startswith('sacred-fire')):
+    if (chargedMove.endswith('+')
+        and not chargedMove.startswith('aeroblast')
+        and not chargedMove.startswith('sacred-fire')):
         return True
     return False
 #endregion
@@ -321,15 +321,18 @@ async def dpsDeleteMove(moveName):
 
     return 'Move deleted successfully!'
 
-async def dpsAddMoveset(monName, newMoves):
+async def dpsAddMoveset(monName, newMoves, forceAddToMega=False):
     monName = checkForNickname(monName)
 
     dexNum = getDexNum(monName)
 
     if not checkDuplicatePoGoMon(dexNum):
         return 'That pokemon is not registered!'
-    
-    mon = [obj for obj in pogoPokemon if obj['DexNum'] == dexNum][0]
+
+    if checkClassification(dexNum, 'Mega') and not any([checkIsPlusMove(formatTextForBackend(obj)) for obj in newMoves]) and not forceAddToMega:
+        mon = [obj for obj in pogoPokemon if obj['DexNum'] == getMon(dexNum)['EvolvesFrom']][0]
+    else:
+        mon = [obj for obj in pogoPokemon if obj['DexNum'] == dexNum][0]
 
     output = ''
 
@@ -341,7 +344,7 @@ async def dpsAddMoveset(monName, newMoves):
             continue
 
         if len([obj for obj in mon['Moves'] if obj['Name'] == formatTextForBackend(move)]) > 0:
-            output += f'\'{formatTextForDisplay(moveName)}\' has already been added to {formatTextForDisplay(monName)}!\n'
+            output += f'\'{formatTextForDisplay(moveName)}\' has already been added to {getMonName(mon["DexNum"])}!\n'
             continue
 
         moveType = [obj for obj in moves if obj['Name'] == moveName][0]['Type']
@@ -351,7 +354,7 @@ async def dpsAddMoveset(monName, newMoves):
             'Type': moveType
         })
 
-        output += f'\'{formatTextForDisplay(moveName)}\' has been added to {formatTextForDisplay(monName)}!\n'
+        output += f'\'{formatTextForDisplay(moveName)}\' has been added to {getMonName(mon["DexNum"])}!\n'
 
     await saveDataVariableToFile(sharedFileLocations.get('PoGoPokemon'), pogoPokemon)
 
@@ -571,7 +574,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
                 })
 
         for chargedMove in chargedMoves:
-            modifiers['IsPlusMove'] = checkIsPlusMove(chargedMove)
+            modifiers['IsPlusMove'] = checkIsPlusMove(chargedMove['Name'])
             modifiers['ChargedSTABMultiplier'] = determineSTAB(modifiers['ForceNoChargedSTAB'], modifiers['ForceChargedSTAB'], chargedMove, monTypes)
 
             if modifiers['CalculateChargedEffectiveness']:

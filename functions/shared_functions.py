@@ -185,12 +185,14 @@ def formatCommand(commandName, text):
     formattedText = text[len(commandName):].strip(' -,')
     return formattedText
 
-def formatSplitInput(text):
+def formatSplitInput(text, returnTxtList=False):
     if ',' in text:
         splitInput = re.split(r'[,]+', text)
         splitInput = [input.strip(' -') for input in splitInput]
         return [input for input in splitInput if input]
     else:
+        if returnTxtList:
+            return [text]
         return None
 #endregion
 
