@@ -14,6 +14,9 @@ async def pogoMiscCommands(userInput, author, guild):
 
         else:
             response = await createEventsEmbeds(userInput)
+
+    elif userInput.startswith('time'):
+        response = await getPogoTimes()
     #endregion
 
     #region odds
@@ -55,6 +58,25 @@ async def pogoMiscCommands(userInput, author, guild):
     #endregion
 
     #region tracking commands
+    elif userInput.startswith('tracked-string'):
+        userInput = formatCommand('tracked-string', userInput)
+
+        if userInput == '':
+            response = 'Invalid input! Specify something you want to see tracked info on!'
+
+        else:
+            csvMonGroup = None
+            if '{' in userInput and '}' in userInput:
+                csvMonGroup = re.search(r'\{([^}]*)\}', userInput)
+                userInput = userInput.replace(f'{csvMonGroup.group(1)}', '')
+                csvMonGroup = formatSplitInput(csvMonGroup.group(1), returnTxtList=True)
+
+            splitInput = formatSplitInput(userInput)
+
+            userInput = [userInput] if splitInput is None else splitInput
+
+            response = await determineTrackedStringResponse(userInput, author.id, guild, monGroup=csvMonGroup)
+
     elif userInput.startswith('tracked'):
         userInput = formatCommand('tracked', userInput)
 

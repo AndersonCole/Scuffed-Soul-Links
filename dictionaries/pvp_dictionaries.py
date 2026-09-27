@@ -24,6 +24,9 @@ defaultPvpModifiers = {
         'Stamina': -1,
     },
     'Compare': False,
+
+    'MobileMessage': False,
+    
     'ShowPreMegaCP': False,
     'EvoToSuperMega': False,
 

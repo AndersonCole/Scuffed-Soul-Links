@@ -1,7 +1,7 @@
 import discord
 import copy
 from datetime import datetime
-from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, addPaginatedEmbedFields, formatTextForBackend, formatTextForDisplay, getUserPing
+from functions.shared_functions import loadDataVariableFromFile, saveDataVariableToFile, addPaginatedEmbedFields, formatTextForBackend, formatTextForDisplay, getDiscordName
 from dictionaries.routes_dictionaries import routesFileLocations, routesImagePaths, routesEmbedColour
 
 routes = loadDataVariableFromFile(routesFileLocations.get('Routes'))
@@ -108,7 +108,7 @@ async def walkRoute(routeName, distance, direction, cellCount, user):
 #endregion
 
 #region printouts
-async def listRoutes(user):
+async def listRoutes(user, guild):
     usersRoutes = [obj for obj in routes if obj['User'] == user]
 
     if len(usersRoutes) == 0:
@@ -117,7 +117,7 @@ async def listRoutes(user):
     embeds = []
 
     embed = discord.Embed(title=f'Routes',
-                          description=f'{getUserPing(user)}',
+                          description=f'{getDiscordName(user, guild)}',
                           color=routesEmbedColour)
     
     embed.set_thumbnail(url=routesImagePaths.get('ZygardeCell'))
@@ -138,14 +138,14 @@ async def listRoutes(user):
 
     return embeds
 
-async def printoutDay(user):
+async def printoutDay(user, guild):
     todaysRoutes = [obj for obj in walkedRoutes if obj['Date'] == datetime.now().date().strftime("%Y-%m-%d") and obj['User'] == user]
 
     if len(todaysRoutes) == 0:
         return 'No routes logged today! Get out there soldier, Zygarde needs YOUR help to destroy ML!', None
 
     embed = discord.Embed(title=f'Today\'s Routes',
-                          description=f'{getUserPing(user)}',
+                          description=f'{getDiscordName(user, guild)}',
                           color=routesEmbedColour)
     
     routesText = ''
@@ -167,7 +167,7 @@ async def printoutDay(user):
 
     return embed
 
-async def printoutRoutes(user):
+async def printoutRoutes(user, guild):
     embeds = []
 
     usersRoutes = [obj for obj in routes if obj['User'] == user]
@@ -179,7 +179,7 @@ async def printoutRoutes(user):
 
     for route in sortedRoutes:
         embed = discord.Embed(title=f'{formatTextForDisplay(route["Name"])}',
-                        description=f'Stats for {getUserPing(route["User"])}',
+                        description=f'Stats for {getDiscordName(route["User"], guild)}',
                         color=routesEmbedColour)
         
         timesWalked = [0, 0, 0, 0]

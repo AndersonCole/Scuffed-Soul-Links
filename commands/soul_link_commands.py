@@ -14,10 +14,13 @@ async def soulLinkCommands(userInput, author, guild):
         if splitInput is None:
             response = 'Invalid input! Use commas \',\' in between values!'
 
-        if len(splitInput) >= 4:
+        elif len(splitInput) >= 4:
             response = await createNewRun(splitInput[0], splitInput[1], splitInput[2:], guild)
         else:
             response = 'Specify more than one player!\nIf you\'re trying to just do a nuzlocke, set Shuckle as player 2!'
+
+    elif userInput == 'encounters':
+        response = await listEncounters(guild)
 
     elif userInput.startswith('encounter'):
         userInput = formatCommand('encounter', userInput)
@@ -27,21 +30,18 @@ async def soulLinkCommands(userInput, author, guild):
         if splitInput is None:
             response = 'Invalid input! Use commas \',\' in between values!'
 
-        if len(splitInput > 2):
-            response = await encounterMonGroup(splitInput[0], splitInput[1:])
-        elif len(splitInput == 2):
+        elif len(splitInput) > 2:
+            response = await encounterMonGroup(splitInput[0], splitInput[1:], guild)
+        elif len(splitInput) == 2:
             if getUserIdFromNickname(splitInput[1]) is not None:
-                response = await encounterMonGroup(splitInput[0], splitInput[1:])
+                response = await encounterMonGroup(splitInput[0], splitInput[1:], guild)
             else:
-                response = await encounterMon(splitInput[0], splitInput[1], author.id)
+                response = await encounterMon(splitInput[0], splitInput[1], author.id, guild)
         else:
             response = 'Invalid input! Use commas \',\' in between values!'
 
-    elif userInput == 'encounters':
-        response = await listEncounters()
-
     elif userInput == 'links':
-        response = await listLinks()
+        response = await listLinks(guild)
     
     elif userInput.startswith('link-data'):
         userInput = formatCommand('link-data', userInput)
@@ -49,10 +49,10 @@ async def soulLinkCommands(userInput, author, guild):
         splitInput = formatSplitInput(userInput)
     
         if splitInput is None:
-            response = await getLinkData(userInput, author.id)
+            response = await getLinkData(userInput, author.id, guild)
 
         else:
-            response = await getLinkData(splitInput[0], splitInput[1])
+            response = await getLinkData(splitInput[0], splitInput[1], guild)
 
     elif userInput.startswith('evolve'):
         response = await evolveMon(formatCommand('evolve', userInput), author.id)
@@ -60,21 +60,21 @@ async def soulLinkCommands(userInput, author, guild):
     elif userInput.startswith('undo-evolve'):
         response = await undoEvolveMon(formatCommand('undo-evolve', userInput), author.id)
 
+    elif userInput == 'deaths':
+        response = await listDeaths(guild)
+
     elif userInput.startswith('death'):
         userInput = formatCommand('death', userInput)
-                        
+        
         splitInput = formatSplitInput(userInput)
     
         if splitInput is None:
-            response = 'Invalid input! Use commas \',\' in between values!'
+            response = 'You\'re not getting away with not putting a reason down! Own up to your fraudulence!'
         else:
-            response = await newDeath(splitInput[0], ','.join(word for word in splitInput[1:]))
+            response = await newDeath(splitInput[0], ','.join(word for word in splitInput[1:]), author.id)
     
     elif userInput.startswith('undo-death'):
-        response = await undoDeath(formatCommand('undo-death', userInput))
-    
-    elif userInput == 'deaths':
-        response = await listDeaths()
+        response = await undoDeath(formatCommand('undo-death', userInput), author.id)
 
     elif userInput.startswith('select-run'):
         response = selectRun(formatCommand('select-run', userInput))
@@ -86,11 +86,10 @@ async def soulLinkCommands(userInput, author, guild):
         userInput = formatCommand('choose-team', userInput)
                                 
         splitInput = formatSplitInput(userInput)
-    
-        if splitInput is None:
-            response = 'Invalid input! Use commas \',\' in between values!'
-        else:
-            response = await chooseTeam(splitInput, author.id)
+
+        userInput = [userInput] if splitInput is None else splitInput
+
+        response = await chooseTeam(userInput, author.id)
 
     elif userInput == 'next-battle':
         response = await nextBattle()
@@ -117,7 +116,7 @@ async def soulLinkCommands(userInput, author, guild):
         response = await setRunStatus('In Progress', guild)
 
     elif userInput == 'run-info':
-        response = await seeStats()
+        response = await seeStats(guild)
 
     elif userInput.startswith('dex'):
         userInput = formatCommand('dex', userInput)
@@ -146,6 +145,6 @@ async def soulLinkCommands(userInput, author, guild):
         response = await makeRareCandiesEmbed()
 
     else:
-        response = 'I\'ve never seen that soul links command before! You typed it horribly wrong! Get some `$routes help`!'
+        response = 'I\'ve never seen that soul links command before! You typed it horribly wrong! Get some `$sl help`!'
 
     return response

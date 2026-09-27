@@ -32,7 +32,6 @@ async def pvpHelp():
                                             '```$pvp add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order\n' +
                                             '```$pvp delete-mon Kartana``` Deletes a mon from the registered list\n' +
                                             '```$pvp list-mons``` Lists all the registered mons\n\n' +
-                                            '```$pvp list-fakes GL``` Lists all the fake rank ones\nOptions are LL, Little, GL, Great, UL, Ultra\n' +
                                             '```$pvp img``` Gets the pvp rank reqs image',
                                 color=sharedEmbedColours.get('Default'))
 
@@ -434,6 +433,8 @@ def determinePvpModifierValues(extraInputs, modifiers):
                 modifiers['Floor'] = floorIv
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid floor iv! Keep it between 0-15!\n'
+        elif input == 'm':
+            modifiers['MobileMessage'] = True
         elif input == 'premega':
             modifiers['ShowPreMegaCP'] = True
             modifiers['EvoToSuperMega'] = False
@@ -544,17 +545,23 @@ def getTrackedMonName(dexNum, trackBaseEvo):
 
     return getMonName(dexNum)
 
-
 def getMinScannerLevel(maxLevel, levelRange, superMegaDiff):
     if levelRange is None:
-        return 1
+        return 0
     
     if maxLevel > 30:
         minLevel = 30-levelRange
     else:
         minLevel = math.floor(maxLevel) - levelRange
 
-    return max(1, minLevel - superMegaDiff)
+    return max(0, minLevel - superMegaDiff)
+
+def getMinLevelText(maxLevel, levelRange, superMegaDiff, minLevelPrefix, separator):
+    minLevel = getMinScannerLevel(maxLevel, levelRange, superMegaDiff)
+
+    if minLevel == 0:
+        return ''
+    return f'{minLevelPrefix}{minLevel}{separator}'
 
 async def getTrackingString(monName, author, extraInputs=None):
     modifiers = copy.deepcopy(defaultPvpModifiers)
@@ -585,7 +592,7 @@ async def getTrackingString(monName, author, extraInputs=None):
     rank = rankList[0]
 
     trackingString = f'{scannerPrefixes["Start"]}{separator}{getTrackedMonName(dexNum, scannerSystems[userScanner["Scanner"]]["TrackBaseEvo"])}{separator}'
-    trackingString += f'{scannerPrefixes["MinLevel"]}{getMinScannerLevel(rank["Level"], userScanner["LevelRange"], superMegaDiff)}{separator}{scannerPrefixes["MaxLevel"]}{math.floor(rank["Level"]) - superMegaDiff}{separator}'
+    trackingString += f'{getMinLevelText(rank["Level"], userScanner["LevelRange"], superMegaDiff, scannerPrefixes["MinLevel"], separator)}{scannerPrefixes["MaxLevel"]}{math.floor(rank["Level"]) - superMegaDiff}{separator}'
     if rank['Ivs']['Attack'] == 15 and rank['Ivs']['Defence'] == 15 and rank['Ivs']['Stamina'] == 15:
         trackingString += f'{scannerPrefixes["Percentage"]}100{separator}'
     else:
@@ -595,10 +602,13 @@ async def getTrackingString(monName, author, extraInputs=None):
 
         leagueLimit, league = determineLeague(modifiers['LeagueLimit'])
 
-        trackingString += f'{scannerPrefixes[league.upper()]}1{separator}'
+        if not checkClassification(dexNum, 'Mega'):
+            trackingString += f'{scannerPrefixes[league.upper()]}1{separator}'
 
     if userScanner['Distance'] is not None:
         trackingString += f'{scannerPrefixes["Distance"]}{userScanner["Distance"]}'
 
+    if modifiers['MobileMessage']:
+        return trackingString
     return f'```{trackingString}```'
 #endregion

@@ -85,10 +85,10 @@ async def saveMonNicknameData():
 
     await saveDataVariableToFile(sharedFileLocations.get('Pokemon'), pokemon)
 
-async def addNickname(nickname, original):
+async def addNickname(nickname, original, guild):
     if getMonFromName(original):
         return await addMonNickname(nickname, original)
-    return await addUserNickname(nickname, original)
+    return await addUserNickname(nickname, original, guild)
 
 async def removeNickname(nickname):
     if getMonFromName(nickname):

@@ -241,6 +241,11 @@ def getUserIdFromNickname(nickname):
 def getUserPing(userId):
     return f'<@{userId}>'
 
+def getDiscordName(userId, guild):
+    discordUser = guild.get_member(userId)
+    
+    return getUserPing(userId) if discordUser is None else discordUser.name if discordUser.nick is None else discordUser.nick
+
 def getMonFromName(monName):
     monName = checkForNickname(monName)
     
@@ -430,6 +435,23 @@ def calcPoGoStatsFromBaseStats(hp, attack, defence, spAttack, spDefence, speed, 
         staminaGo = pogoRound(staminaScaled * nerfAmount)
 
     return attackGo, defenceGo, staminaGo, nerfAmount
+
+def calcNerfOverride(nerfOverride):
+    if nerfOverride == '9nerf':
+        return 0.91
+    elif nerfOverride == '3nerf':
+        return 0.97
+    elif nerfOverride == 'nonerf':
+        return 1.00
+    else:
+        return f'The nerf exception \'{nerfOverride}\' was not recognized!\n`noNerf`, `3Nerf` and `9Nerf` are the only valid exceptions!'
+
+def getNerfText(nerfAmount):
+    if nerfAmount == 0.91:
+        return '(After a 9% nerf)'
+    elif nerfAmount == 0.97:
+        return '(After a 3% nerf)'
+    return ''
 #endregion
 
 #region PoGo mon registry
@@ -444,12 +466,44 @@ async def handleAddPoGoMon(userInput, helpCommand):
     splitInput = formatSplitInput(userInput)
     
     if splitInput is None:
-        return 'Invalid input! Use commas \',\' in between values!'
-
-    if len(splitInput) == 4:
+        return await pogoAddMonFromCalc(userInput)
+    elif len(splitInput) == 2:
+        return await pogoAddMonFromCalc(splitInput[0], splitInput[1])
+    
+    elif len(splitInput) == 4:
         return await pogoAddMon(splitInput[0], int(splitInput[1]), int(splitInput[2]), int(splitInput[3]))
     else:
         return f'Invalid input! Get some `{helpCommand}`!'
+
+async def pogoAddMonFromCalc(monName, nerfOverride=None):
+    dexNum = getDexNum(monName)
+
+    if dexNum == -1:
+        return f'The pokemon \'{formatTextForDisplay(monName)}\' was not recognized!'
+    
+    if checkDuplicatePoGoMon(dexNum):
+        return 'That pokemon is already registered!'
+
+    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+    
+    if monData is None:
+        return f'An error occured while checking the api!'
+
+    stats = []
+
+    for i in range(6):
+        stats.append(int(monData['stats'][i]['base_stat']))
+
+    if nerfOverride is not None:
+        nerfOverride = calcNerfOverride(nerfOverride)
+        if (isinstance(nerfOverride, str)):
+            return nerfOverride
+    
+    attack, defence, stamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
+
+    addResponse = await pogoAddMon(monName, attack, defence, stamina)
+
+    return f'{addResponse}\nWith calculated stats of {attack}, {defence}, {stamina} {getNerfText(nerfAmount)}'
 
 async def pogoAddMon(monName, attack, defence, stamina):
     dexNum = getDexNum(monName)
@@ -482,7 +536,7 @@ async def pogoDeleteMon(monName):
         return f'The pokemon \'{formatTextForDisplay(monName)}\' was not recognized!'
     
     if not checkDuplicatePoGoMon(dexNum):
-        return 'That pokemon is already registered!'
+        return 'That pokemon isn\'t even registered!'
 
     for mon in pogoPokemon:
         if mon['DexNum'] == dexNum:

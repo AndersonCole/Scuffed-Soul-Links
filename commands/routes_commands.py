@@ -15,7 +15,7 @@ async def routesCommands(userInput, author, guild):
             if splitInput is None:
                 response = 'Invalid input! Use commas \',\' in between values!'
 
-            if len(splitInput) == 3:
+            elif len(splitInput) == 3:
                 response = await addRoute(splitInput[0], int(splitInput[1]), int(splitInput[2]), author.id)
             else:
                 response = 'Invalid input! Get some `$routes help`'
@@ -28,19 +28,19 @@ async def routesCommands(userInput, author, guild):
             if splitInput is None:
                 response = 'Invalid input! Use commas \',\' in between values!'
 
-            if len(splitInput) == 4:
+            elif len(splitInput) == 4:
                 response = await walkRoute(splitInput[0], int(splitInput[1]), splitInput[2], int(splitInput[3]), author.id)
             else:
                 response = 'Invalid input! Get some `$routes help`'
 
         elif userInput == 'list':
-            response = await listRoutes(author.id)
+            response = await listRoutes(author.id, guild)
 
         elif userInput == 'today':
-            response = await printoutDay(author.id)
+            response = await printoutDay(author.id, guild)
 
         elif userInput == 'stats':
-            response = await printoutRoutes(author.id)
+            response = await printoutRoutes(author.id, guild)
 
         else:
             response = 'I\'ve never seen that routes command before! You typed it horribly wrong! Get some `$routes help`!'

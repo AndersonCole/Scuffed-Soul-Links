@@ -16,8 +16,8 @@ from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColour
 from dictionaries.pogo_dictionaries import pogoFileLocations, eventColours, filterLists, timezones, defaultOddsModifiers, trackedEmojis
 from dictionaries.pvp_dictionaries import pvpFileLocations
 from functions.shared_functions import (
-    formatTextForDisplay, getMonFromName, getRegionFromDexNum, getUserIdFromNickname,
-    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, verifyRegion, getMon, addPaginatedEmbedFields, getUserPing,
+    formatTextForDisplay, getMonFromName, getRegionFromDexNum, getUserIdFromNickname, getDiscordName, calcNerfOverride,
+    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, verifyRegion, getMon, addPaginatedEmbedFields, getNerfText,
     rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats,
     loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, recurseEvoChain, pogoPokemon
 )
@@ -42,7 +42,8 @@ async def pogoHelp():
                                         '```$pogo tracked {bulbasaur,charmander,squirtle}, filter, John Alola``` Shows what a user has tracked for either a custom, csv list of pokemon\nGet the csv list from the `$shuckle make-csv` command\n' + 
                                         'Allowed region/class options are every region name `all` `regional` `rare` `starters` `baby` `legendary` `mythical` `ultra-beast` `paradox` `mega` `hasMega` `gmax` `hasGmax`\n' +
                                         'Allowed filter options are `all` `hundo` `lucky` `shiny` `pvp` `rocket` `size`\n\n' +
-                                        '```$pogo events help``` Shows all event searches\n\n' +
+                                        '```$pogo events help``` Shows all event searches\n' +
+                                        '```$pogo time``` Shows the current time in NZ and Hawaii\n\n' +
                                         '```$pogo odds Shuckle``` Shows the odds of getting something\n' +
                                         '```$pogo odds modifiers``` Lists out all the available odds modifers',
                             color=sharedEmbedColours.get('Default'))
@@ -201,7 +202,13 @@ async def createEventsEmbeds(filterFor):
                          value=eventDates)
 
     return embeds
-    
+
+async def getPogoTimes():
+    timeFormat = '%b %d, %I:%M %p'
+    nzTime = datetime.now(ZoneInfo(timezones.get('NZ'))).strftime(timeFormat)
+    hawaiiTime = datetime.now(ZoneInfo(timezones.get('Hawaii'))).strftime(timeFormat)
+
+    return f'Current Time in Hawaii: {hawaiiTime}\nCurrent Time in NZ: {nzTime}'
 #endregion
 
 #region odds command
@@ -580,7 +587,7 @@ def getTrackedEmojis(tracked, isList):
 
     return emojiText
 
-async def determineTrackedResponse(inputs, author, guild, monGroup=None):
+def determineTrackedInputs(inputs, monGroup):
     monName = None
     classification = None
     filter = None
@@ -633,6 +640,11 @@ async def determineTrackedResponse(inputs, author, guild, monGroup=None):
         
         else:
             errorText += f'The input \'{input}\' wasn\'t recognized!\n'
+
+    return monName, classification, filter, user, showAll, errorText
+
+async def determineTrackedResponse(inputs, author, guild, monGroup=None):
+    monName, classification, filter, user, showAll, errorText = determineTrackedInputs(inputs, monGroup)
             
     if errorText != '':
         return errorText
@@ -661,6 +673,34 @@ async def determineTrackedResponse(inputs, author, guild, monGroup=None):
     
     return 'Whatever you inputted wasn\'t recognized as matching anything! Get some `$pogo help`!'
 
+async def determineTrackedStringResponse(inputs, author, guild, monGroup=None):
+    monName, classification, filter, user, showAll, errorText = determineTrackedInputs(inputs, monGroup)
+            
+    if errorText != '':
+        return errorText
+
+    if user is None:
+        user = author
+
+    if monGroup is not None:
+        if classification is not None:
+            return 'You can\'t specify a region/classification at the same time as a csv list!'
+        return await checkTrackedStringMons(monGroup, filter or 'all', user, guild)
+
+    if monName is not None:
+        return 'Why do you need a Shuckle crafted search string to look up one pokemon? Lock in!'
+
+    if classification is not None:
+        return await checkTrackedStringMons(classification, filter or 'all', user, guild)
+
+    if filter is not None:
+        return await checkTrackedStringMons(classification or 'all', filter, user, guild)
+
+    if showAll:
+        return 'Hey Shuckle, gimme a search string with extra slop.\n\'Comin right up...\'\nWith all the wonders of the earth.\n\'Wonders of the earth?!\'\nAnd all the beauty of the stars.\n\'The beauty of the stars?! Hey Zygarde, gimme a search string with everything!\'\n\"Zeeehhhd? Zzz-ddd-aaaaaa!\"\n\n```#,!#```'
+    
+    return 'Whatever you inputted wasn\'t recognized as matching anything! Get some `$pogo help`!'
+
 async def checkTrackedMon(monName, user, guild):
     mon = getMonFromName(monName)
         
@@ -672,9 +712,7 @@ async def checkTrackedMon(monName, user, guild):
     if author is None:
         return 'This user doesn\'t have anything tracked!'
     
-    discordUser = guild.get_member(author)
-
-    discordName = getUserPing(author) if discordUser is None else discordUser.name
+    discordName = getDiscordName(author, guild)
 
     if len([obj for obj in trackedMons if obj['User'] == author]) == 0:
         return 'This user doesn\'t have anything tracked!'
@@ -741,16 +779,11 @@ def createExpandedMonGroup(monGroup):
 
     return list(expandedMonGroup)
 
-
-async def checkTrackedListMons(classification, filter, user, guild):
+def getTrackedMonList(classification, filter, user):
     author = getUserIdFromNickname(user)
-
+    
     if author is None:
         return 'This user doesn\'t have anything tracked!'
-    
-    discordUser = guild.get_member(author)
-    
-    discordName = getUserPing(author) if discordUser is None else discordUser.name
     
     if len([obj for obj in trackedMons if obj['User'] == author]) == 0:
         return 'This user doesn\'t have anything tracked!'
@@ -805,6 +838,18 @@ async def checkTrackedListMons(classification, filter, user, guild):
                         'Tracked': list(trackedToDisplay)
                     })
 
+    return trackedList
+
+async def checkTrackedListMons(classification, filter, user, guild):
+    trackedList = getTrackedMonList(classification, filter, user)
+
+    if (isinstance(trackedList, str)):
+        return trackedList
+
+    toDisplay, pageCount = determineDisplay(filter)
+
+    discordName = getDiscordName(getUserIdFromNickname(user), guild)
+
     if not (isinstance(classification, list)):
         classificationTitle = formatTextForDisplay(classification)
     else:
@@ -835,6 +880,31 @@ async def checkTrackedListMons(classification, filter, user, guild):
     
     return embeds
 
+async def checkTrackedStringMons(classification, filter, user, guild):
+    trackedList = getTrackedMonList(classification, filter, user)
+    
+    if (isinstance(trackedList, str)):
+        return trackedList
+
+    toDisplay, pageCount = determineDisplay(filter)
+
+    discordName = getDiscordName(getUserIdFromNickname(user), guild)
+
+    if not (isinstance(classification, list)):
+        classificationTitle = formatTextForDisplay(classification)
+    else:
+        classificationTitle = 'Custom List'
+
+    if len(trackedList) == 0:
+        return f'{formatTextForDisplay(discordName)} does not need anything {formatTextForDisplay(filter)} from {classificationTitle}!'
+
+    trackedString = f'{(",".join(toDisplay)).rstrip(",")}&'
+
+    for mon in trackedList:
+        trackedString += f'{formatTextForDisplay(getMon(mon["DexNum"])["Name"])}, '
+
+    return trackedString.rstrip(', ')
+
 def determineDisplay(filter):
     if filter == 'all':
         return ['hundo', 'lucky', 'shiny', 'gl', 'ul', 'shadow', 'purified', 'xxs', 'xxl'], 6
@@ -846,16 +916,22 @@ def determineDisplay(filter):
         return ['lucky'], 20
 
     elif filter == 'shiny':
-            return ['shiny'], 20
+        return ['shiny'], 20
     
     elif filter == 'pvp':
         return ['gl', 'ul'], 20
 
     elif filter == 'rocket':
-            return ['shadow', 'purified'], 20
+        return ['shadow', 'purified'], 20
     
     elif filter == 'size':
-            return ['xxs', 'xxl'], 20
+        return ['xxs', 'xxl'], 20
+
+    elif filter == 'xxl':
+        return ['xxl'], 20
+
+    elif filter == 'xxs':
+        return ['xxs'], 20
     
     return [], 0
 
@@ -919,8 +995,7 @@ async def convertToGoStats(stats, nerfOverride=None):
 
     nerfText = getNerfText(nerfAmount)
 
-    return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'
-        
+    return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'     
 
 async def convertToGoStatsFromName(monName, nerfOverride=None):
     dexNum = getDexNum(monName)
@@ -951,23 +1026,6 @@ async def convertToGoStatsFromName(monName, nerfOverride=None):
     nerfText = getNerfText(nerfAmount)
 
     return f'This pokemon should have the following stats{nerfText}:\nLv 40 Max CP: {lv40CP}\nLv 50 Max CP: {lv50CP}\nAttack: {attack}\nDefence: {defence}\nStamina: {stamina}'
-
-def calcNerfOverride(nerfOverride):
-    if nerfOverride == '9nerf':
-        return 0.91
-    elif nerfOverride == '3nerf':
-        return 0.97
-    elif nerfOverride == 'nonerf':
-        return 1.00
-    else:
-        return f'The nerf exception \'{nerfOverride}\' was not recognized!\n`noNerf`, `3Nerf` and `9Nerf` are the only valid exceptions!'
-
-def getNerfText(nerfAmount):
-    if nerfAmount == 0.91:
-        return '(After a 9% nerf)'
-    elif nerfAmount == 0.97:
-        return '(After a 3% nerf)'
-    return ''
 
 def determineCPFromBaseStat(attack, defence, stamina, level):
     cpMultiplier = getPoGoCPMultiplier(level)

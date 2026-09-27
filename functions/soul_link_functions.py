@@ -10,7 +10,7 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 from io import BytesIO
-from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, 
+from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, getDiscordName,
                                         getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage, getUserPing, recurseEvoChain,
                                         getDexNum, formatTextForDisplay, formatTextForBackend, getMon, getMonName,
                                         getTypeEmoji, getTypeColour, addPaginatedEmbedFields, getUserIdFromNickname,
@@ -29,17 +29,18 @@ currentRun = copy.deepcopy(defaultRun)
 async def soulLinksHelp():
     embed = discord.Embed(title=f'Scuffed Soul Link Bot Commands',
                           description='```$sl new-sl HeartGold, HGAttempt1, @Player1, @Player2...``` Creates a new soul link run linked to the users specified\n' +
+                                      '```$sl encounters``` Lists out all the areas where mons can be encountered\n' +
                                       '```$sl encounter Starter, Bulbasaur``` Adds data to an encounter, the other users in the sl can call the command again to set their encountered mon\n' +
-                                      '```$sl encounter Starter, @Player1 Bulbasaur, @Player2 Charmander``` Another option for adding data to an encounter, you can specify encounters for as many players as needed\n' +
+                                      '```$sl encounter Starter, @Player1, Bulbasaur, Charmander, @Player2``` Another option for adding data to an encounter\nMake sure each player and encounter are paired\n' +
                                       '```$sl links``` Lists out the active links for the current run\n' +
                                       '```$sl link-data Bulbasaur``` Gives you information about the link for the specified mon you own\n' +
                                       '```$sl link-data Starter``` Gives you information about the link for the area it was encountered\n' +
                                       '```$sl link-data Bulbasaur, @Player1``` Gives you information about the link for a specific mon someone else owns\n' +
                                       '```$sl evolve Bulbasaur``` Evolves a pokemon you own\n' +
-                                      '```$sl death Starter, Metronome explosion :(``` Removes the link from the active links\n' +
+                                      '```$sl death Starter, Metronome explosion :(``` Marks the link as dead, by searching where it was caught\n' +
+                                      '```$sl death Bulbasaur, Metronome explosion :(``` Marks the link as dead, by searching pokemon you own\n' +
                                       '```$sl deaths``` Lists out all the dead links, and cause of death\n' +
-                                      '```$sl ask-shuckle It was Nate\'s fault the starters died``` Explain the situation, and an excuse for the cause of death will be generated\n' +
-                                      '```$sl encounters``` Lists out all the areas where mons can be encountered\n' +
+                                      '```$sl ask-shuckle It was Nate\'s fault the starters died``` Explain the situation, and Shuckle will judge you, and make up some cope\n' +
                                       '```$sl choose-team Bulbasaur, Groudon, Kyogre...``` Selects a team for the next important battle. Matches mons to links. Not required\n' +
                                       '```$sl random``` @\'s a random player participating in the run\n' +
                                       '```$sl next-battle``` Lists out the next important battle and its level cap\n' +
@@ -66,7 +67,7 @@ async def soulLinksHelp():
 #region text parsing functions
 def getGroup(game):
     try:
-        return [obj for obj in games if any(group == game for group in obj['Games'])][0]['Name']
+        return [obj for obj in games if any(group == formatTextForBackend(game) for group in obj['Games'])][0]['Name']
     except:
         return None
 
@@ -188,10 +189,10 @@ def determineGenSpecificSprite(gameGen, versionGroup):
 
 def addMoveData(moveset, moveData):
     for move, data in zip(moveset, moveData):
-        move['Type'] = data['type']['name'].capitalize()
-        move['Category'] = data['damage_class']['name'].capitalize()
-        move['Power'] = '᲼\-᲼' if data['power'] is None else data['power'].rjust(3, '᲼')
-        move['Accuracy'] = '᲼\-' if data['accuracy'] is None else data['accuracy'].rjust(3, '᲼')
+        move['Type'] = formatTextForDisplay(data['type']['name'])
+        move['Category'] = formatTextForDisplay(data['damage_class']['name'])
+        move['Power'] = '\- ' if data['power'] is None else data['power']
+        move['Accuracy'] = '\- ' if data['accuracy'] is None else data['accuracy']
 
     return moveset
 
@@ -224,7 +225,14 @@ def getGameMascot(gameName):
 def getGameLinkEmoji(gameName):
     try:
         gameData = getGameData(gameName)
-        return gameData['LinkEmoji'][[game for game in gameData['Games']].index(gameName)]
+        return gameData['Emojis']['Link'][[game for game in gameData['Games']].index(gameName)]
+    except:
+        return ''
+
+def getGameBoxArtEmoji(gameName):
+    try:
+        gameData = getGameData(gameName)
+        return gameData['Emojis']['BoxArt'][[game for game in gameData['Games']].index(gameName)]
     except:
         return ''
 #endregion
@@ -369,7 +377,7 @@ def checkDuplicateEncounter(dexNum, playerIndex, run):
         return True
     return False
 
-async def encounterMon(encounterName, encounter, player):
+async def encounterMon(encounterName, encounter, player, guild):
     run = getRun(currentRun['RunName'])
 
     if run is None:
@@ -392,7 +400,7 @@ async def encounterMon(encounterName, encounter, player):
     dupeMessage = ''
 
     if checkDuplicateEncounter(dexNum, playerIndex, run):
-        dupeMessage = 'You\'ve already caught something from that evolution line!\nIf you\'re playing with dupes clause go reroll it! Otherwise, '
+        dupeMessage = 'You\'ve already caught something from that evolution line!\nIf you\'re playing with dupes clause go reroll it!\n\nIn any case, '
 
     encounterData = [obj for obj in run['Encounters'] if obj['Name'] == encounterName][0]
 
@@ -403,9 +411,9 @@ async def encounterMon(encounterName, encounter, player):
     
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'{dupeMessage}{formatTextForDisplay(encounter)} added for {player} for {formatEncounterNameForDisplay(encounterName)}!'
+    return f'{dupeMessage}{formatTextForDisplay(encounter)} added for {getDiscordName(player, guild)} for {formatEncounterNameForDisplay(encounterName)}!'
     
-async def encounterMonGroup(encounterName, extraInputs):
+async def encounterMonGroup(encounterName, extraInputs, guild):
     run = getRun(currentRun['RunName'])
 
     if run is None:
@@ -423,10 +431,12 @@ async def encounterMonGroup(encounterName, extraInputs):
     dexNum = -1
 
     for i, userInput in enumerate(extraInputs, start=1):
-        playerIndex = matchPlayer(userInput, run)
-        dexNum = getDexNum(userInput)
+        if playerIndex is None:
+            playerIndex = matchPlayer(userInput, run)
+        if dexNum == -1:
+            dexNum = getDexNum(userInput)
 
-        if i % 2:
+        if i % 2 == 0:
             if playerIndex is None or dexNum == -1:
                 responseText += f'\'{extraInputs[i-2]}\' and \'{extraInputs[i-1]}\' were not recognized as a valid encounter and player pair!\n'
 
@@ -434,12 +444,15 @@ async def encounterMonGroup(encounterName, extraInputs):
                 dupeMessage = ''
                 
                 if checkDuplicateEncounter(dexNum, playerIndex, run):
-                    dupeMessage = 'You\'ve already caught something from that evolution line!\nIf you\'re playing with dupes clause go reroll it! Otherwise, '
+                    dupeMessage = 'You\'ve already caught something from that evolution line!\nIf you\'re playing with dupes clause go reroll it!\n\nIn any case, '
 
                 encounterData['Pokemon'][playerIndex] = dexNum
 
-                responseText += f'{dupeMessage}{getMonName(dexNum)} added for {getUserPing(run["Players"][playerIndex])} for {formatEncounterNameForDisplay(encounterName)}!\n'
-    
+                responseText += f'{dupeMessage}{getMonName(dexNum)} added for {getDiscordName(run["Players"][playerIndex], guild)} for {formatEncounterNameForDisplay(encounterName)}!\n'
+
+            playerIndex = None
+            dexNum = -1
+
     if all(num != -1 for num in encounterData['Pokemon']):
         encounterData['Completed'] = True
     
@@ -450,7 +463,7 @@ async def encounterMonGroup(encounterName, extraInputs):
 #endregion
 
 #region $sl encounters command
-async def listEncounters():
+async def listEncounters(guild):
     run = getRun(currentRun['RunName'])
 
     if run is None:
@@ -465,7 +478,7 @@ async def listEncounters():
 
     playerData = [set(player for i, player in enumerate(run['Players']) if encounter['Pokemon'][i] == -1) for encounter in run['Encounters'] if not encounter['Completed']]
 
-    embed = discord.Embed(title=f'{currentRun["RunName"]} Available Encounters',
+    embed = discord.Embed(title=f'{formatTextForDisplay(currentRun["RunName"])} Available Encounters',
                           color=getGameEmbedColour(run['Game']))
     
     if run['CurrentProgress'] <= 1 and run['VersionGroup'] == 'heartgold-soulsilver':
@@ -478,8 +491,8 @@ async def listEncounters():
     pageCount = 10
 
     for i, (encounter, playersEncounter) in enumerate(zip(encounterData, playerData), start=1):
-        fieldContent[0] += f'{encounter}\n'
-        fieldContent[1] += f'{"All Players" if len(playersEncounter) == len(run["Players"]) else " ".join(playersEncounter)}\n'
+        fieldContent[0] += f'{formatTextForDisplay(encounter)}\n'
+        fieldContent[1] += f'{"All Players" if len(playersEncounter) == len(run["Players"]) else " ".join([getDiscordName(player, guild) for player in playersEncounter])}\n'
         
         if i % pageCount == 0:
             embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds)
@@ -493,7 +506,7 @@ async def listEncounters():
 #endregion
 
 #region $sl links and link-data command
-async def listLinks():
+async def listLinks(guild):
     run = getRun(currentRun['RunName'])
 
     if run is None:
@@ -507,8 +520,8 @@ async def listLinks():
     embeds = []
     linkEmoji = getGameLinkEmoji(run['Game'])
 
-    embed = discord.Embed(title=f'{currentRun["RunName"]} Active Links',
-                          description=linkEmoji.join(run['Players']),
+    embed = discord.Embed(title=f'{formatTextForDisplay(currentRun["RunName"])} Active Links',
+                          description=linkEmoji.join([getDiscordName(player, guild) for player in run['Players']]),
                           color=getGameEmbedColour(run['Game']))
     
     fieldTitles = ['']
@@ -527,7 +540,7 @@ async def listLinks():
     
     return embeds
 
-async def getLinkData(input, player):
+async def getLinkData(input, player, guild):
     run = getRun(currentRun['RunName'])
 
     if run is None:
@@ -536,18 +549,23 @@ async def getLinkData(input, player):
     playersText = ''
     linkEmoji = getGameLinkEmoji(run['Game'])
 
-    for player_name in run['Players']:
-        if player_name == run['Players'][-1]:
-            playersText += f'{player_name}'
+    for playerName in run['Players']:
+        if playerName == run['Players'][-1]:
+            playersText += f'{getDiscordName(playerName, guild)}'
         else:
-            playersText += f'{player_name}{linkEmoji}'
+            playersText += f'{getDiscordName(playerName, guild)}{linkEmoji}'
 
     embed = discord.Embed(title=f'Link Data',
                           description=playersText,
                           color=getGameEmbedColour(run['Game']))
 
     if checkEncounter(input, run):
-        encounterData = [encounter for encounter in run['Encounters'] if encounter['Name'].lower() == input.lower()][0]
+        encounterData = [encounter for encounter in run['Encounters'] if encounter['Name'] == formatTextForBackend(input)]
+        if len(encounterData) >= 1:
+            encounterData = encounterData[0]
+        else:
+            return f'Nobody\'s caught anything at {formatEncounterNameForDisplay(input)} yet!'
+        
         encountersText = ''
         for index, dexNum in enumerate(encounterData['Pokemon']):
             if dexNum == -1:
@@ -566,7 +584,7 @@ async def getLinkData(input, player):
         else:
             status = 'Dead'
 
-        embed.add_field(name=f'{encounterData["Name"]} - {status}',
+        embed.add_field(name=f'{formatEncounterNameForDisplay(encounterData["Name"])} - {status}',
                         value=encountersText,
                         inline=True)
         
@@ -607,7 +625,7 @@ async def getLinkData(input, player):
         else:
             status = 'Dead'
 
-        embed.add_field(name=f'{encounterData["Name"]} - {status}',
+        embed.add_field(name=f'{formatEncounterNameForDisplay(encounterData["Name"])} - {status}',
                         value=encountersText,
                         inline=True)
         
@@ -635,12 +653,12 @@ async def evolveMon(monName, player):
     if len(mon['EvolvesInto']) == 0:
         return f'{formatTextForDisplay(monName)} can\'t evolve!'
     
-    encounterData = [obj for obj in run['Encounters'] if obj['Pokemon'][playerIndex] == dexNum and obj['Completed'] and obj['Alive']]
+    encounterData = [obj for obj in run['Encounters'] if obj['Pokemon'][playerIndex] == dexNum and obj['Alive']]
 
     if len(encounterData) >= 1:
         encounterData = encounterData[0]
     else:
-        return f'You do not own a {formatTextForDisplay(monName)}!'
+        return f'You do not own a {formatTextForDisplay(monName)}, or it\'s been marked as dead!'
     
     evoMon = getMon(mon['EvolvesInto'][0]['DexNum'])
 
@@ -648,7 +666,7 @@ async def evolveMon(monName, player):
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'Your {formatTextForDisplay(monName)} from {encounterData["Name"]} has evolved into a {formatTextForDisplay(evoMon["Name"])}!\nIf this was a mistake, use $sl undo-evolve {formatTextForDisplay(evoMon["Name"])}\nIf this is not the correct evolution, use $sl encounter {encounterData["Name"]}, evo-name-here'
+    return f'Your {formatTextForDisplay(monName)} from {formatEncounterNameForDisplay(encounterData["Name"])} has evolved into a {formatTextForDisplay(evoMon["Name"])}!\nIf this was a mistake, use $sl undo-evolve {formatTextForDisplay(evoMon["Name"])}\nIf this is not the correct evolution, use $sl encounter {encounterData["Name"]}, evo-name-here'
 
 async def undoEvolveMon(monName, player):
     run = getRun(currentRun['RunName'])
@@ -670,64 +688,106 @@ async def undoEvolveMon(monName, player):
     if mon['EvolvesFrom'] is None:
         return f'{formatTextForDisplay(monName)} doesn\'t have a pre-evo!'
     
-    encounterData = [obj for obj in run['Encounters'] if obj['Pokemon'][playerIndex] == dexNum and obj['Completed'] and obj['Alive']]
+    encounterData = [obj for obj in run['Encounters'] if obj['Pokemon'][playerIndex] == dexNum and obj['Alive']]
 
     if len(encounterData) >= 1:
         encounterData = encounterData[0]
     else:
         return f'You do not own a {formatTextForDisplay(monName)}!'
     
-    pre_evo_mon = getMon(mon['EvolvesFrom'])
+    preEvoMon = getMon(mon['EvolvesFrom'])
 
-    encounterData['Pokemon'][playerIndex] = pre_evo_mon['DexNum']
+    encounterData['Pokemon'][playerIndex] = preEvoMon['DexNum']
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'Your {formatTextForDisplay(monName)} from {encounterData["Name"]} unevolved back into a {formatTextForDisplay(pre_evo_mon["Name"])}!'
+    return f'Your {formatTextForDisplay(monName)} from {formatEncounterNameForDisplay(encounterData["Name"])} unevolved back into a {formatTextForDisplay(preEvoMon["Name"])}!'
 #endregion
 
 #region $sl death and undo-death command
-async def newDeath(encounterName, reason):
+async def newDeath(encounterName, reason, player):
     run = getRun(currentRun['RunName'])
 
     if run is None:
         return 'Specify a run first!'
     
     if len(reason) > 500:
-        return 'Make the reason for death shorter than 500 characters!'
+        return 'Write a short obituary, not an essay!'
     
-    if not checkEncounter(encounterName, run):
-        return f'\'{encounterName}\' was not recognized as a valid encounter name!'
-    
-    encounterData = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounterName.lower()][0]
+    if checkEncounter(encounterName, run):
+        encounterData = [obj for obj in run['Encounters'] if obj['Name'] == formatTextForBackend(encounterName)]
+                
+        if len(encounterData) >= 1:
+            encounterData = encounterData[0]
+        else:
+            return f'\'{encounterName}\' was not recognized as a valid encounter name!'
+        
+    else:
+        dexNum = getDexNum(encounterName)
+        
+        if dexNum == -1:
+            return f'\'{encounterName}\' was not recognized as a valid mon name or as an encounter location!'
+        
+        playerIndex = matchPlayer(player, run)
+
+        if playerIndex is None:
+            return 'The author of this input was not recognized as a player in the currently selected run!'
+        
+        encounterData = [obj for obj in run['Encounters'] if obj['Pokemon'][playerIndex] == dexNum]
+        
+        if len(encounterData) >= 1:
+            encounterData = encounterData[0]
+        else:
+            return f'You do not own a {formatTextForDisplay(encounterName)}!'
     
     encounterData['Alive'] = False
     encounterData['DeathReason'] = reason
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'The encounter from {encounterData["Name"]} has been marked as dead! If this was a mistake, use $sl undo-death {encounterData["Name"]}'
+    return f'The encounter from {formatEncounterNameForDisplay(encounterData["Name"])} has been marked as dead! If this was a mistake, use $sl undo-death {encounterData["Name"]}'
 
-async def undoDeath(encounterName):
+async def undoDeath(encounterName, player):
     run = getRun(currentRun['RunName'])
 
     if run is None:
         return 'Specify a run first!'
     
-    if not checkEncounter(encounterName, run):
-        return f'\'{encounterName}\' was not recognized as a valid encounter name!'
-    
-    encounterData = [obj for obj in run['Encounters'] if obj['Name'].lower() == encounterName.lower()][0]
+    if checkEncounter(encounterName, run):
+        encounterData = [obj for obj in run['Encounters'] if obj['Name'] == formatTextForBackend(encounterName)]
+                
+        if len(encounterData) >= 1:
+            encounterData = encounterData[0]
+        else:
+            return f'\'{encounterName}\' was not recognized as a valid encounter name!'
+        
+    else:
+        dexNum = getDexNum(encounterName)
+        
+        if dexNum == -1:
+            return f'\'{encounterName}\' was not recognized as a valid mon name or as an encounter location!'
+        
+        playerIndex = matchPlayer(player, run)
+
+        if playerIndex is None:
+            return 'The author of this input was not recognized as a player in the currently selected run!'
+        
+        encounterData = [obj for obj in run['Encounters'] if obj['Pokemon'][playerIndex] == dexNum]
+        
+        if len(encounterData) >= 1:
+            encounterData = encounterData[0]
+        else:
+            return f'You do not own a {formatTextForDisplay(encounterName)}!'
     
     if encounterData['Alive']:
-        return f'The encounter from {encounterData["Name"]} is alive and well! Use $sl death {encounterData["Name"]} if you wanted to mark the encounter as dead!'
+        return f'The encounter from {formatEncounterNameForDisplay(encounterData["Name"])} is alive and well! Use $sl death {formatEncounterNameForDisplay(encounterData["Name"])} if you wanted to mark the encounter as dead!'
 
     encounterData['Alive'] = True
     encounterData['DeathReason'] = None
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'The encounter from {encounterData["Name"]} has been revived!'
+    return f'The encounter from {formatEncounterNameForDisplay(encounterData["Name"])} has been revived!'
 
 #endregion
 
@@ -751,7 +811,7 @@ async def askShuckle(userInput):
 #endregion
 
 #region $sl deaths command
-async def listDeaths():
+async def listDeaths(guild):
     run = getRun(currentRun['RunName'])
 
     if run is None:
@@ -770,16 +830,16 @@ async def listDeaths():
 
     for player in run['Players']:
         if player == run['Players'][-1]:
-            playersText += f'{player}'
+            playersText += f'{getDiscordName(player, guild)}'
         else:
-            playersText += f'{player}{linkEmoji}'
+            playersText += f'{getDiscordName(player, guild)}{linkEmoji}'
 
-    embed = discord.Embed(title=f'{currentRun["RunName"]} Deaths',
+    embed = discord.Embed(title=f'{formatTextForDisplay(currentRun["RunName"])} Deaths',
                           description=playersText,
                           color=getGameEmbedColour(run['Game']))
     
     for encounter in encounterData:
-        encountersText += f'{encounter["Name"]}\n'
+        encountersText += f'{formatEncounterNameForDisplay(encounter["Name"])}\n'
         for index, dexNum in enumerate(encounter['Pokemon']):
             if dexNum == -1:
                 monName = 'X'
@@ -837,7 +897,7 @@ async def listRuns():
     pageCount = 10
 
     for i, run in enumerate(runs, start=1):
-        fieldContent[0] += f'{formatTextForDisplay(run["Name"])}\n'
+        fieldContent[0] += f'{getGameBoxArtEmoji(run["Game"])} {formatTextForDisplay(run["Name"])}\n'
         fieldContent[1] += f'{run["RunStatus"]}\n'
         fieldContent[2] += f'{len(run["Players"])}\n'
         
@@ -868,7 +928,7 @@ async def chooseTeam(links, player):
 
     for link in links:
         tempLink = link
-        link = getDexNum(link.strip())
+        link = getDexNum(link)
         if link is None:
             return f'\'{tempLink}\' was not recognized as a valid pokemon name!'
         
@@ -938,7 +998,7 @@ async def pingUser():
     
     rand_num = random.randint(0, len(run['Players']) - 1)
 
-    return run['Players'][rand_num]
+    return getUserPing(run['Players'][rand_num])
 
 #endregion
 
@@ -956,7 +1016,7 @@ async def addNote(note):
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
 
-    return f'Note successfully added to {run["Name"]}'
+    return f'Note successfully added to {formatTextForDisplay(run["Name"])}'
 #endregion
 
 #region $sl run-info command
@@ -976,7 +1036,7 @@ def splitRunNotes(notes):
 
     return runNotes
 
-async def seeStats():
+async def seeStats(guild):
     run = getRun(currentRun['RunName'])
 
     if run is None:
@@ -997,18 +1057,18 @@ async def seeStats():
 
     for player in run['Players']:
         if player == run['Players'][-1]:
-            playersText += f'{player}'
+            playersText += f'{getDiscordName(player, guild)}'
         else:
-            playersText += f'{player}{linkEmoji}'
+            playersText += f'{getDiscordName(player, guild)}{linkEmoji}'
 
-    embed = discord.Embed(title=f'{currentRun["RunName"]} Stats',
+    embed = discord.Embed(title=f'{formatTextForDisplay(currentRun["RunName"])} Stats',
                           description=f'{descriptionText}\n{playersText}',
                           color=getGameEmbedColour(run['Game']))
     
     embed.set_thumbnail(url=getPokeAPISpriteUrl(getGameMascot(run['Game'])))
     
     for progress_index in range(run['CurrentProgress'] + 1):
-        embed.title = f'{currentRun["RunName"]} Info\nThe Team vs. {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][progress_index]["BattleName"]} at Lv. {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][progress_index]["LevelCap"]}!'
+        embed.title = f'{formatTextForDisplay(currentRun["RunName"])} Info\nThe Team vs. {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][progress_index]["BattleName"]} at Lv. {[obj for obj in games if obj["Name"] == run["VersionGroup"]][0]["Progression"][progress_index]["LevelCap"]}!'
         
         if len(run['Teams'][progress_index]) > 0:
             for encounter in run['Teams'][progress_index]:
@@ -1032,7 +1092,7 @@ async def seeStats():
         embed.clear_fields()
         linksText = ''
 
-    embed.title = f'{currentRun["RunName"]} Info\nRun Notes'
+    embed.title = f'{formatTextForDisplay(currentRun["RunName"])} Info\nRun Notes'
     embed.description = descriptionText
 
     for note in splitRunNotes(run['RunNotes']):
@@ -1060,7 +1120,7 @@ async def setRunStatus(status, guild):
 
     try:
         for role in allRoles:
-            if run['Name'] in role.name:
+            if formatTextForDisplay(run['Name']) in role.name:
                 await role.delete()
     except Exception as ex:
         print(ex)
@@ -1364,7 +1424,7 @@ def addPaginatedLearnsetEmbeds(embed, embeds, movesets, movesetKey, uniqueFieldH
     for i, move in enumerate(movesets[movesetKey], start=1):
         fieldContent[0] += f'{uniqueFieldTextOverride if uniqueFieldTextOverride is not None else move[movesetKey]}\n'
         fieldContent[1] += f'{move["Name"]}\n'
-        fieldContent[2] += f'᲼{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
+        fieldContent[2] += f'{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
 
         if i % pageCount == 0:
             embed = addCommonDexEmbedFields(embed, stats, versionGroup)
@@ -1397,15 +1457,21 @@ def machineSortKey(move):
 
     return (rank, machineNum)
 
-async def getMoves(moves, versionGroup):
+async def getMoves(moves, versionGroup, excludedVersions=None):
     if len(moves) == 0:
         return {'Level': [], 'Machine': [], 'Tutor': [], 'Egg': []}, versionGroup
 
-    if versionGroup == '':
+    excludedVersions = excludedVersions or set()
+
+    if versionGroup == '' or versionGroup in excludedVersions:
         availableVersions = set()
         for move in moves:
             for details in move['version_group_details']:
                 availableVersions.add(details['version_group']['name'])
+        availableVersions -= excludedVersions
+
+        if not availableVersions:
+            return {'Level': [], 'Machine': [], 'Tutor': [], 'Egg': []}, versionGroup
         
         versionGroup = random.choice(list(availableVersions))
     
@@ -1426,6 +1492,10 @@ async def getMoves(moves, versionGroup):
     machineMoveset = [obj for obj in moveset if obj['Method'] == 'machine']
     tutorMoveset = [obj for obj in moveset if obj['Method'] == 'tutor']
     eggMoveset = [obj for obj in moveset if obj['Method'] == 'egg']
+
+    if not (levelUpMoveset or machineMoveset or tutorMoveset or eggMoveset) and moves:
+        excludedVersions.add(versionGroup)
+        return await getMoves(moves, '', excludedVersions=excludedVersions)
 
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -1472,6 +1542,7 @@ async def getMoves(moves, versionGroup):
     return movesets, versionGroup
 
 def movesetTextLevel(moveset, level):
+    comment = None
     fieldContent = ['', '', '']
 
     tempMoveset = []
@@ -1489,8 +1560,8 @@ def movesetTextLevel(moveset, level):
         if move['Level'] <= 1:
             comment = 'This moveset contains level 1 moves!\nDouble check the moveset with $sl dex or Serebii!'
         fieldContent[0] += f'{move["Name"]}\n'
-        fieldContent[1] += f'᲼{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
-        fieldContent[2] += f'{move["Power"]}᲼᲼{"   " if move["Power"] == "᲼-᲼" and move["Accuracy"] == "100" else ""}{move["Accuracy"]}\n'
+        fieldContent[1] += f'{getTypeEmoji(move["Type"], moveCategory=move["Category"])}\n'
+        fieldContent[2] += f'{move["Power"]} | {move["Accuracy"]}\n'
 
     return fieldContent, comment
 
@@ -1547,7 +1618,7 @@ async def showMoveSet(mon, level):
                     value=fieldContent[1],
                     inline=True)
     
-    embed.add_field(name='Pwr ᲼ Acc',
+    embed.add_field(name='Pwr | Acc',
                     value=fieldContent[2],
                     inline=True)
     
@@ -1607,74 +1678,4 @@ async def makeRareCandiesEmbed():
 
     return embeds
 
-#endregion
-
-#region $sl catch command
-async def calculateCatchRate(mon, level):
-    if not level.isnumeric() or int(level) > 100 or int(level) < 0:
-        return f"Input invalid! Specify the pokemon\'s name and it's level! ```$sl catch Bulbasaur 5```"
-    
-    level = int(level)
-
-    dexNum = getDexNum(mon)
-
-    if dexNum == -1:
-        return f"The pokemon \'{mon}\' was not recognized!"
-    
-    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-
-    if monData is None:
-        return f'An error occured while checking the api!'
-
-    monSpecies = await getPokeApiJsonData(monData['species']['url'])
-
-    if monSpecies is None:
-        return f'An error occured while checking the api!'
-
-    monName = re.split(r'[\s-.]+', monData['name'])
-    monName = ' '.join(word.capitalize() for word in monName)
-
-    capture_rate = monSpecies['capture_rate']
-
-    gen = [obj for obj in gens if any(group["Name"] == currentRun["VersionGroup"] for group in obj["VersionGroups"])][0]
-
-    if dexNum == 292:
-        hp_stat = 1
-    else:
-        hp_stat = math.floor((((2 * int([obj for obj in monData["stats"] if obj["stat"]["name"] == "hp"][0]["base_stat"])) + random.randint(0, 31)) * level)/100) + level + 10
-
-    catch_rate_full_poke = (((3 * hp_stat) - (2 * hp_stat))/(3 * hp_stat)) * capture_rate
-    catch_rate_low_poke = (((3 * hp_stat) - 2)/(3 * hp_stat)) * capture_rate
-
-    catch_rate_full_great = ((((3 * hp_stat) - (2 * hp_stat))/(3 * hp_stat)) * capture_rate) * 1.5
-    catch_rate_low_great = ((((3 * hp_stat) - 2)/(3 * hp_stat)) * capture_rate) * 1.5
-
-    catch_rate_full_ultra = ((((3 * hp_stat) - (2 * hp_stat))/(3 * hp_stat)) * capture_rate) * 2
-    catch_rate_low_ultra = ((((3 * hp_stat) - 2)/(3 * hp_stat)) * capture_rate) * 2
-
-    catch_rate_full_poke = 100 if catch_rate_full_poke >= 255 else (catch_rate_full_poke / 255) * 100
-    catch_rate_low_poke = 100 if catch_rate_low_poke >= 255 else (catch_rate_low_poke / 255) * 100
-
-    catch_rate_full_great = 100 if catch_rate_full_great >= 255 else (catch_rate_full_great / 255) * 100
-    catch_rate_low_great = 100 if catch_rate_low_great >= 255 else (catch_rate_low_great / 255) * 100
-
-    catch_rate_full_ultra = 100 if catch_rate_full_ultra >= 255 else (catch_rate_full_ultra / 255) * 100
-    catch_rate_low_ultra = 100 if catch_rate_low_ultra >= 255 else (catch_rate_low_ultra / 255) * 100
-
-    embed = discord.Embed(title=f'Catch Rate for {monName} at Level {level}',
-                          color=[obj for obj in types if obj['Name'] == str(monData['types'][0]['type']['name']).capitalize()][0]['Colour'])
-    
-    embed.set_thumbnail(url=getPokeAPISpriteUrl(dexNum))
-    
-    embed.set_author(name='Catch Rate Calculator', url='https://www.dragonflycave.com/calculators/gen-v-catch-rate')
-
-    embed.add_field(name='Full Health',
-                    value=f'<:Poke_Ball:1190536922779627560> {"{:.2f}".format(catch_rate_full_poke)}%\n<:Great_Ball:1190536962520666123> {"{:.2f}".format(catch_rate_full_great)}%\n<:Ultra_Ball:1190536997794746469> {"{:.2f}".format(catch_rate_full_ultra)}%',
-                    inline=True)
-
-    embed.add_field(name='At 1 HP',
-                    value=f'<:Poke_Ball:1190536922779627560> {"{:.2f}".format(catch_rate_low_poke)}%\n<:Great_Ball:1190536962520666123> {"{:.2f}".format(catch_rate_low_great)}%\n<:Ultra_Ball:1190536997794746469> {"{:.2f}".format(catch_rate_low_ultra)}%',
-                    inline=True)
-
-    return embed
 #endregion
