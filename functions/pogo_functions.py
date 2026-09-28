@@ -12,12 +12,12 @@ import regex as re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import math
-from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours
+from dictionaries.shared_dictionaries import sharedImagePaths, sharedColours
 from dictionaries.pogo_dictionaries import pogoFileLocations, eventColours, filterLists, timezones, defaultOddsModifiers, trackedEmojis
 from dictionaries.pvp_dictionaries import pvpFileLocations
 from functions.shared_functions import (
     formatTextForDisplay, getMonFromName, getRegionFromDexNum, getUserIdFromNickname, getDiscordName, calcNerfOverride,
-    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeColour, verifyRegion, getMon, addPaginatedEmbedFields, getNerfText,
+    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeEmbedColour, verifyRegion, getMon, addPaginatedEmbedFields, getNerfText,
     rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats,
     loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, recurseEvoChain, pogoPokemon
 )
@@ -46,7 +46,7 @@ async def pogoHelp():
                                         '```$pogo time``` Shows the current time in NZ and Hawaii\n\n' +
                                         '```$pogo odds Shuckle``` Shows the odds of getting something\n' +
                                         '```$pogo odds modifiers``` Lists out all the available odds modifers',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
@@ -60,7 +60,7 @@ async def pogoEventsHelp():
                                         '```$pogo events raids``` Shows upcoming raid boss changovers, and other raid events\n' +
                                         '```$pogo events gbl``` Shows upcoming GBL league rotations\n\n'
                                         'All event data is scraped from LeekDuck',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     embed.set_author(name='Events Data Source', url='https://github.com/bigfoott/ScrapedDuck')
 
@@ -165,7 +165,7 @@ async def createEventsEmbeds(filterFor):
     embed = discord.Embed()
 
     firstEmbed = discord.Embed(title='Upcoming PoGo Events',
-                                color=eventColours.get(filterFor, sharedEmbedColours.get('Default')))
+                                color=eventColours.get(filterFor, sharedColours.get('Default')))
     firstEmbed.set_author(name='More Info at LeekDuck', url='https://leekduck.com/events')
 
     firstEmbed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
@@ -186,7 +186,7 @@ async def createEventsEmbeds(filterFor):
         if not event['start'].endswith('Z'):
             embed.description += f'\n\nNZ Start Time: {formatTimeZoneForDisplay(event["start"], timezones.get("NZ"))}\nHawaii End Time: {formatTimeZoneForDisplay(event["end"], timezones.get("Hawaii"))}'
 
-        embed.colour = eventColours.get(event['eventType'], sharedEmbedColours.get('Default'))
+        embed.colour = eventColours.get(event['eventType'], sharedColours.get('Default'))
 
         embed.set_image(url=event['image'])
 
@@ -221,7 +221,7 @@ def oddsModifiers():
                                         '```$pogo odds Shuckle, Extra10``` Extra: Sets the odds of getting something extra, like a special move\n' +
                                         '```$pogo odds Shuckle, BottleCap``` BottleCap: Finds the odds of getting something silver cappable\n\n' +
                                         'Everything should be case insensitive.\nThe denominator of the odds fraction should be entered for shiny, background and extra chances',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
@@ -334,7 +334,7 @@ async def calculateOdds(monName, extraInputs=None):
                                        f'**1/{(inverseProbability):.1f}**\n\n' +
                                        f'{attemptsFor50} attempts for a 50% chance\n' +
                                        f'{attemptsFor95} attempts for a 95% chance'),
-                          color=getTypeColour((await getTypesFromPokeAPI(mon['DexNum']))[0]))
+                          color=getTypeEmbedColour((await getTypesFromPokeAPI(mon['DexNum']))[0]))
     
     embed.set_thumbnail(url=getPokeAPISpriteUrl(mon['DexNum'], rollShiny=False, forceShiny=tryingForShiny(modifiers['ShinyChance'])))
     
@@ -748,7 +748,7 @@ async def checkTrackedMon(monName, user, guild):
                           description=f'Attack: {pogoMon["Attack"]}\n'
                                       f'Defence: {pogoMon["Defence"]}\n'
                                       f'Stamina: {pogoMon["Stamina"]}',
-                          color=getTypeColour(monTypes[0]))
+                          color=getTypeEmbedColour(monTypes[0]))
     
     embed.add_field(name=getTrackedEmojis(userTrackedMon['Tracked'], False),
                     value='',
@@ -862,7 +862,7 @@ async def checkTrackedListMons(classification, filter, user, guild):
 
     embed = discord.Embed(title=f'{classificationTitle}, {formatTextForDisplay(filter)} Pokemon tracked by {formatTextForDisplay(discordName)}',
                             description='',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
     
     fieldTitles = ['Mon', 'Tracked']
     fieldContent = ['', '']

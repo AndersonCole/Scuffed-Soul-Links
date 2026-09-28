@@ -1,7 +1,7 @@
 import discord
 import copy
 import regex as re
-from dictionaries.shared_dictionaries import sharedImagePaths, sharedFileLocations, sharedEmbedColours
+from dictionaries.shared_dictionaries import sharedImagePaths, sharedFileLocations, sharedColours
 from functions.shared_functions import (
    checkForNickname, getMonFromName, formatTextForBackend, formatTextForDisplay, buildNicknameLookupTable, 
    saveDataVariableToFile, rollForShiny, pokemon, users, getUserIdFromNickname, getDexNum, getUserPing
@@ -25,7 +25,7 @@ def shuckleHelp():
                                             '```$shuckle remove-nickname nickname``` Removes a nickname from a user\n\n' +
                                             '```$shuckle mon-nicknames``` Prints out all pokemon nicknames\n' +
                                             '```$shuckle user-nicknames``` Prints out all user nicknames',
-                                color=sharedEmbedColours.get('Default'))
+                                color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
@@ -173,7 +173,7 @@ def listMonNicknames():
     embeds = []
 
     embed = discord.Embed(title='Shuckle\'s Pokemon Nicknames', 
-                          color=sharedEmbedColours.get('Default'))
+                          color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
@@ -228,7 +228,7 @@ def listUserNicknames():
     embeds = []
 
     embed = discord.Embed(title='Shuckle\'s User Nicknames', 
-                          color=sharedEmbedColours.get('Default'))
+                          color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 

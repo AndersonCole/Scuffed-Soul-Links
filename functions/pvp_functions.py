@@ -8,12 +8,16 @@ import discord
 import copy
 import regex as re
 import math
+from PIL import Image
+from io import BytesIO
 from diskcache import Cache
 from dictionaries.pvp_dictionaries import pvpFileLocations, defaultPvpModifiers, scannerSystems
-from dictionaries.shared_dictionaries import sharedImagePaths, sharedEmbedColours, pogoLevels
+from dictionaries.shared_dictionaries import sharedImagePaths, sharedColours, pogoLevels
 from functions.shared_functions import (
-    rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, getMon, formatTextForBackend, checkClassification,
-    getTypesFromPokeAPI, getTypeColour, getMonName, getPokeAPISpriteUrl, loadDataVariableFromFile, saveDataVariableToFile, addPaginatedEmbedFields, formatTextForDisplay, pogoPokemon
+    rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, writeImageText,
+    getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, getMon, formatTextForBackend, checkClassification,
+    getTypesFromPokeAPI, getTypeEmbedColour, getTypeTextColour, getMonName, getPokeAPISpriteUrl, loadDataVariableFromFile, 
+    saveDataVariableToFile, addPaginatedEmbedFields, pasteMonOnImage, pogoPokemon
 )
 
 pvpRanksCache = Cache('./cache/pvp_ranks')
@@ -27,13 +31,14 @@ async def pvpHelp():
                                 description='```$pvp check Medicham``` Shows the top ranks of a pokemon\n' +
                                             '```$pvp modifiers``` Lists out the available PvP modifiers\n\n' +
                                             '```$pvp scanner-system Poracle, d10000, LvRange10``` Select the scanner system you use. Optionally specify a distance and lv range\n' +
-                                            '```$pvp tracking-string Medicham``` Creates a tracking string for the specified mon\nThe same modifiers for `$pvp check` work here\n\n' +
+                                            '```$pvp tracking-string Medicham``` Creates a tracking string for the specified mon\nThe same modifiers for `$pvp check` work here\n' +
+                                            '```$pvp wild-img Medicham``` Creates an image with the wild CP\'s for the specified mon\nThe same modifiers for `$pvp check` work here\n\n' +
                                             '```$pvp list-fakes GL``` Lists all the fake rank ones\nOptions are LL, Little, GL, Great, UL, Ultra\n' +
                                             '```$pvp add-mon Kartana, 323, 182, 139``` Registers a mons base stats in Atk/Def/HP order\n' +
                                             '```$pvp delete-mon Kartana``` Deletes a mon from the registered list\n' +
                                             '```$pvp list-mons``` Lists all the registered mons\n\n' +
                                             '```$pvp img``` Gets the pvp rank reqs image',
-                                color=sharedEmbedColours.get('Default'))
+                                color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
     
@@ -52,14 +57,14 @@ def pvpModifiers():
                                         f'```$pvp check Medicham, SortAttack``` SortAttack: Sorts results by highest attack\n' +
                                         f'```$pvp check Medicham, SortDefence``` SortDefence: Sorts results by highest defence\n\n' +
                                         f'Everything should be case insensitive.\n',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
     return embed
 
 async def getPvpRanksImg():
-    return discord.File('images/pvp.png', filename='pvp.png')
+    return discord.File('images/pvp/pvp.png', filename='pvp.png')
 
 #region helper functions
 def getNerfText(nerfAmount):
@@ -86,7 +91,7 @@ async def listFakeRankOnes(extraInput):
     
     embed = discord.Embed(title=f'Mons with tied R1&2 Stat Product under {leagueLimit}',
                             description='Excluding R1 hundos',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
     
     fieldTitles = ['']
     fieldContent = ['']
@@ -198,7 +203,7 @@ async def pvpRankCheck(monName, extraInputs=None):
 
     embed = discord.Embed(title=f'PvP Ranks for {getMonName(dexNum)} under {modifiers["LeagueLimit"]}',
                           description=f'Attack: {modifiers["BaseStats"]["Attack"]:g}\nDefence: {modifiers["BaseStats"]["Defence"]:g}\nStamina: {modifiers["BaseStats"]["Stamina"]:g}',
-                          color=getTypeColour(monTypes[0]))
+                          color=getTypeEmbedColour(monTypes[0]))
     
     embed.add_field(name=f'Ranks Prioritizing {getRankSortOrderText(modifiers["ResultSortOrder"])}',
                     value=f'Floor: {modifiers["Floor"]} | LvRange: {modifiers["MinLevel"]:g}-{modifiers["MaxLevel"]:g}',
@@ -611,4 +616,112 @@ async def getTrackingString(monName, author, extraInputs=None):
     if modifiers['MobileMessage']:
         return trackingString
     return f'```{trackingString}```'
+#endregion
+
+#region image
+async def createPvpWildImage(dexNum, originalDexNum, rank, league, maxWildLevel, cpList):
+    monTypes = await getTypesFromPokeAPI(dexNum)
+
+    backgroundImage = Image.open(f'images/type_backgrounds/{monTypes[0]}.png')
+
+    if dexNum == originalDexNum:
+        backgroundImage = await pasteMonOnImage(backgroundImage, dexNum, 152, 50)
+    else:
+        backgroundImage = await pasteMonOnImage(backgroundImage, dexNum, 152, 25)
+        backgroundImage = await pasteMonOnImage(backgroundImage, originalDexNum, 174, 150, resizeTo=48)
+
+    if rank['Ivs']['Attack'] == 15 and rank['Ivs']['Defence'] == 15 and rank['Ivs']['Stamina'] == 15:
+        league = 'hundo'
+        rankText = ''
+    else:
+        rankText = f'Rank {rank["Rank"]} '
+
+    leagueImg = Image.open(f'images/pvp/{league}.png')
+    backgroundImage.paste(leagueImg, (345, 145), mask=leagueImg)
+    leagueImg.close()
+
+    backgroundImage = writeImageText(backgroundImage, f'{rankText}{league.upper() if len(league) == 2 else league.capitalize()} {getMonName(originalDexNum)}', getTypeTextColour(monTypes[0]), 15, 175)
+    backgroundImage = writeImageText(backgroundImage, f'Lv1-{min(maxWildLevel, math.floor(rank["Level"]))} {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}', getTypeTextColour(monTypes[0]), 260, 175)
+
+    xPositions = [15, 65, 115, 260, 310, 360]
+    yPositions = [25, 50, 75, 100, 125, 150]
+    xIndex = 0
+    yIndex = 0
+
+    for cp in cpList:
+        backgroundImage = writeImageText(backgroundImage, str(cp), getTypeTextColour(monTypes[0]), xPositions[xIndex], yPositions[yIndex])
+
+        if yIndex == len(yPositions)-1:
+            xIndex+=1
+            yIndex=0
+        else:
+            yIndex+=1
+
+    imageBuffer = BytesIO()
+    
+    backgroundImage.save(imageBuffer, format='PNG')
+
+    backgroundImage.close()
+
+    imageBuffer.seek(0)
+
+    return discord.File(imageBuffer, filename=f'{getMonName(originalDexNum)}.png')
+
+async def getPvpWildImage(monName, extraInputs=None):
+    modifiers = copy.deepcopy(defaultPvpModifiers)
+    
+    if extraInputs != None:
+        modifiers, errorText = determinePvpModifierValues([str(i).strip().lower() for i in extraInputs], modifiers)
+        if errorText != '':
+            return errorText
+        
+    dexNum = getDexNum(monName)
+
+    if dexNum == -1:
+        return f'The pokemon \'{monName}\' was not recognized!'
+
+    rankList, modifiers = await getPvpRankList(dexNum, modifiers)
+    rank = rankList[0]
+
+    displayedDexNum = getDexNum(getTrackedMonName(dexNum, True))
+
+    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == displayedDexNum), None)
+    
+    if pogoMon is None:
+        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{displayedDexNum}')
+
+        if monData is None:
+            raise FileNotFoundError
+
+        stats = []
+
+        for i in range(6):
+            stats.append(int(monData['stats'][i]['base_stat']))
+
+        baseAttack, baseDefence, baseStamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
+    else:
+        baseAttack = pogoMon['Attack']
+        baseDefence = pogoMon['Defence']
+        baseStamina = pogoMon['Stamina']
+
+    cpList = []
+    maxWildLevel = 35
+
+    for level in range(1, math.floor(rank['Level'])+1):
+        if level > maxWildLevel:
+            break
+        elif level > maxWildLevel - 5:
+            if rank['Ivs']['Attack'] < 4 or rank['Ivs']['Defence'] < 4 or rank['Ivs']['Stamina'] < 4:
+                maxWildLevel = maxWildLevel - 5
+                break
+
+        cpList.append(calcPoGoCP(calcPoGoStat(baseAttack, rank['Ivs']['Attack'], getPoGoCPMultiplier(level)),
+                                 calcPoGoStat(baseDefence, rank['Ivs']['Defence'], getPoGoCPMultiplier(level)),
+                                 calcPoGoStat(baseStamina, rank['Ivs']['Stamina'], getPoGoCPMultiplier(level))))
+
+    leagueLimit, league = determineLeague(modifiers['LeagueLimit'])
+
+    wildImage = await createPvpWildImage(displayedDexNum, dexNum, rank, league, maxWildLevel, cpList)
+
+    return wildImage
 #endregion

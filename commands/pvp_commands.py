@@ -50,6 +50,19 @@ async def pvpCommands(userInput, author):
         else:
             response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
 
+    elif userInput.startswith('wild-img'):
+        userInput = formatCommand('wild-img', userInput)
+                            
+        splitInput = formatSplitInput(userInput)
+    
+        if splitInput is None:
+            response = await getPvpWildImage(userInput)
+        
+        elif len(splitInput) >= 2:
+            response = await getPvpWildImage(splitInput[0], splitInput[1:])
+        else:
+            response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
+
     elif userInput == 'img':
         response = await getPvpRanksImg()
 

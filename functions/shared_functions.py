@@ -4,12 +4,14 @@ import random
 import aiohttp
 from diskcache import Cache
 from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFont
 from io import BytesIO
 from datetime import datetime
 import math
 import discord
 import copy
-from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, pokemonClassifications, types, pogoLevels, sharedEmbedColours
+from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, pokemonClassifications, types, pogoLevels, sharedColours
 
 pokeApiCache = Cache('./cache/poke_api')
 
@@ -97,7 +99,7 @@ async def getTypesFromPokeAPI(dexNum):
         if len(monData['types']) > 1:
             monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
     except:
-        monTypes.append('???')
+        monTypes.append('Unknown')
 
     return monTypes
 
@@ -114,15 +116,15 @@ def getPokeAPISpriteUrl(dexNum, baseUrlAddition=None, extension='.png', rollShin
         return rollForShiny(sprite, shinySprite)
     return sprite
 
-async def openHttpImage(url, bigImg=True):
+async def openHttpImage(url, returnNone=False):
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(url) as response:
             if response.status == 200:
                 image_data = BytesIO(await response.read())
                 return Image.open(image_data).convert('RGBA')
-    if not bigImg:
-        return Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
+    if returnNone:
+        return None
     return Image.open(f'images/evo_helpers/missing_no.png').convert('RGBA')
 #endregion
 
@@ -165,6 +167,26 @@ def addPaginatedEmbedFields(fieldTitle, fieldContent, embed, embeds, extraEmbedD
     embed.clear_fields()
 
     return embed, embeds
+
+async def pasteMonOnImage(backgroundImage, dexNum, positionX, positionY, resizeTo=None):
+    image = await openHttpImage(getPokeAPISpriteUrl(dexNum))
+
+    if resizeTo is not None:
+        image = image.resize((resizeTo, resizeTo))
+    backgroundImage.paste(image, (positionX, positionY), mask=image)
+    image.close()
+
+    return backgroundImage
+
+def writeImageText(backgroundImage, text, typeColour, positionX, positionY):
+    draw = ImageDraw.Draw(backgroundImage)
+    font = ImageFont.truetype('fonts/pkmndp.ttf', 12)
+    #dropshadow
+    draw.text((positionX+2, positionY+1), text, 'black', font=font, stroke_width=0.75)
+
+    draw.text((positionX, positionY), text, typeColour, font=font)
+
+    return backgroundImage
 #endregion
 
 #region text formatting
@@ -203,12 +225,26 @@ def getTypeEmoji(type, moveCategory=None):
 
     return f'<:_:{[obj for obj in types if obj["Name"] == type][0]["Emoji"][category]}>'
 
-def getTypeColour(type):
+def convertColourToRGB(colour):
+    r = (colour >> 16) & 0xFF
+    g = (colour >> 8) & 0xFF
+    b = colour & 0xFF
+    return (r, g, b)
+
+def getTypeEmbedColour(type):
     try:
-        return [obj for obj in types if obj['Name'] == type][0]['Colour']
+        return [obj for obj in types if obj['Name'] == type][0]['Colours']['Embed']
     except:
-        return None
-    
+        return sharedColours.get('Default')
+
+def getTypeTextColour(type):
+    try:
+        decimalColour = [obj for obj in types if obj['Name'] == type][0]['Colours']['Text']
+
+        return convertColourToRGB(decimalColour)
+    except:
+        return convertColourToRGB(sharedColours.get('Default'))
+
 def verifyMoveType(moveType):
     if len([obj for obj in types if obj['Name'] == formatCapitalize(moveType)]) == 1:
         return True
@@ -552,7 +588,7 @@ async def pogoListMons():
 
     embed = discord.Embed(title=f'Registered Pokemon',
                             description='',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
     
     fieldTitles = ['Mon', 'Stats']
     fieldContent = ['', '']

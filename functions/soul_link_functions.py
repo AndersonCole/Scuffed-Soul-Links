@@ -7,15 +7,13 @@ import copy
 import asyncio
 import aiohttp
 from PIL import Image
-from PIL import ImageDraw
-from PIL import ImageFont
 from io import BytesIO
 from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, getDiscordName,
                                         getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage, getUserPing, recurseEvoChain,
-                                        getDexNum, formatTextForDisplay, formatTextForBackend, getMon, getMonName,
-                                        getTypeEmoji, getTypeColour, addPaginatedEmbedFields, getUserIdFromNickname,
+                                        getDexNum, formatTextForDisplay, formatTextForBackend, getMon, getMonName, pasteMonOnImage,
+                                        getTypeEmoji, getTypeEmbedColour, getTypeTextColour, writeImageText, addPaginatedEmbedFields, getUserIdFromNickname,
                                         loadShucklePersonality, rollForShiny, checkClassification, pokemon)
-from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
+from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedColours
 from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
@@ -57,7 +55,7 @@ async def soulLinksHelp():
                                       '```$sl rare-candies``` Shuckle explains how to aquire rare candies using PKHex\n\n' +
                                       'For Data on forms, type the pokemon\'s name like giratina origin, vulpix alola, charizard mega y, appletun gmax\n' +
                                       'Accessing data for a pokemon\'s default form will always work with their base name',
-                          color=sharedEmbedColours.get('Default'))
+                          color=sharedColours.get('Default'))
     
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
@@ -213,7 +211,7 @@ def getGameEmbedColour(gameName):
         gameData = getGameData(gameName)
         return gameData['Colour'][[game for game in gameData['Games']].index(gameName)]
     except:
-        return sharedEmbedColours.get('Default')
+        return sharedColours.get('Default')
     
 def getGameMascot(gameName):
     try:
@@ -888,7 +886,7 @@ async def listRuns():
     embeds = []
 
     embed = discord.Embed(title=f'Scuffed Soul Links Runs',
-                          color=sharedEmbedColours.get('Default'))
+                          color=sharedColours.get('Default'))
     
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
@@ -1138,43 +1136,47 @@ async def setRunStatus(status, guild):
 #region dex commands
 
 #region evo chain image
-async def createArrowImage(direction, type, method, value):
-    arrowImg = Image.open(f'images/evo_helpers/arrows/arrow_{type}.png').convert('RGBA')
-    if method == 'level-up':
-        draw = ImageDraw.Draw(arrowImg)
-        font = ImageFont.truetype('fonts/pkmndp.ttf', 10)
-        draw.text((10,15), f"Lv. {value}", 'black', font=font)
+async def openItemImage(value, resizeTo=None):
+    itemImage = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/{value}.png', returnNone=True)
 
-        return arrowImg.rotate(direction)
-    
-    elif method == 'use-item':
-        itemImage = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/{value}.png', False)
-
-        arrowImg.paste(itemImage, (10, 4), mask=itemImage)
-        itemImage.close()
-
-    #use item-img covers trade, friendship and mega evos as well
-    elif method == 'use-item-img':
+    if itemImage is None:
         try:
             itemImage = Image.open(f'images/evo_helpers/{value}.png').convert('RGBA')
         except FileNotFoundError:
             itemImage = Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
+
+    if resizeTo is not None:
+        itemImage = itemImage.resize((resizeTo, resizeTo))
+
+    return itemImage
+
+async def pasteExtraOnArrow(arrowImg, evolution, location):
+    if evolution['Extra'] is not None:
+        extraImage = await openItemImage(evolution['Extra'], resizeTo=10)
     
+        arrowImg.paste(extraImage, location, mask=extraImage)
+        extraImage.close()
+
+    return arrowImg
+
+async def createArrowImage(type, evolution):
+    arrowImg = Image.open(f'images/evo_helpers/arrows/arrow_{type}.png').convert('RGBA')
+
+    if evolution['Method'] == 'level-up':
+        arrowImg = await pasteExtraOnArrow(arrowImg, evolution, (36, 20))
+        arrowImg = writeImageText(arrowImg, f'Lv. {evolution["Value"]}', getTypeTextColour(type), 7, 13)
+
+    elif evolution['Method'] == 'use-item':
+        itemImage = await openItemImage(evolution['Value'])
         arrowImg.paste(itemImage, (10, 4), mask=itemImage)
         itemImage.close()
 
-    return arrowImg.rotate(direction)
+        arrowImg = await pasteExtraOnArrow(arrowImg, evolution, (30, 20))
 
-async def pasteOnImage(backgroundImage, dexNum, positionX, positionY):
-    image = await openHttpImage(getPokeAPISpriteUrl(dexNum))
+    return arrowImg
 
-    backgroundImage.paste(image, (positionX, positionY), mask=image)
-    image.close()
-
-    return backgroundImage
-
-async def pasteArrowImage(backgroundImage, positionX, positionY, direction, type, method, value):
-    arrowImage = await createArrowImage(direction, type, method, value)
+async def pasteArrowImage(backgroundImage, positionX, positionY, type, evolution):
+    arrowImage = await createArrowImage(type, evolution)
 
     backgroundImage.paste(arrowImage, (positionX, positionY), mask=arrowImage)
     arrowImage.close()
@@ -1183,10 +1185,10 @@ async def pasteArrowImage(backgroundImage, positionX, positionY, direction, type
 
 async def pastePokemonOntoBackground(backgroundImage, pokemonToPaste, arrowType, pokemonPositions, arrowPositions):
     for mon, monPos in zip(pokemonToPaste, pokemonPositions):
-        backgroundImage = await pasteOnImage(backgroundImage, mon['DexNum'], monPos[0], monPos[1])
+        backgroundImage = await pasteMonOnImage(backgroundImage, mon['DexNum'], monPos[0], monPos[1])
 
     for mon, arrowPos in zip(pokemonToPaste[1:], arrowPositions):
-        backgroundImage = await pasteArrowImage(backgroundImage, arrowPos[0], arrowPos[1], arrowPos[2], arrowType, mon['Method'], mon['Value'])
+        backgroundImage = await pasteArrowImage(backgroundImage, arrowPos[0], arrowPos[1], arrowType, mon)
 
     return backgroundImage
 
@@ -1196,6 +1198,8 @@ async def createEvoChainImage(dexNum, type):
     if not checkClassification(dexNum, 'Mega') and not checkClassification(dexNum, 'Gigantamax'):
         while basePokemon['EvolvesFrom'] is not None:
             basePokemon = getMon(basePokemon['EvolvesFrom'])
+
+    arrowHeights = [81, 35, 130]
     
     evoChainLength = 1
     if len(basePokemon['EvolvesInto']) > 0:
@@ -1213,27 +1217,31 @@ async def createEvoChainImage(dexNum, type):
         monPositions = [[150, 50]]
         arrowPositions = []
         
-        backgroundImage = await pasteOnImage(backgroundImage, dexNum, 150, 50)
-        
     elif evoChainLength == 2:
         #2 stage evo line, like vulpix
         if len(basePokemon['EvolvesInto']) == 1:
             #only one evo
             evoMons = [basePokemon, basePokemon['EvolvesInto'][0]]
             monPositions = [[75, 50], [225, 50]]
-            arrowPositions = [[175, 90, 0]]
+            arrowPositions = [[175, arrowHeights[0]]]
 
         elif len(basePokemon['EvolvesInto']) == 2:
             #2 evos, like slowpoke
             evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1]]
             monPositions = [[75, 50], [225, 0], [225, 100]]
-            arrowPositions = [[175, 55, 45], [175, 125, -45]]
+            arrowPositions = [[175, arrowHeights[1]], [175, arrowHeights[2]]]
 
         elif len(basePokemon['EvolvesInto']) == 3:
             #3 evos, like tyrogue
             evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1], basePokemon['EvolvesInto'][2]]
             monPositions = [[75, 50], [225, 0], [225, 100], [300, 50]]
-            arrowPositions = [[175, 55, 45], [175, 125, -45], [200, 90, 0]]
+            arrowPositions = [[175, arrowHeights[1]], [175, arrowHeights[2]], [215, arrowHeights[0]]]
+
+        elif len(basePokemon['EvolvesInto']) == 4:
+            #burmy
+            evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1], basePokemon['EvolvesInto'][2], basePokemon['EvolvesInto'][3]]
+            monPositions = [[75, 50], [215, 0], [265, 0], [315, 0], [265, 100]]
+            arrowPositions = [[175, arrowHeights[1]], [175, arrowHeights[1]], [175, arrowHeights[1]], [175, arrowHeights[2]]]
 
         elif len(basePokemon['EvolvesInto']) == 8:
             #eevee
@@ -1255,14 +1263,14 @@ async def createEvoChainImage(dexNum, type):
                     #only one final evo, like venusaur
                     evoMons = [basePokemon, basePokemon['EvolvesInto'][0], middlePokemon['EvolvesInto'][0]]
                     monPositions = [[0, 50], [150, 50], [300, 50]]
-                    arrowPositions = [[100, 90, 0], [250, 90, 0]]
+                    arrowPositions = [[100, arrowHeights[0]], [250, arrowHeights[0]]]
 
                 elif len(middlePokemon['EvolvesInto']) == 2:
                     #two final evos like kirlia
                     evoMons = [basePokemon, basePokemon['EvolvesInto'][0], 
                                middlePokemon['EvolvesInto'][0], middlePokemon['EvolvesInto'][1]]
                     monPositions = [[0, 50], [150, 50], [300, 0], [300, 100]]
-                    arrowPositions = [[100, 90, 0], [250, 55, 45], [250, 125, -45]]
+                    arrowPositions = [[100, arrowHeights[0]], [250, arrowHeights[1]], [250, arrowHeights[2]]]
 
             elif len(basePokemon['EvolvesInto']) == 2:
                 #2 middle evos, like mr mime
@@ -1270,17 +1278,17 @@ async def createEvoChainImage(dexNum, type):
 
                 evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1]]
                 monPositions = [[0, 50], [150, 0], [150, 100]]
-                arrowPositions = [[100, 55, 45], [100, 125, -45]]
+                arrowPositions = [[100, arrowHeights[1]], [100, arrowHeights[2]]]
 
                 if len(middlePokemon[0]['EvolvesInto']) != 0:
                     evoMons.append(middlePokemon[0]['EvolvesInto'][0])
                     monPositions.append([300, 0])
-                    arrowPositions.append([250, 55, 0])
+                    arrowPositions.append([250, arrowHeights[1]])
                     
                 if len(middlePokemon[1]['EvolvesInto']) != 0:
                     evoMons.append(middlePokemon[1]['EvolvesInto'][0])
                     monPositions.append([300, 100])
-                    arrowPositions.append([250, 125, 0])
+                    arrowPositions.append([250, arrowHeights[2]])
                 
             elif len(basePokemon['EvolvesInto']) == 3:
                 #3 evos with a 3rd stage, like applin
@@ -1288,22 +1296,22 @@ async def createEvoChainImage(dexNum, type):
 
                 evoMons = [basePokemon, basePokemon['EvolvesInto'][0], basePokemon['EvolvesInto'][1], basePokemon['EvolvesInto'][2]]
                 monPositions = [[0, 50], [150, 0], [150, 100], [200, 50]]
-                arrowPositions = [[100, 55, 45], [100, 125, -45], [125, 90, 0]]
+                arrowPositions = [[100, arrowHeights[1]], [100, arrowHeights[2]], [135, arrowHeights[0]]]
 
                 if len(middlePokemon[0]['EvolvesInto']) != 0:
                     evoMons.append(middlePokemon[0]['EvolvesInto'][0])
                     monPositions.append([275, 0])
-                    arrowPositions.append([250, 55, 0])
+                    arrowPositions.append([250, arrowHeights[1]])
 
                 if len(middlePokemon[1]['EvolvesInto']) != 0:
                     evoMons.append(middlePokemon[1]['EvolvesInto'][0])
                     monPositions.append([275, 100])
-                    arrowPositions.append([250, 125, 0])
+                    arrowPositions.append([250, arrowHeights[2]])
 
                 if len(middlePokemon[2]['EvolvesInto']) != 0:
                     evoMons.append(middlePokemon[2]['EvolvesInto'][0])
                     monPositions.append([315, 50])
-                    arrowPositions.append([275, 90, 0])
+                    arrowPositions.append([275, arrowHeights[0]])
        
 
     backgroundImage = await pastePokemonOntoBackground(backgroundImage, evoMons, type, monPositions, arrowPositions)
@@ -1357,7 +1365,7 @@ async def makePokedexEmbed(mon, gameName):
     stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
 
     embed = discord.Embed(title=f'#{monData["species"]["url"][42:].strip("/")} {getMonName(dexNum)} {typeEmojis}',
-                          color=getTypeColour(monTypes[0]))
+                          color=getTypeEmbedColour(monTypes[0]))
 
     if versionGroup != '':
         gameGen = getGroupGen(versionGroup)
@@ -1592,7 +1600,7 @@ async def showMoveSet(mon, level):
 
     embed = discord.Embed(title=f'Level {level} {monName}',
                           description=comment,
-                          color=getTypeColour(monData['types'][0]['type']['name'].capitalize()))
+                          color=getTypeEmbedColour(monData['types'][0]['type']['name'].capitalize()))
     
     if versionGroup != '':
         gameGen = getGroupGen(versionGroup)

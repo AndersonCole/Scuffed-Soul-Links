@@ -17,11 +17,11 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getPokeAPISpriteUrl, openHttpImage,
                                         checkForNickname, verifyMoveType, 
                                         formatCapitalize, formatTextForBackend, formatTextForDisplay,
-                                        getTypesFromPokeAPI, getTypeColour, 
+                                        getTypesFromPokeAPI, getTypeEmbedColour, 
                                         getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, checkDuplicatePoGoMon, pogoRound, addPaginatedEmbedFields,
                                         getPokeApiJsonData, calcPoGoStatsFromBaseStats, getDexNum, getMonName,
                                         loadShucklePersonality, rollForShiny, getMon, checkClassification, pogoPokemon)
-from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedEmbedColours, types
+from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedColours, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
@@ -45,7 +45,7 @@ async def getSharedHelp(commandText):
                                         f'```{commandText} list-mons``` Lists all the registered mons\n' +
                                         f'```{commandText} list-moves``` Lists all the registered moves\n\n' +
                                         'Everything should be case insensitive\nAlways assume stats are listed in Attack/Defence/HP order\nTimes should be enerted in milliseconds\nhttps://db.pokemongohub.net is good for checking move data.',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
     
     randNum = random.randint(0, 100)
 
@@ -67,7 +67,7 @@ async def dpsHelp():
                                         f'```{commandText} reset-modifiers``` Resets your custom modifiers back to default\n\n' +
                                         f'```{commandText} super-max Dragonite Mega``` Adds a mega mon to the super max list\n\n' +
                                         'Everything should be case insensitive\nAlways assume stats are listed in Attack/Defence/HP order', 
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
     
@@ -89,7 +89,7 @@ async def dynamaxHelp():
                                         f'```{commandText} set-modifiers``` Allows you to set default modifiers that will be used for every max dps check\n' +
                                         f'```{commandText} reset-modifiers``` Resets your custom modifiers back to default\n\n' +
                                         'Everything should be case insensitive\nAlways assume stats are listed in Attack/Defence/HP order',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
     
@@ -130,7 +130,7 @@ async def getSharedModifiers(commandText):
                                         f'```{commandText}, SortByFastMoves``` SortByFast: Orders the output by fast moves\n' +
                                         f'```{commandText}, SortByChargedMoves``` SortByCharged: Orders the output by charged moves\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will work for both raid and dynamax dps calculations',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     randNum = random.randint(0, 100)
 
@@ -152,7 +152,7 @@ async def raidModifiers():
                                         f'```{commandText}, Mega4``` Mega: Sets the mega level of your pokemon for plus move damage\n'
                                         f'```{commandText}, DynamicPunch+``` DynamicPunch+: Adds a 15% boost when fighting megas\n'
                                         'Everything should be case insensitive\nThese modifiers will only work for raid calculations\nDefault check assumes Lv50, Hundo, Not Shadow, calculates STAB, Neutral effectiveness, No Special Boosts, Sorted by Dps',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
 
@@ -186,7 +186,7 @@ async def dynamaxModifiers():
                                         f'```{commandText}, SortByDps``` SortByDps: Orders the output by the dps\n' +
                                         f'```{commandText}, SortByCycleTime``` SortByCycleTime: Orders the output by the cycle time\n\n' +
                                         'Everything should be case insensitive\nThese modifiers will only work for dynamax calculations\nDefault check assumes Lv40, Hundo, calculates STAB, Assumes STAB on max moves, Neutral effectiveness, No Special Boosts, Sorted by Max Eps',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle'), randNum=randNum))
 
@@ -401,7 +401,7 @@ async def dpsListMoves():
 
     embed = discord.Embed(title=f'Registered Moves',
                             description='',
-                            color=sharedEmbedColours.get('Default'))
+                            color=sharedColours.get('Default'))
 
     fieldTitles = ['Move', 'Dmg & Energy', 'Duration']
     allMoves = (
@@ -531,7 +531,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
 
     embed = discord.Embed(title=getEmbedTitle(mon, modifiers, battleSystem),
                           description=f'{monCP} CP\nAttack: {mon["Attack"]}\nDefence: {mon["Defence"]}\nStamina: {mon["Stamina"]}\nIVs: {modifiers["Ivs"]["Attack"]}/{modifiers["Ivs"]["Defence"]}/{modifiers["Ivs"]["Stamina"]}',
-                          color=getTypeColour(monTypes[0]))
+                          color=getTypeEmbedColour(monTypes[0]))
     
     if battleSystem == 'dmax':
         maxMoveDamage = calcMaxMoveDamage(modifiers['MaxMovePower'], monAttack, modifiers)
@@ -689,7 +689,7 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
 
     embed.description += f'\n\nFast Moves: {fastMovesText[:-2]}\nCharged Moves: {chargedMovesText[:-2]}'
 
-    embedImg, embedImgFile = await getEmbedImage(mon, modifiers, getTypeColour(monTypes[0]))
+    embedImg, embedImgFile = await getEmbedImage(mon, modifiers, getTypeEmbedColour(monTypes[0]))
 
     embed.set_thumbnail(url=embedImg)
 
@@ -816,7 +816,7 @@ async def getUserModifiers(battleSystem, author):
     
     embed = discord.Embed(title=getModifierTitle(battleSystem, author),
                           description='',
-                          color=sharedEmbedColours.get('Default'))
+                          color=sharedColours.get('Default'))
     
     
 

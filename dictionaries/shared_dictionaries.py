@@ -14,7 +14,7 @@ sharedImagePaths = {
     'ShinyShuckle': 'https://i.imgur.com/vwke1vY.png'
 }
 
-sharedEmbedColours = {
+sharedColours = {
     'Default': 3553598
 }
 
@@ -105,7 +105,7 @@ pokemonClassifications = {
 }
 
 types = [
-    {'Name': 'Normal', 'Colour': 9542306, 'Emoji': {
+    {'Name': 'Normal', 'Colours': {'Embed': 9542306, 'Text': 9542306 }, 'Emoji': {
                                                     'Physical': 1187545017695338576,
                                                     'Special': 1432948785041903667,
                                                     'Status': 1432948803031273664
@@ -120,7 +120,7 @@ types = [
                                                                         'NotVery': set(),
                                                                         'Immune': {'Ghost'}
                                                                     }}},
-    {'Name': 'Fighting', 'Colour': 13581929, 'Emoji': {
+    {'Name': 'Fighting', 'Colours': {'Embed': 13581929, 'Text': 15547911 }, 'Emoji': {
                                                     'Physical': 1187558808915025961,
                                                     'Special': 1432948829304524930,
                                                     'Status': 1432948895465472175
@@ -135,7 +135,7 @@ types = [
                                                                         'NotVery': {'Rock', 'Bug', 'Dark'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Flying', 'Colour': 9480670, 'Emoji': {
+    {'Name': 'Flying', 'Colours': {'Embed': 9480670, 'Text': 9480670 }, 'Emoji': {
                                                     'Physical': 1187558754057723935,
                                                     'Special': 1432948916579602534,
                                                     'Status': 1432948941955137657
@@ -150,7 +150,7 @@ types = [
                                                                         'NotVery': {'Fighting', 'Bug', 'Grass'},
                                                                         'Immune': {'Ground'}
                                                                     }}},
-    {'Name': 'Poison', 'Colour': 11299529, 'Emoji': {
+    {'Name': 'Poison', 'Colours': {'Embed': 11299529, 'Text': 11299529 }, 'Emoji': {
                                                     'Physical': 1187558708012662907,
                                                     'Special': 1432948999844794459,
                                                     'Status': 1432949020896264242
@@ -165,7 +165,7 @@ types = [
                                                                         'NotVery': {'Fighting', 'Poison', 'Grass', 'Bug', 'Fairy'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Ground', 'Colour': 14317636, 'Emoji': {
+    {'Name': 'Ground', 'Colours': {'Embed': 14317636, 'Text': 14317636 }, 'Emoji': {
                                                     'Physical': 1187558659639738439,
                                                     'Special': 1432949064164573195,
                                                     'Status': 1432949085861580831
@@ -180,7 +180,7 @@ types = [
                                                                         'NotVery': {'Poison', 'Rock'},
                                                                         'Immune': {'Electric'}
                                                                     }}},
-    {'Name': 'Rock', 'Colour': 13154444, 'Emoji': {
+    {'Name': 'Rock', 'Colours': {'Embed': 13154444, 'Text': 13154444 }, 'Emoji': {
                                                     'Physical': 1187558613590495333,
                                                     'Special': 1432949112176775218,
                                                     'Status': 1432949140903563366
@@ -195,7 +195,7 @@ types = [
                                                                         'NotVery': {'Normal', 'Flying', 'Poison', 'Fire'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Bug', 'Colour': 9552424, 'Emoji': {
+    {'Name': 'Bug', 'Colours': {'Embed': 9552424, 'Text': 11924016 }, 'Emoji': {
                                                     'Physical': 1187558577313939456,
                                                     'Special': 1432949189897224283,
                                                     'Status': 1432949207509106791
@@ -210,7 +210,7 @@ types = [
                                                                         'NotVery': {'Fighting', 'Ground', 'Grass'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Ghost', 'Colour': 5335470, 'Emoji': {
+    {'Name': 'Ghost', 'Colours': {'Embed': 5335470, 'Text': 6323665 }, 'Emoji': {
                                                     'Physical': 1187558536008441916,
                                                     'Special': 1432949239297740810,
                                                     'Status': 1432949260005019658
@@ -225,7 +225,7 @@ types = [
                                                                         'NotVery': {'Poison', 'Bug'},
                                                                         'Immune': {'Normal', 'Fighting'}
                                                                     }}},
-    {'Name': 'Steel', 'Colour': 5869474, 'Emoji': {
+    {'Name': 'Steel', 'Colours': {'Embed': 5869474, 'Text': 5869474 }, 'Emoji': {
                                                     'Physical': 1187558497836081152,
                                                     'Special': 1432949385800716298,
                                                     'Status': 1432949406528700526
@@ -240,7 +240,7 @@ types = [
                                                                         'NotVery': {'Normal', 'Flying', 'Rock', 'Bug', 'Steel', 'Grass', 'Psychic', 'Ice', 'Dragon', 'Fairy'},
                                                                         'Immune': {'Poison'}
                                                                     }}},
-    {'Name': 'Grass', 'Colour': 6536283, 'Emoji': {
+    {'Name': 'Grass', 'Colours': {'Embed': 6536283, 'Text': 8715385 }, 'Emoji': {
                                                     'Physical': 1187558444941717604,
                                                     'Special': 1432949424333525032,
                                                     'Status': 1432949455308456016
@@ -255,7 +255,7 @@ types = [
                                                                         'NotVery': {'Ground', 'Grass', 'Water', 'Electric'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Fire', 'Colour': 16751955, 'Emoji': {
+    {'Name': 'Fire', 'Colours': {'Embed': 16751955, 'Text': 16751955 }, 'Emoji': {
                                                     'Physical': 1187544873251909674,
                                                     'Special': 1432949504537002066,
                                                     'Status': 1432949526292861100
@@ -270,7 +270,7 @@ types = [
                                                                         'NotVery': {'Bug', 'Steel', 'Grass', 'Fire', 'Ice', 'Fairy'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Water', 'Colour': 5018070, 'Emoji': {
+    {'Name': 'Water', 'Colours': {'Embed': 5018070, 'Text': 5745146 }, 'Emoji': {
                                                     'Physical': 1187558409390784512,
                                                     'Special': 1432949547302129705,
                                                     'Status': 1432949569603240040
@@ -285,7 +285,7 @@ types = [
                                                                         'NotVery': {'Steel', 'Fire', 'Water', 'Ice'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Electric', 'Colour': 15979320, 'Emoji': {
+    {'Name': 'Electric', 'Colours': {'Embed': 15979320, 'Text': 15979320 }, 'Emoji': {
                                                     'Physical': 1187558371293933568,
                                                     'Special': 1432949632329318500,
                                                     'Status': 1432949657788747871
@@ -300,7 +300,7 @@ types = [
                                                                         'NotVery': {'Flying', 'Steel', 'Electric'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Psychic', 'Colour': 16347767, 'Emoji': {
+    {'Name': 'Psychic', 'Colours': {'Embed': 16347767, 'Text': 16347767 }, 'Emoji': {
                                                     'Physical': 1187558330705641532,
                                                     'Special': 1432949692496482444,
                                                     'Status': 1432949704932724748
@@ -315,7 +315,7 @@ types = [
                                                                         'NotVery': {'Fighting', 'Psychic'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Ice', 'Colour': 7720897, 'Emoji': {
+    {'Name': 'Ice', 'Colours': {'Embed': 7720897, 'Text': 7715568 }, 'Emoji': {
                                                     'Physical': 1187558296824057876,
                                                     'Special': 1432949718417145856,
                                                     'Status': 1432949734565347399
@@ -330,7 +330,7 @@ types = [
                                                                         'NotVery': {'Ice'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Dragon', 'Colour': 224709, 'Emoji': {
+    {'Name': 'Dragon', 'Colours': {'Embed': 224709, 'Text': 2650280 }, 'Emoji': {
                                                     'Physical': 1187558252758708234,
                                                     'Special': 1432949763913027675,
                                                     'Status': 1432949785639260181
@@ -345,7 +345,7 @@ types = [
                                                                         'NotVery': {'Grass', 'Fire', 'Water', 'Electric'},
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Dark', 'Colour': 5919334, 'Emoji': {
+    {'Name': 'Dark', 'Colours': {'Embed': 5919334, 'Text': 10893942 }, 'Emoji': {
                                                     'Physical': 1187558208760447066,
                                                     'Special': 1432949812176752791,
                                                     'Status': 1432949830162059285
@@ -360,7 +360,7 @@ types = [
                                                                         'NotVery': {'Ghost', 'Dark'},
                                                                         'Immune': {'Psychic'}
                                                                     }}},
-    {'Name': 'Fairy', 'Colour': 15569127, 'Emoji': {
+    {'Name': 'Fairy', 'Colours': {'Embed': 15569127, 'Text': 15569127 }, 'Emoji': {
                                                     'Physical': 1187558167937294346,
                                                     'Special': 1432949875582173225,
                                                     'Status': 1432949888345444424
@@ -375,7 +375,7 @@ types = [
                                                                         'NotVery': {'Fighting', 'Bug', 'Dark'},
                                                                         'Immune': {'Dragon'}
                                                                     }}},
-    {'Name': '???', 'Colour': 6856848, 'Emoji': {
+    {'Name': 'Unknown', 'Colours': {'Embed': 6856848, 'Text': 6856848 }, 'Emoji': {
                                                     'Physical': 1187590001970663526,
                                                     'Special': 1187590001970663526,
                                                     'Status': 1187590001970663526
@@ -390,7 +390,7 @@ types = [
                                                                         'NotVery': set(),
                                                                         'Immune': set()
                                                                     }}},
-    {'Name': 'Stellar', 'Colour': 4187077, 'Emoji': {
+    {'Name': 'Stellar', 'Colours': {'Embed': 4187077, 'Text': 4187077 }, 'Emoji': {
                                                     'Physical': 1374499968508755998,
                                                     'Special': 1374499968508755998,
                                                     'Status': 1374499968508755998
