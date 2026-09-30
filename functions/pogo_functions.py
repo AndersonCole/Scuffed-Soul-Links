@@ -12,15 +12,18 @@ import regex as re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import math
-from dictionaries.shared_dictionaries import sharedImagePaths, sharedColours
-from dictionaries.pogo_dictionaries import pogoFileLocations, eventColours, filterLists, timezones, defaultOddsModifiers, trackedEmojis
+from diskcache import Cache
+from dictionaries.shared_dictionaries import sharedImagePaths, sharedColours, pogoLevels
+from dictionaries.pogo_dictionaries import pogoFileLocations, eventColours, filterLists, timezones, defaultOddsModifiers, defaultCpComboModifiers, trackedEmojis
 from dictionaries.pvp_dictionaries import pvpFileLocations
 from functions.shared_functions import (
-    formatTextForDisplay, getMonFromName, getRegionFromDexNum, getUserIdFromNickname, getDiscordName, calcNerfOverride,
+    formatTextForDisplay, getMonFromName, getRegionFromDexNum, getUserIdFromNickname, getDiscordName, calcNerfOverride, getMonName, getPogoStatsFromDexNum,
     getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeEmbedColour, verifyRegion, getMon, addPaginatedEmbedFields, getNerfText,
     rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats,
     loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, recurseEvoChain, pogoPokemon
 )
+
+cpCombosCache = Cache('./cache/cp_combos')
 
 trackedMons = loadDataVariableFromFile(pogoFileLocations.get('TrackedMons'))
 
@@ -45,7 +48,9 @@ async def pogoHelp():
                                         '```$pogo events help``` Shows all event searches\n' +
                                         '```$pogo time``` Shows the current time in NZ and Hawaii\n\n' +
                                         '```$pogo odds Shuckle``` Shows the odds of getting something\n' +
-                                        '```$pogo odds modifiers``` Lists out all the available odds modifers',
+                                        '```$pogo odds modifiers``` Lists out all the available odds modifers\n\n' +
+                                        '```$pogo ivs Meltan, 991``` Finds how many different iv combos are possible at the specified CP\n' +
+                                        '```$pogo ivs modifiers``` Lists out all the available iv combo modifers',
                             color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
@@ -974,6 +979,202 @@ def inverseClassification(inverse, classificationResult):
     if inverse:
         return not classificationResult
     return classificationResult
+#endregion
+
+#region iv combos
+def ivComboModifiers():
+    embed = discord.Embed(title='Shuckles PoGo Iv Combo Modifiers',
+                            description='```$pogo ivs Meltan, 991``` CP: Sets the targeted CP\n' +
+                                        '```$pogo ivs Meltan, Min20``` MinLevel: Sets the min level\n' +
+                                        '```$pogo ivs Meltan, Max30``` MaxLevel: Sets the max level\n' +
+                                        '```$pogo ivs Meltan, Floor10``` Floor: Sets the iv floor',
+                            color=sharedColours.get('Default'))
+
+    embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
+
+    return embed
+
+async def ivComboCheck(monName, extraInputs=None):
+    modifiers = copy.deepcopy(defaultCpComboModifiers)
+
+    if extraInputs != None:
+        modifiers, errorText = determineIvComboModifierValues([str(i).strip().lower() for i in extraInputs], modifiers)
+        if errorText != '':
+            return errorText
+    
+    dexNum = getDexNum(monName)
+
+    if dexNum == -1:
+        return f'The pokemon \'{monName}\' was not recognized!'
+
+    ivCombos, modifiers = await getIvComboList(dexNum, modifiers)
+
+    monTypes = await getTypesFromPokeAPI(dexNum)
+
+    embed = discord.Embed(title=f'Iv Combos for {getMonName(dexNum)} at CP {modifiers["TargetCP"]}',
+                          description=f'Attack: {modifiers["BaseStats"]["Attack"]:g}\nDefence: {modifiers["BaseStats"]["Defence"]:g}\nStamina: {modifiers["BaseStats"]["Stamina"]:g}\n\nTotal Iv Combos: {len(ivCombos)}',
+                          color=getTypeEmbedColour(monTypes[0]))
+    
+    embed.add_field(name=f'Highest Level Iv Combos at CP {modifiers["TargetCP"]}',
+                    value=f'Floor: {modifiers["Floor"]} | LvRange: {modifiers["MinLevel"]:g}-{modifiers["MaxLevel"]:g}',
+                    inline=False)
+    
+    fieldContent = ['', '']
+
+    for i, rank in enumerate(ivCombos, start=1):
+        fieldContent[0] += f'Lv{rank["Level"]:g}\n'
+        fieldContent[1] += f'{rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}\n'
+
+        if i >= 10:
+            break
+    
+    embed.add_field(name='Level',
+                    value=fieldContent[0],
+                    inline=True)
+    
+    embed.add_field(name='Ivs',
+                    value=fieldContent[1],
+                    inline=True)
+
+    hundo = any([obj for obj in ivCombos if obj['Ivs']['Attack'] == 15 and obj['Ivs']['Defence'] == 15 and obj['Ivs']['Stamina'] == 15])
+    nundo = any([obj for obj in ivCombos if obj['Ivs']['Attack'] == 0 and obj['Ivs']['Defence'] == 0 and obj['Ivs']['Stamina'] == 0])
+
+    if hundo or nundo:
+        embed.add_field(name=f'Potential {"Hundo" if hundo else ""}{" and " if hundo and nundo else ""}{"Nundo" if nundo else ""} detected!',
+                        value='',
+                        inline=False)
+    
+    embed.set_thumbnail(url=getPokeAPISpriteUrl(dexNum))
+
+    embed.set_footer(text=modifiers['StatText'])
+
+    return embed
+
+async def getIvComboList(dexNum, modifiers):
+    try:
+        modifiers['BaseStats']['Attack'], modifiers['BaseStats']['Defence'], modifiers['BaseStats']['Stamina'], modifiers['StatText'] = await getPogoStatsFromDexNum(dexNum)
+    except:
+        return 'An error occured while checking PokeApi!'
+
+    cacheKey = (f'{dexNum}:CP{modifiers["TargetCP"]}:Floor{modifiers["Floor"]}:{modifiers["MinLevel"]}-{modifiers["MaxLevel"]}:' +
+                f'{modifiers["BaseStats"]["Attack"]}/{modifiers["BaseStats"]["Defence"]}/{modifiers["BaseStats"]["Stamina"]}')
+
+    if cacheKey in cpCombosCache:
+        ivCombos = cpCombosCache[cacheKey]
+    
+    else:
+        ivCombos = await calcIvCombos(modifiers['TargetCP'], modifiers['BaseStats']['Attack'], modifiers['BaseStats']['Defence'], modifiers['BaseStats']['Stamina'],
+                                      modifiers['Floor'], modifiers['MinLevel'], modifiers['MaxLevel'])
+
+        cpCombosCache.set(cacheKey, ivCombos)
+    
+    ivCombos.sort(key=lambda x:(
+        x['Level'],
+        x['Ivs']['Attack'] + x['Ivs']['Defence'] + x['Ivs']['Stamina'],
+        x['Ivs']['Attack'],
+        x['Ivs']['Defence'],
+        x['Ivs']['Stamina']
+    ), reverse=True)
+
+    return ivCombos, modifiers
+
+async def calcIvCombos(targetCP, baseAttack, baseDefence, baseStamina, ivFloor, minLvl, maxLvl):
+    levelRange = [level for level in sorted(pogoLevels.keys()) if level.is_integer() and minLvl <= level <= maxLvl]
+
+    ivCombos = []
+
+    for level in levelRange:
+        cpMultiplier = getPoGoCPMultiplier(level)
+        
+        minCP = calcPoGoCP(calcPoGoStat(baseAttack, ivFloor, cpMultiplier),
+                           calcPoGoStat(baseDefence, ivFloor, cpMultiplier),
+                           calcPoGoStat(baseStamina, ivFloor, cpMultiplier))
+        maxCP = calcPoGoCP(calcPoGoStat(baseAttack, 15, cpMultiplier),
+                           calcPoGoStat(baseDefence, 15, cpMultiplier),
+                           calcPoGoStat(baseStamina, 15, cpMultiplier))
+
+        if not (minCP <= targetCP <= maxCP):
+            continue
+
+        for attackIv in range(ivFloor, 16):
+                attackStat = calcPoGoStat(baseAttack, attackIv, cpMultiplier)
+                for defenceIv in range(ivFloor, 16):
+                    defenceStat = calcPoGoStat(baseDefence, defenceIv, cpMultiplier)
+                    for staminaIv in range(ivFloor, 16):
+                        staminaStat = calcPoGoStat(baseStamina, staminaIv, cpMultiplier)
+
+                        cp = calcPoGoCP(attackStat, defenceStat, staminaStat)
+
+                        if cp > targetCP:
+                            break
+                        if cp == targetCP:
+                            ivCombos.append({
+                                'Level': level,
+                                'Ivs': {
+                                    'Attack': attackIv,
+                                    'Defence': defenceIv,
+                                    'Stamina': staminaIv
+                                },
+                                'Stats': {
+                                    'Attack': attackStat,
+                                    'Defence': defenceStat,
+                                    'Stamina': max(10, math.floor(staminaStat))
+                                }
+                            })
+
+    return ivCombos
+
+def determineIvComboModifierValues(extraInputs, modifiers):
+    errorText = ''
+
+    for input in extraInputs:
+        if re.fullmatch(r'\d+(\.0)?', input) and ivComboCheck:
+            try:
+                val = int(input)
+                if 10 > val or val > 9999:
+                    raise Exception
+                modifiers['TargetCP'] = val
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid cp! Keep it between 10 and 9999! And no decimal places!\n'
+        elif input.startswith('min'):
+            try:
+                if not re.fullmatch(r'\d+(\.5|\.0)?', input[3:]):
+                    raise Exception
+                val = float(input[3:])
+                if 1.0 > val or val > 55.0:
+                    raise Exception
+                modifiers['MinLevel'] = float(val)
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid level! Keep it between 1 and 55!\n'
+        elif input.startswith('max'):
+            try:
+                if not re.fullmatch(r'\d+(\.5|\.0)?', input[3:]):
+                    raise Exception
+                val = float(input[3:])
+                if 1.0 > val or val > 55.0:
+                    raise Exception
+                modifiers['MaxLevel'] = float(val)
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid level! Keep it between 1 and 55!\n'
+        elif input.startswith('floor'):
+            try:
+                floorIv = int(input[5:])
+                if floorIv > 15 or floorIv < 0:
+                    raise Exception
+                modifiers['Floor'] = floorIv
+            except:
+                errorText += f'\'{input}\' wasn\'t understood as a valid floor iv! Keep it between 0-15!\n'
+        
+        else:
+            errorText += f'The input \'{input}\' was not understood!\n'
+
+    if modifiers['MinLevel'] > modifiers['MaxLevel']:
+        errorText += f'You can\'t have a minimum level higher than your maximum level!'
+
+    if modifiers['TargetCP'] == -1:
+        errorText += 'You have to specify the CP you\'re searching for!'
+
+    return modifiers, errorText            
 #endregion
 
 #region go stat convert

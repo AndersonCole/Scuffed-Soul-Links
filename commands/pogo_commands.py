@@ -57,6 +57,24 @@ async def pogoMiscCommands(userInput, author, guild):
             response = 'Invalid input! Make sure you add all 6 stats comma separated!'
     #endregion
 
+    #region iv combos
+    elif userInput.startswith('ivs'):
+        userInput = formatCommand('ivs', userInput)
+
+        if userInput == 'modifiers':
+            response = ivComboModifiers()
+        else:
+            splitInput = formatSplitInput(userInput)
+        
+            if splitInput is None:
+                response = 'You have to specify the CP you\'re searching for! Check `$pogo ivs modifiers`!'
+        
+            elif len(splitInput) >= 2:
+                response = await ivComboCheck(splitInput[0], splitInput[1:])
+            else:
+                response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
+    #endregion
+
     #region tracking commands
     elif userInput.startswith('tracked-string'):
         userInput = formatCommand('tracked-string', userInput)

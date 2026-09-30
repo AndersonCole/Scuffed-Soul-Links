@@ -17,7 +17,7 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getPokeAPISpriteUrl, openHttpImage,
                                         checkForNickname, verifyMoveType, 
                                         formatCapitalize, formatTextForBackend, formatTextForDisplay,
-                                        getTypesFromPokeAPI, getTypeEmbedColour, 
+                                        getTypesFromPokeAPI, getTypeEmbedColour, getPogoStatsFromDexNum,
                                         getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, checkDuplicatePoGoMon, pogoRound, addPaginatedEmbedFields,
                                         getPokeApiJsonData, calcPoGoStatsFromBaseStats, getDexNum, getMonName,
                                         loadShucklePersonality, rollForShiny, getMon, checkClassification, pogoPokemon)
@@ -1014,28 +1014,11 @@ async def determineModifierValues(extraInputs, battleSystem, author):
         elif input.startswith('boss'):
             try:
                 bossDexNum = getDexNum(input[len('boss'):])
+
+                modifiers['Boss']['Stats']['Attack'], modifiers['Boss']['Stats']['Defence'], bossSta, nerfText = getPogoStatsFromDexNum(bossDexNum)
                 
-                if not checkDuplicatePoGoMon(bossDexNum):
-                    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{bossDexNum}')
-
-                    if monData is None:
-                        raise Exception
-
-                    stats = []
-                    
-                    for i in range(6):
-                        stats.append(int(monData['stats'][i]['base_stat']))
-                    
-                    bossAtk, bossDef, bossSta, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
-                    
-                    modifiers['Boss']['DexNum'] = bossDexNum
-                    modifiers['Boss']['Stats']['Attack'] = bossAtk + 15
-                    modifiers['Boss']['Stats']['Defence'] = bossDef + 15
-                else:
-                    bossMon = [obj for obj in pogoPokemon if obj['DexNum'] == bossDexNum][0]
-                    modifiers['Boss']['DexNum'] = bossMon['DexNum']
-                    modifiers['Boss']['Stats']['Attack'] = bossMon['Attack'] + 15
-                    modifiers['Boss']['Stats']['Defence'] = bossMon['Defence'] + 15
+                modifiers['Boss']['Stats']['Attack'] += 15
+                modifiers['Boss']['Stats']['Defence'] += 15
             except:
                 errorText += f'\'{input[len("boss"):]}\' wasn\'t understood as a valid pokemon name! Or PokeAPI is having issues!\n'
         elif input.startswith('tier'):

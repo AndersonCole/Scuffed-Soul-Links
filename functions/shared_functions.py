@@ -488,6 +488,30 @@ def getNerfText(nerfAmount):
     elif nerfAmount == 0.97:
         return '(After a 3% nerf)'
     return ''
+
+async def getPogoStatsFromDexNum(dexNum):
+    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == dexNum), None)
+        
+    if pogoMon is not None:
+        baseAttack = pogoMon['Attack']
+        baseDefence = pogoMon['Defence']
+        baseStamina = pogoMon['Stamina']
+        statText = 'Using the stats we\'ve entered'
+    else:
+        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+
+        if monData is None:
+            raise Exception
+
+        stats = []
+
+        for i in range(6):
+            stats.append(int(monData['stats'][i]['base_stat']))
+
+        baseAttack, baseDefence, baseStamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
+        statText = f'Using the most recent main series stats {getNerfText(nerfAmount)}'
+
+    return baseAttack, baseDefence, baseStamina, statText
 #endregion
 
 #region PoGo mon registry

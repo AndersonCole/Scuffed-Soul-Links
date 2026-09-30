@@ -14,7 +14,7 @@ from diskcache import Cache
 from dictionaries.pvp_dictionaries import pvpFileLocations, defaultPvpModifiers, scannerSystems
 from dictionaries.shared_dictionaries import sharedImagePaths, sharedColours, pogoLevels
 from functions.shared_functions import (
-    rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, writeImageText,
+    rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, writeImageText, getPogoStatsFromDexNum,
     getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, getMon, formatTextForBackend, checkClassification,
     getTypesFromPokeAPI, getTypeEmbedColour, getTypeTextColour, getMonName, getPokeAPISpriteUrl, loadDataVariableFromFile, 
     saveDataVariableToFile, addPaginatedEmbedFields, pasteMonOnImage, pogoPokemon
@@ -234,22 +234,14 @@ async def pvpRankCheck(monName, extraInputs=None):
     
     if modifiers['Compare']:
         fieldContent = ['', '', '']
-        if modifiers['Rank'] != -1:
-            rank = [rank for rank in rankList if rank['Rank'] == modifiers['Rank']]
-            if rank is None:
-                return 'The rank you\'re looking for wasn\'t found!'
-            rank= rank[0]
-            fieldContent[0] += f'R{rank["Rank"]} Lv{rank["Level"]:g}\n'
-            fieldContent[1] += f'{rank["CP"]} CP | {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}\n'
-            fieldContent[2] += f'{pogoRound(rank["Stats"]["Attack"], 2)} / {pogoRound(rank["Stats"]["Defence"], 2)} / {rank["Stats"]["Stamina"]}\n'
-        if modifiers['Ivs']['Attack'] != -1:
-            rank = [rank for rank in rankList if rank['Ivs']['Attack'] == modifiers['Ivs']['Attack'] and rank['Ivs']['Defence'] == modifiers['Ivs']['Defence'] and rank['Ivs']['Stamina'] == modifiers['Ivs']['Stamina']]
-            if rank is None:
-                return 'The iv combo you\'re looking for wasn\'t found!'
-            rank = rank[0]
-            fieldContent[0] += f'R{rank["Rank"]} Lv{rank["Level"]:g}\n'
-            fieldContent[1] += f'{rank["CP"]} CP | {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}\n'
-            fieldContent[2] += f'{pogoRound(rank["Stats"]["Attack"], 2)} / {pogoRound(rank["Stats"]["Defence"], 2)} / {rank["Stats"]["Stamina"]}\n'
+        rank = findComparisonRank(rankList, modifiers)
+
+        if rank is None:
+            return 'The rank or iv combo you\'re looking for wasn\'t found!'
+        
+        fieldContent[0] += f'R{rank["Rank"]} Lv{rank["Level"]:g}'
+        fieldContent[1] += f'{rank["CP"]} CP | {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}'
+        fieldContent[2] += f'{pogoRound(rank["Stats"]["Attack"], 2)} / {pogoRound(rank["Stats"]["Defence"], 2)} / {rank["Stats"]["Stamina"]}'
 
         embed.add_field(name=fieldContent[0],
                     value='',
@@ -270,26 +262,10 @@ async def pvpRankCheck(monName, extraInputs=None):
     return embed
 
 async def getPvpRankList(dexNum, modifiers):
-    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == dexNum), None)
-    
-    if pogoMon is not None:
-        modifiers['BaseStats']['Attack'] = pogoMon['Attack']
-        modifiers['BaseStats']['Defence'] = pogoMon['Defence']
-        modifiers['BaseStats']['Stamina'] = pogoMon['Stamina']
-        modifiers['StatText'] = 'Using the stats we\'ve entered'
-    else:
-        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-
-        if monData is None:
-            return f'An error occured while checking the api!'
-
-        stats = []
-
-        for i in range(6):
-            stats.append(int(monData['stats'][i]['base_stat']))
-
-        modifiers['BaseStats']['Attack'], modifiers['BaseStats']['Defence'], modifiers['BaseStats']['Stamina'], nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
-        modifiers['StatText'] = f'Using the most recent main series stats{getNerfText(nerfAmount)}'
+    try:
+        modifiers['BaseStats']['Attack'], modifiers['BaseStats']['Defence'], modifiers['BaseStats']['Stamina'], modifiers['StatText'] = await getPogoStatsFromDexNum(dexNum)
+    except:
+        return 'An error occured while checking PokeApi!'
 
     cacheKey = (f'{dexNum}:{modifiers["LeagueLimit"]}:Floor{modifiers["Floor"]}:{modifiers["MinLevel"]}-{modifiers["MaxLevel"]}:' +
                 f'{modifiers["BaseStats"]["Attack"]}/{modifiers["BaseStats"]["Defence"]}/{modifiers["BaseStats"]["Stamina"]}')
@@ -383,6 +359,21 @@ async def calcPvpRanks(baseAttack, baseDefence, baseStamina, leagueLimit, ivFloo
                 rankList.append(best)
 
     return rankList
+
+def findComparisonRank(rankList, modifiers):
+    if modifiers['Rank'] != -1:
+        rank = [rank for rank in rankList if rank['Rank'] == modifiers['Rank']]
+        if rank is None:
+            return None
+        return rank[0]
+        
+    if modifiers['Ivs']['Attack'] != -1:
+        rank = [rank for rank in rankList if rank['Ivs']['Attack'] == modifiers['Ivs']['Attack'] and rank['Ivs']['Defence'] == modifiers['Ivs']['Defence'] and rank['Ivs']['Stamina'] == modifiers['Ivs']['Stamina']]
+        if rank is None:
+            return None
+        return rank[0]
+
+    return None
 
 #region modifiers
 def determinePvpModifierValues(extraInputs, modifiers):
@@ -633,6 +624,9 @@ async def createPvpWildImage(dexNum, originalDexNum, rank, league, maxWildLevel,
     if rank['Ivs']['Attack'] == 15 and rank['Ivs']['Defence'] == 15 and rank['Ivs']['Stamina'] == 15:
         league = 'hundo'
         rankText = ''
+    elif rank['Ivs']['Attack'] == 0 and rank['Ivs']['Defence'] == 0 and rank['Ivs']['Stamina'] == 0:
+        league = 'nundo'
+        rankText = ''
     else:
         rankText = f'Rank {rank["Rank"]} '
 
@@ -681,7 +675,15 @@ async def getPvpWildImage(monName, extraInputs=None):
         return f'The pokemon \'{monName}\' was not recognized!'
 
     rankList, modifiers = await getPvpRankList(dexNum, modifiers)
-    rank = rankList[0]
+    
+    if modifiers['Compare']:
+        rank = findComparisonRank(rankList, modifiers)
+
+        if rank is None:
+            return 'The rank or iv combo you\'re looking for wasn\'t found!'
+
+    else:
+        rank = rankList[0]
 
     displayedDexNum = getDexNum(getTrackedMonName(dexNum, True))
 

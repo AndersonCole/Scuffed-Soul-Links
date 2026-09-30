@@ -52,6 +52,21 @@ defaultOddsModifiers = {
     'LuckyChance': None
 }
 
+defaultCpComboModifiers = {
+    'TargetCP': -1,
+
+    'Floor': 0,
+    'MinLevel': 1.0,
+    'MaxLevel': 50.0,
+
+    'BaseStats': {
+        'Attack': 0,
+        'Defence': 0,
+        'Stamina': 0
+    },
+    'StatText': ''
+}
+
 trackedEmojis = {
     'all': '<:all:1537619704351293460>',
     'hundo': '<:hundo:1537619531038724199>',
