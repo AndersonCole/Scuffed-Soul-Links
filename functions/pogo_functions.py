@@ -987,12 +987,27 @@ def ivComboModifiers():
                             description='```$pogo ivs Meltan, 991``` CP: Sets the targeted CP\n' +
                                         '```$pogo ivs Meltan, Min20``` MinLevel: Sets the min level\n' +
                                         '```$pogo ivs Meltan, Max30``` MaxLevel: Sets the max level\n' +
-                                        '```$pogo ivs Meltan, Floor10``` Floor: Sets the iv floor',
+                                        '```$pogo ivs Meltan, Floor10``` Floor: Sets the iv floor\n' +
+                                        '```$pogo ivs Meltan, SortLevel``` SortLevel: Sorts results by highest level\n' +
+                                        '```$pogo ivs Meltan, SortLevelR``` SortLevelReverse: Sorts results by lowest level\n' +
+                                        '```$pogo ivs Meltan, SortIvs``` SortIvs: Sorts results by highest sum of ivs\n' +
+                                        '```$pogo ivs Meltan, SortIvsR``` SortIvsReverse: Sorts results by lowest sum of ivs',
                             color=sharedColours.get('Default'))
 
     embed.set_thumbnail(url=rollForShiny(sharedImagePaths.get('Shuckle'), sharedImagePaths.get('ShinyShuckle')))
 
     return embed
+
+def getIvSortOrderText(order):
+    if order == 'ByLevel':
+        return 'Highest Level'
+    elif order == 'ByLevelRev':
+        return 'Lowest Level'
+    elif order == 'ByIvTotal':
+        return 'Highest Iv Sum'
+    elif order == 'ByIvTotalRev':
+        return 'Lowest Iv Sum'
+    return ''
 
 async def ivComboCheck(monName, extraInputs=None):
     modifiers = copy.deepcopy(defaultCpComboModifiers)
@@ -1015,7 +1030,7 @@ async def ivComboCheck(monName, extraInputs=None):
                           description=f'Attack: {modifiers["BaseStats"]["Attack"]:g}\nDefence: {modifiers["BaseStats"]["Defence"]:g}\nStamina: {modifiers["BaseStats"]["Stamina"]:g}\n\nTotal Iv Combos: {len(ivCombos)}',
                           color=getTypeEmbedColour(monTypes[0]))
     
-    embed.add_field(name=f'Highest Level Iv Combos at CP {modifiers["TargetCP"]}',
+    embed.add_field(name=f'{getIvSortOrderText(modifiers["ResultSortOrder"])} Iv Combos at CP {modifiers["TargetCP"]}',
                     value=f'Floor: {modifiers["Floor"]} | LvRange: {modifiers["MinLevel"]:g}-{modifiers["MaxLevel"]:g}',
                     inline=False)
     
@@ -1067,15 +1082,41 @@ async def getIvComboList(dexNum, modifiers):
                                       modifiers['Floor'], modifiers['MinLevel'], modifiers['MaxLevel'])
 
         cpCombosCache.set(cacheKey, ivCombos)
-    
-    ivCombos.sort(key=lambda x:(
-        x['Level'],
-        x['Ivs']['Attack'] + x['Ivs']['Defence'] + x['Ivs']['Stamina'],
-        x['Ivs']['Attack'],
-        x['Ivs']['Defence'],
-        x['Ivs']['Stamina']
-    ), reverse=True)
 
+    if modifiers['ResultSortOrder'] == 'ByLevel':
+        ivCombos.sort(key=lambda x:(
+            x['Level'],
+            x['Ivs']['Attack'] + x['Ivs']['Defence'] + x['Ivs']['Stamina'],
+            x['Ivs']['Attack'],
+            x['Ivs']['Defence'],
+            x['Ivs']['Stamina']
+        ), reverse=True)
+    elif modifiers['ResultSortOrder'] == 'ByLevelRev':
+        ivCombos.sort(key=lambda x:(
+            x['Level'],
+            x['Ivs']['Attack'] + x['Ivs']['Defence'] + x['Ivs']['Stamina'],
+            x['Ivs']['Attack'],
+            x['Ivs']['Defence'],
+            x['Ivs']['Stamina']
+        ), reverse=False)
+    elif modifiers['ResultSortOrder'] == 'ByIvTotal':
+        ivCombos.sort(key=lambda x:(
+            x['Ivs']['Attack'] + x['Ivs']['Defence'] + x['Ivs']['Stamina'],
+            x['Ivs']['Attack'],
+            x['Ivs']['Defence'],
+            x['Ivs']['Stamina'],
+            x['Level']
+        ), reverse=True)
+    elif modifiers['ResultSortOrder'] == 'ByIvTotalRev':
+        ivCombos.sort(key=lambda x:(
+            x['Ivs']['Attack'] + x['Ivs']['Defence'] + x['Ivs']['Stamina'],
+            x['Ivs']['Attack'],
+            x['Ivs']['Defence'],
+            x['Ivs']['Stamina'],
+            x['Level']
+        ), reverse=False)
+
+    
     return ivCombos, modifiers
 
 async def calcIvCombos(targetCP, baseAttack, baseDefence, baseStamina, ivFloor, minLvl, maxLvl):
@@ -1164,7 +1205,15 @@ def determineIvComboModifierValues(extraInputs, modifiers):
                 modifiers['Floor'] = floorIv
             except:
                 errorText += f'\'{input}\' wasn\'t understood as a valid floor iv! Keep it between 0-15!\n'
-        
+        elif input == 'sortlevel':
+            modifiers['ResultSortOrder'] = 'ByLevel'
+        elif input == 'sortlevelr':
+            modifiers['ResultSortOrder'] = 'ByLevelRev'
+        elif input == 'sortivs':
+            modifiers['ResultSortOrder'] = 'ByIvTotal'
+        elif input == 'sortivsr':
+            modifiers['ResultSortOrder'] = 'ByIvTotalRev'
+
         else:
             errorText += f'The input \'{input}\' was not understood!\n'
 

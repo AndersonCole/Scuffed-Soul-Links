@@ -51,6 +51,9 @@ async def dpsCommands(userInput, author):
     elif userInput.startswith('delete-move'):
         response = await dpsDeleteMove(formatCommand('delete-move', userInput))
 
+    elif userInput.startswith('delete-plus-moves'):
+        response = await dpsDeletePlusMoves()
+
     elif userInput.startswith('list-moves'):
         response = await dpsListMoves()
     #endregion
@@ -107,6 +110,9 @@ async def maxCommands(userInput, author):
     
     elif userInput.startswith('delete-move'):
         response = await dpsDeleteMove(formatCommand('delete-move', userInput))
+
+    elif userInput.startswith('delete-plus-moves'):
+        response = await dpsDeletePlusMoves()
 
     elif userInput.startswith('list-moves'):
         response = await dpsListMoves()
@@ -167,7 +173,9 @@ async def handleAddPoGoDpsMove(userInput, helpCommand):
     if splitInput is None:
         return 'Invalid input! Use commas \',\' in between values!'
 
-    if len(splitInput) == 5:
+    if len(splitInput) == 2:
+        return await dpsAddPlusMove(splitInput[0], int(splitInput[1]))
+    elif len(splitInput) == 5:
         return await dpsAddFastMove(splitInput[0], int(splitInput[1]), int(splitInput[2]), int(splitInput[3]), splitInput[4])
     elif len(splitInput) == 6:
         return await dpsAddChargedMove(splitInput[0], int(splitInput[1]), int(splitInput[2]), int(splitInput[3]), int(splitInput[4]), splitInput[5])

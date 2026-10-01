@@ -64,7 +64,9 @@ defaultCpComboModifiers = {
         'Defence': 0,
         'Stamina': 0
     },
-    'StatText': ''
+    'StatText': '',
+
+    'ResultSortOrder': 'ByIvTotal'
 }
 
 trackedEmojis = {

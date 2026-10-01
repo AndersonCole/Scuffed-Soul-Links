@@ -605,7 +605,7 @@ async def getTrackingString(monName, author, extraInputs=None):
         trackingString += f'{scannerPrefixes["Distance"]}{userScanner["Distance"]}'
 
     if modifiers['MobileMessage']:
-        return trackingString
+        return f'`{trackingString}`'
     return f'```{trackingString}```'
 #endregion
 

@@ -40,6 +40,7 @@ async def getSharedHelp(commandText):
                                         f'```{commandText} add-move Razor Leaf, 13, 7, 1000, Grass``` For fast moves, list their damage, energy gain, duration and type\n' +
                                         f'```{commandText} add-move Leaf Blade, 70, 33, 2400, 1250, Grass``` For charged moves, list their damage, energy cost, duration, damage window start, and type\n' +
                                         f'```{commandText} delete-move Razor Leaf``` Deletes a move from the registered list\n' +
+                                        f'```{commandText} delete-plus-moves``` Deletes all plus moves not attached to registered super megas\n' +
                                         f'```{commandText} add-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Adds every move listed to a registered mon\n' +
                                         f'```{commandText} remove-moveset Kartana, Razor Leaf, Leaf Blade, etc...``` Removes every move listed from a registered mon\n' +
                                         f'```{commandText} list-mons``` Lists all the registered mons\n' +
@@ -299,6 +300,22 @@ async def dpsAddChargedMove(moveName, damage, energyDelta, duration, damageWindo
 
     return f'Charged move \'{formatTextForDisplay(moveName)}\' added successfully!'
 
+async def dpsAddPlusMove(moveName, damage):
+    if not checkIsPlusMove(moveName):
+        return 'That move isn\'t a plus move!'
+    
+    if not checkDuplicateMove(moveName.rstrip('+')):
+        return 'The base move of that plus move isn\'t registered!'
+    
+    moveName = formatTextForBackend(moveName)
+
+    baseMove = [obj for obj in moves if obj['Name'] == moveName.rstrip('+')][0]
+
+    if baseMove['Type'] == 'Fast':
+        return 'You can only add plus moves based off of charged moves!'
+    
+    return await dpsAddChargedMove(moveName, damage, 100, baseMove['Duration']*1000, baseMove['DamageWindow']*1000, baseMove['MoveType'])
+
 async def dpsDeleteMove(moveName):
     if not checkDuplicateMove(moveName):
         return 'That move is not even registered yet!'
@@ -320,6 +337,27 @@ async def dpsDeleteMove(moveName):
     await saveDataVariableToFile(sharedFileLocations.get('PoGoPokemon'), pogoPokemon)
 
     return 'Move deleted successfully!'
+
+async def dpsDeletePlusMoves():
+    realPlusMoves = []
+    fakePlusMoves = set()
+    deletedText = ''
+
+    for mon in pogoPokemon:
+        if checkClassification(mon['DexNum'], 'Mega') and mon['DexNum'] in superMaxMegas:
+            for move in mon['Moves']:
+                if checkIsPlusMove(move['Name']):
+                    realPlusMoves.append(move['Name'])
+
+    for move in moves:
+        if checkIsPlusMove(move['Name']) and move['Name'] not in realPlusMoves:
+            fakePlusMoves.add(move['Name'])
+
+    for move in fakePlusMoves:
+        await dpsDeleteMove(move)
+        deletedText += f'{formatTextForDisplay(move)} has been deleted!\n'
+
+    return deletedText
 
 async def dpsAddMoveset(monName, newMoves, forceAddToMega=False):
     monName = checkForNickname(monName)
