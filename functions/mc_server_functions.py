@@ -9,7 +9,6 @@ import json
 import regex as re
 import socket
 import asyncio
-import subprocess
 import math
 import copy
 import aiohttp
@@ -523,12 +522,8 @@ async def mcLockdownArea(lockdownOrigin):
 
 async def mcStart():
     try:
-        working_directory = 'C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server'
-
-        subprocess.Popen('C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server\\start.bat', cwd=working_directory, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        await mcSendSystemCommand('start')
         return 'Server starting up!'
-    except FileNotFoundError:
-        return 'Server start.bat file not found! Check to make sure the path is correct!'
     except:
         return 'Failed to start the server!'
 
@@ -543,15 +538,22 @@ async def mcStop(time=30):
     with MCRcon(host=rconIp, port=rconPort, password=rconPassword) as rcon:
         rcon.command('stop')
 
-async def mcRestart():
-    await mcBeginStop()
+async def mcBeginRestart(time=30):
+    await mcSay(f'The server will restart in {time} seconds, prepare yourself!')
 
-    asyncio.create_task(mcWaitStart())
+    asyncio.create_task(mcRestart())
 
-async def mcWaitStart(time=30):
-    await asyncio.sleep((time+30))
+async def mcRestart(time=30):
+    await asyncio.sleep(time)
 
-    await mcStart()
+    await mcSendSystemCommand('restart')
+
+async def mcSendSystemCommand(action):
+    await asyncio.create_subprocess_exec(
+        'sudo', 'systemctl', action, 'fossils_server',
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL
+    )
 
 async def mcBackup():
     await mcSay('Starting backup process in 5 minutes! The server will stay online!')
@@ -577,11 +579,11 @@ async def mcWaitBackup():
     await mcSay(result)
 
 def createBackup():
-    backupPath = 'C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Backups\\Fossils Server\\'
+    backupPath = '/run/media/cole-anderson/DATA/MC Server Backups/Fossils Server'
     date = datetime.now().strftime("%Y-%m-%d")
 
     with tarfile.open(f'{backupPath}{date}.tar.gz', 'w|gz') as tar:
-        tar.add('C:\\Users\\Cole A\\Documents\\1Minecraft Server\\Fossils Server\\world', arcname='world')
+        tar.add('/home/cole-anderson/Documents/MC Servers/Fossils Server/world', arcname='world')
 
 async def mcCreateBackup():
     loop = asyncio.get_running_loop()

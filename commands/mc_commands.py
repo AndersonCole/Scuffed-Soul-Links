@@ -106,7 +106,7 @@ async def minecraftCommands(userInput, author):
             if await serverOnline():
                 response = 'Beginning restart process! Try connecting in like 2 minutes!'
 
-                await mcRestart()
+                await mcBeginRestart()
             else:
                 response = 'The server\'s offline! Just use `$mc start` instead!'
         else:
