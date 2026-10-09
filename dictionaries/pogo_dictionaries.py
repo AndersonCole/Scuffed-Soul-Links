@@ -1,5 +1,9 @@
 pogoFileLocations = {
-    'TrackedMons': 'text_files/pogo/user_tracked.txt'
+    'TrackedMons': 'text_files/pogo/user_tracked.txt',
+    'FirefoxProfile': 'text_files/pogo/scan/firefox_profile',
+    'MapLink': 'text_files/pogo/scan/map_link.txt',
+    'MapAreas': 'text_files/pogo/scan/areas.txt',
+    'ScanLog': 'text_files/pogo/scan/log.txt'
 }
 
 eventColours = {

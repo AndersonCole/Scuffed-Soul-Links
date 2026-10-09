@@ -579,11 +579,11 @@ async def mcWaitBackup():
     await mcSay(result)
 
 def createBackup():
-    backupPath = '/run/media/cole-anderson/DATA/MC Server Backups/Fossils Server'
+    backupPath = '/run/media/cole-anderson/DATA/mc-server-backups/fossils-server'
     date = datetime.now().strftime("%Y-%m-%d")
 
     with tarfile.open(f'{backupPath}{date}.tar.gz', 'w|gz') as tar:
-        tar.add('/home/cole-anderson/Documents/MC Servers/Fossils Server/world', arcname='world')
+        tar.add('/home/cole-anderson/Documents/mc-servers/fossils-server/world', arcname='world')
 
 async def mcCreateBackup():
     loop = asyncio.get_running_loop()

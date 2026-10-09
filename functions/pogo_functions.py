@@ -9,10 +9,19 @@ import aiohttp
 import json
 import copy
 import regex as re
+import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import math
 from diskcache import Cache
+import asyncio
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from dictionaries.shared_dictionaries import sharedImagePaths, sharedColours, pogoLevels
 from dictionaries.pogo_dictionaries import pogoFileLocations, eventColours, filterLists, timezones, defaultOddsModifiers, defaultCpComboModifiers, trackedEmojis
 from dictionaries.pvp_dictionaries import pvpFileLocations
@@ -28,6 +37,10 @@ cpCombosCache = Cache('./cache/cp_combos')
 trackedMons = loadDataVariableFromFile(pogoFileLocations.get('TrackedMons'))
 
 fakeRankOnes = loadDataVariableFromFile(pvpFileLocations.get('FakeR1'))
+
+mapUrl = loadDataVariableFromFile(pogoFileLocations.get('MapLink'))
+
+scanAreas = loadDataVariableFromFile(pogoFileLocations.get('MapAreas'))
 
 #region help command
 async def pogoHelp():
@@ -100,7 +113,7 @@ async def retrieveEventsFromAPI(eventFilterList):
         print(ex)
         return None
     
-    sortedEvents = sorted(events, key=eventSortKey, reverse=False)
+    sortedEvents = sorted([event for event in events if event['start'] is not None and event['end'] is not None], key=eventSortKey, reverse=False)
 
     filteredEvents = []
     for event in sortedEvents:
@@ -1224,6 +1237,172 @@ def determineIvComboModifierValues(extraInputs, modifiers):
         errorText += 'You have to specify the CP you\'re searching for!'
 
     return modifiers, errorText            
+#endregion
+
+#region scan
+async def checkScanReady():
+    scanLog = loadDataVariableFromFile(pogoFileLocations.get('ScanLog'))
+
+    if scanLog[-1]['Message'] == 'Ready':
+        return True
+    return False
+
+async def addToScanLog(message):
+    scanLog = loadDataVariableFromFile(pogoFileLocations.get('ScanLog'))
+    
+    scanLog.append({
+        'Time': datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        'Message': message
+    })
+
+    await saveDataVariableToFile(pogoFileLocations.get('ScanLog'), scanLog)
+
+async def setupScan():
+    message = 'Window launched, you\'ve got 2 minutes to authenticate!'
+    
+    await addToScanLog(message)
+
+    asyncio.create_task(authenticateScanner())
+
+    return message
+
+async def authenticateScanner():
+    driver = await initWebDriver()
+    
+    try:
+        driver.get(mapUrl)
+
+        time.sleep(120)
+
+    except Exception as ex:
+        await addToScanLog(f'An error occured while authenticating: {ex}')
+
+    finally:
+        driver.close()
+        await addToScanLog('Ready')
+
+async def startScanRequest(location, author):
+    scanArea = [obj for obj in scanAreas if obj['Name'] == formatTextForBackend(location)]
+
+    if len(scanArea) == 0:
+        return f'\'{location}\' wasn\'t recognized as a valid scan area!'
+    scanArea = scanArea[0]
+
+    if author not in scanArea['Users']:
+        return f'You aren\'t authorized to scan \'{location}\'!'
+
+    if not checkScanReady():
+        return 'Another area is currently being scanned! Wait for the previous request to finish!'
+
+    message = f'Starting area scan of {formatTextForDisplay(scanArea["Name"])}'
+
+    await addToScanLog(message)
+
+    asyncio.create_task(scanCoordinateSet(scanArea['Coords']))
+
+    return message
+
+async def initWebDriver():
+    options = Options()
+    #options.add_argument('-headless')
+    options.add_argument('-profile')
+    options.add_argument(pogoFileLocations.get('FirefoxProfile'))
+    driver = webdriver.Firefox(options=options)
+    driver.set_window_size(1080,1080)
+
+    return driver
+
+async def scanCoordinateSet(coordsList):
+    driver = await initWebDriver()
+
+    try:
+        driver.get(mapUrl)
+        wait = WebDriverWait(driver, 10)
+
+        #discord log in state check
+        try:
+            wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'section[aria-labelledby="rm-login-card-title"]'))
+            )
+            raise FileNotFoundError
+        except FileNotFoundError:
+            raise Exception('Not logged into discord! Go remote in and fix it!')
+        except:
+            #should error, the login button shouldn't be there
+            pass
+
+        for coords in coordsList:
+            await scanCoordinates(driver, wait, coords)
+            await time.sleep(15)
+
+    except Exception as ex:
+        await addToScanLog(f'An error occured while attempting to scan: {ex}')
+
+    finally:
+        driver.close()
+        await addToScanLog('Ready')
+
+async def scanCoordinates(driver, wait, coords):
+    areaScanBtn = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Scan an Area"]'))
+    )
+    areaScanBtn.click()
+
+    sizeSlider = wait.until(
+        EC.element_to_be_clickable((By.XPATH, '//p[text()="Size"]/following-sibling::div[1]//span[contains(@class,"MuiSlider-thumb")]'))
+    )
+    sizeSlider.click()
+    for i in range(4):
+        ActionChains(driver).send_keys(Keys.ARROW_RIGHT).perform()
+
+    coordinates = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[aria-label="Coordinates (latitude, longitude)"]'))
+    )
+    coordinates.click()
+    coordinates.send_keys(f'{coords[0]}, {coords[1]}')
+    coordinates.send_keys(Keys.ENTER)
+
+    time.sleep(5)
+
+    lowQueue = await checkScanQueue(wait)
+
+    if not lowQueue:
+        raise Exception('The queue is too high to scan! Aborting!')
+    
+    await confirmScanRequest(wait)
+
+    await addToScanLog(f'Successfully sent a scan request at {coords[0]}, {coords[1]}')
+
+async def checkScanQueue(wait, maxRetries=5):
+    queueText = wait.until(
+        EC.visibility_of_element_located((By.XPATH, '//p[contains(text(), "Scan Requests:")]'))
+    )
+    queueCount = int(re.split(r'\:', queueText.text)[-1])
+
+    #something is up, too much traffic to scan
+    if queueCount >= 1000 or maxRetries <= 0:
+        return False
+
+    #long cooldown range, should wait until the cooldown drops
+    if queueCount >= 50:
+        time.sleep(15)
+        return await checkScanQueue(wait, maxRetries-1)
+
+    return True
+
+async def confirmScanRequest(wait, abortOnFailure=False):
+    try:
+        scanConfirm = wait.until(
+            EC.element_to_be_clickable((By.XPATH, '//div[@role="dialog"][@aria-labelledby="rm-scan-scanZone-title"]'
+                                                  '//button[normalize-space(.)="Scan Here"]'))
+        )
+        scanConfirm.click()
+    except:
+        #it would only error if on 60s cooldown, so attempt to sit it out. If it errors again abort
+        if abortOnFailure:
+            raise Exception('Couldn\'t confirm the scan! Even after waiting an extra 60 seconds, something\'s wrong!')
+        await time.sleep(60)
+        await confirmScanRequest(wait, abortOnFailure=True)
 #endregion
 
 #region go stat convert

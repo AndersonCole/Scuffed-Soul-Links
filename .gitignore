@@ -12,6 +12,10 @@ text_files/minecraft_server/rcon_port.txt
 text_files/minecraft_server/server_ip.txt
 text_files/minecraft_server/server_port.txt
 text_files/minecraft_server/google_drive_link.txt
+text_files/pogo/scan/firefox_profile/*
+text_files/pogo/scan/map_link.txt
+text_files/pogo/scan/areas.txt
+text_files/pogo/scan/log.txt
 __pycache__/
 .vscode/
 cache/

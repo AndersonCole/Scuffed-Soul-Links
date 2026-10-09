@@ -1,5 +1,8 @@
 from functions.pogo_functions import *
-from functions.shared_functions import formatCommand, formatSplitInput, handleAddPoGoMon, pogoDeleteMon, pogoListMons, formatTextForBackend
+from dictionaries.shared_dictionaries import sharedFileLocations
+from functions.shared_functions import formatCommand, formatSplitInput, handleAddPoGoMon, pogoDeleteMon, pogoListMons
+
+owner = int(loadDataVariableFromFile(sharedFileLocations.get('Owner'), readJson=False))
 
 async def pogoMiscCommands(userInput, author, guild):
     if userInput == 'help':
@@ -139,6 +142,19 @@ async def pogoMiscCommands(userInput, author, guild):
             response = await removeTrackedMon(splitInput[0], splitInput[1:], author.id)
         else:
             response = 'This code path shouldn\'t be reachable! How on earth did you mess up your command that badly?'
+    #endregion
+
+    #region scanning
+    elif userInput == 'scan setup':
+        if author.id == owner:
+            response = await setupScan()
+        else:
+            response = 'Get outta here, admin only!'
+
+    elif userInput.startswith('scan'):
+        userInput = formatCommand('scan', userInput)
+
+        response = await startScanRequest(userInput, author.id)
     #endregion
 
     #region mons add delete read

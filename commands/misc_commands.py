@@ -20,7 +20,7 @@ async def miscShuckleCommands(userInput, author=None, guild=None):
             response = 'Invalid input! Use commas \',\' in between values!'
     
         if len(splitInput) == 2:
-            response = await addNickname(splitInput[0], splitInput[1], guild)
+            response = await addNickname(splitInput[0], splitInput[1])
         else:
             response = 'Invalid input! Use commas \',\' in between values!'
 

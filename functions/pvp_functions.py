@@ -238,9 +238,10 @@ async def pvpRankCheck(monName, extraInputs=None):
 
         if rank is None:
             return 'The rank or iv combo you\'re looking for wasn\'t found!'
-        
+
+        preMegaCp = await showPreMegaCP(dexNum, rank, modifiers["EvoToSuperMega"], modifiers["ShowPreMegaCP"])
         fieldContent[0] += f'R{rank["Rank"]} Lv{rank["Level"]:g}'
-        fieldContent[1] += f'{rank["CP"]} CP | {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}'
+        fieldContent[1] += f'{rank["CP"]}{preMegaCp} CP | {rank["Ivs"]["Attack"]}/{rank["Ivs"]["Defence"]}/{rank["Ivs"]["Stamina"]}'
         fieldContent[2] += f'{pogoRound(rank["Stats"]["Attack"], 2)} / {pogoRound(rank["Stats"]["Defence"], 2)} / {rank["Stats"]["Stamina"]}'
 
         embed.add_field(name=fieldContent[0],
