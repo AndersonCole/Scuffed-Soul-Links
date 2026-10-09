@@ -145,16 +145,17 @@ async def pogoMiscCommands(userInput, author, guild):
     #endregion
 
     #region scanning
-    elif userInput == 'scan setup':
-        if author.id == owner:
-            response = await setupScan()
-        else:
-            response = 'Get outta here, admin only!'
-
     elif userInput.startswith('scan'):
         userInput = formatCommand('scan', userInput)
 
-        response = await startScanRequest(userInput, author.id)
+        if userInput == 'areas':
+            response = await listScanAreas(author.id)
+
+        if userInput == 'logs':
+            response = await showRecentLogs()
+
+        else:
+            response = await startScanRequest(userInput, author.id)
     #endregion
 
     #region mons add delete read

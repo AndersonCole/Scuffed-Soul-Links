@@ -9,7 +9,6 @@ import aiohttp
 import json
 import copy
 import regex as re
-import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import math
@@ -38,7 +37,7 @@ trackedMons = loadDataVariableFromFile(pogoFileLocations.get('TrackedMons'))
 
 fakeRankOnes = loadDataVariableFromFile(pvpFileLocations.get('FakeR1'))
 
-mapUrl = loadDataVariableFromFile(pogoFileLocations.get('MapLink'))
+mapUrl = loadDataVariableFromFile(pogoFileLocations.get('MapLink'), readJson=False)
 
 scanAreas = loadDataVariableFromFile(pogoFileLocations.get('MapAreas'))
 
@@ -60,6 +59,9 @@ async def pogoHelp():
                                         'Allowed filter options are `all` `hundo` `lucky` `shiny` `pvp` `rocket` `size`\n\n' +
                                         '```$pogo events help``` Shows all event searches\n' +
                                         '```$pogo time``` Shows the current time in NZ and Hawaii\n\n' +
+                                        '```$pogo scan Sarko``` Scans a pre configured area\n' +
+                                        '```$pogo scan areas``` Lists the pre configured scanning areas\n' +
+                                        '```$pogo scan logs``` Shows recent scan logs\n\n' +
                                         '```$pogo odds Shuckle``` Shows the odds of getting something\n' +
                                         '```$pogo odds modifiers``` Lists out all the available odds modifers\n\n' +
                                         '```$pogo ivs Meltan, 991``` Finds how many different iv combos are possible at the specified CP\n' +
@@ -1257,29 +1259,43 @@ async def addToScanLog(message):
 
     await saveDataVariableToFile(pogoFileLocations.get('ScanLog'), scanLog)
 
-async def setupScan():
-    message = 'Window launched, you\'ve got 2 minutes to authenticate!'
+async def showRecentLogs():
+    embed = discord.Embed(title='Shuckles Scan Log',
+                          description='Ready to Scan!',
+                          color=sharedColours.get('Default'))
     
-    await addToScanLog(message)
+    scanLog = loadDataVariableFromFile(pogoFileLocations.get('ScanLog'))
 
-    asyncio.create_task(authenticateScanner())
-
-    return message
-
-async def authenticateScanner():
-    driver = await initWebDriver()
+    readyMsgIndexes = [i for i, obj in enumerate(scanLog) if obj['Message'] == 'Ready']
     
-    try:
-        driver.get(mapUrl)
+    if not checkScanReady():
+        embed.description = 'Scanning in progress...'
+        messagesToDisplay = scanLog[readyMsgIndexes[-1] + 1:]
 
-        time.sleep(120)
+    else:
+        messagesToDisplay = scanLog[readyMsgIndexes[-2] + 1:readyMsgIndexes[-1]]
 
-    except Exception as ex:
-        await addToScanLog(f'An error occured while authenticating: {ex}')
+    fieldContent = ['', '']
 
-    finally:
-        driver.close()
-        await addToScanLog('Ready')
+    for msg in messagesToDisplay:
+        fieldContent[0] += f'{msg["Time"]}\n'
+        fieldContent[1] += f'{msg["Message"]}\n'
+
+    embed.add_field(name='Time',
+                    value=fieldContent[0],
+                    inline=True)
+
+    embed.add_field(name=f'Message{"(Cut short)" if len(fieldContent[1]) > 1024 else ""}',
+                    value=fieldContent[1][:1024],
+                    inline=True)
+
+    return embed
+
+async def listScanAreas(author):
+    authorizedAreas = [obj['Name'] for obj in scanAreas if author in obj['Users']]
+
+    areaText = ','.join(f'{formatTextForDisplay(obj["Name"])} ({len(obj["Coords"])} coords)' for obj in scanAreas)
+    return f'The configured areas are: {areaText}\n\nThe areas you\'re allowed to scan are: {",".join(formatTextForDisplay(authorizedAreas))}'
 
 async def startScanRequest(location, author):
     scanArea = [obj for obj in scanAreas if obj['Name'] == formatTextForBackend(location)]
@@ -1291,10 +1307,10 @@ async def startScanRequest(location, author):
     if author not in scanArea['Users']:
         return f'You aren\'t authorized to scan \'{location}\'!'
 
-    if not checkScanReady():
+    if not await checkScanReady():
         return 'Another area is currently being scanned! Wait for the previous request to finish!'
 
-    message = f'Starting area scan of {formatTextForDisplay(scanArea["Name"])}'
+    message = f'Starting area scan of {formatTextForDisplay(scanArea["Name"])}, with {len(scanArea["Coords"])} scan locations!'
 
     await addToScanLog(message)
 
@@ -1304,7 +1320,7 @@ async def startScanRequest(location, author):
 
 async def initWebDriver():
     options = Options()
-    #options.add_argument('-headless')
+    options.add_argument('-headless')
     options.add_argument('-profile')
     options.add_argument(pogoFileLocations.get('FirefoxProfile'))
     driver = webdriver.Firefox(options=options)
@@ -1317,7 +1333,7 @@ async def scanCoordinateSet(coordsList):
 
     try:
         driver.get(mapUrl)
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(driver, 5)
 
         #discord log in state check
         try:
@@ -1333,13 +1349,13 @@ async def scanCoordinateSet(coordsList):
 
         for coords in coordsList:
             await scanCoordinates(driver, wait, coords)
-            await time.sleep(15)
+            await asyncio.sleep(10)
 
     except Exception as ex:
         await addToScanLog(f'An error occured while attempting to scan: {ex}')
 
     finally:
-        driver.close()
+        driver.quit()
         await addToScanLog('Ready')
 
 async def scanCoordinates(driver, wait, coords):
@@ -1348,13 +1364,22 @@ async def scanCoordinates(driver, wait, coords):
     )
     areaScanBtn.click()
 
-    sizeSlider = wait.until(
-        EC.element_to_be_clickable((By.XPATH, '//p[text()="Size"]/following-sibling::div[1]//span[contains(@class,"MuiSlider-thumb")]'))
-    )
-    sizeSlider.click()
-    for i in range(4):
-        ActionChains(driver).send_keys(Keys.ARROW_RIGHT).perform()
+    await asyncio.sleep(1)
 
+    #set scan size to max
+    scanSize = driver.find_element(By.XPATH,'//p[text()="Size"]/following-sibling::div[1]//input[@type="range"]').get_attribute('aria-valuenow')
+
+    if scanSize != 5:
+        thumb = wait.until(
+            EC.element_to_be_clickable((By.XPATH, '//p[text()="Size"]/following-sibling::div[1]//span[contains(@class,"MuiSlider-thumb")]'))
+        )
+        sizeSlider = thumb.find_element(By.CSS_SELECTOR, 'input[type="range"]')
+        driver.execute_script("arguments[0].focus();", sizeSlider)
+        ActionChains(driver).send_keys(Keys.END).perform()
+
+    await asyncio.sleep(1)
+
+    #go to coord location
     coordinates = wait.until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[aria-label="Coordinates (latitude, longitude)"]'))
     )
@@ -1362,7 +1387,7 @@ async def scanCoordinates(driver, wait, coords):
     coordinates.send_keys(f'{coords[0]}, {coords[1]}')
     coordinates.send_keys(Keys.ENTER)
 
-    time.sleep(5)
+    await asyncio.sleep(5)
 
     lowQueue = await checkScanQueue(wait)
 
@@ -1373,19 +1398,23 @@ async def scanCoordinates(driver, wait, coords):
 
     await addToScanLog(f'Successfully sent a scan request at {coords[0]}, {coords[1]}')
 
-async def checkScanQueue(wait, maxRetries=5):
+async def checkScanQueue(wait, maxRetries=3):
     queueText = wait.until(
         EC.visibility_of_element_located((By.XPATH, '//p[contains(text(), "Scan Requests:")]'))
     )
     queueCount = int(re.split(r'\:', queueText.text)[-1])
 
-    #something is up, too much traffic to scan
-    if queueCount >= 1000 or maxRetries <= 0:
+    #scan anyways, with the high cooldown
+    if maxRetries == 0:
         return False
+
+    #something is up, too much traffic to scan
+    if queueCount >= 1000:
+        raise Exception(f'The queue count is at {queueCount}! It\'s way too high to scan right now!')
 
     #long cooldown range, should wait until the cooldown drops
     if queueCount >= 50:
-        time.sleep(15)
+        await asyncio.sleep(15)
         return await checkScanQueue(wait, maxRetries-1)
 
     return True
@@ -1401,7 +1430,7 @@ async def confirmScanRequest(wait, abortOnFailure=False):
         #it would only error if on 60s cooldown, so attempt to sit it out. If it errors again abort
         if abortOnFailure:
             raise Exception('Couldn\'t confirm the scan! Even after waiting an extra 60 seconds, something\'s wrong!')
-        await time.sleep(60)
+        await asyncio.sleep(60)
         await confirmScanRequest(wait, abortOnFailure=True)
 #endregion
 
