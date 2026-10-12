@@ -151,7 +151,7 @@ async def pogoMiscCommands(userInput, author, guild):
         if userInput == 'areas':
             response = await listScanAreas(author.id)
 
-        if userInput == 'logs':
+        elif userInput == 'logs':
             response = await showRecentLogs()
 
         else:

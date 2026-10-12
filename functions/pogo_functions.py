@@ -941,6 +941,12 @@ def determineDisplay(filter):
     elif filter == 'pvp':
         return ['gl', 'ul'], 20
 
+    elif filter == 'shadow':
+        return ['shadow'], 20
+
+    elif filter == 'puri':
+        return ['purified'], 20
+    
     elif filter == 'rocket':
         return ['shadow', 'purified'], 20
     
@@ -1268,7 +1274,7 @@ async def showRecentLogs():
 
     readyMsgIndexes = [i for i, obj in enumerate(scanLog) if obj['Message'] == 'Ready']
     
-    if not checkScanReady():
+    if not await checkScanReady():
         embed.description = 'Scanning in progress...'
         messagesToDisplay = scanLog[readyMsgIndexes[-1] + 1:]
 
@@ -1295,7 +1301,7 @@ async def listScanAreas(author):
     authorizedAreas = [obj['Name'] for obj in scanAreas if author in obj['Users']]
 
     areaText = ','.join(f'{formatTextForDisplay(obj["Name"])} ({len(obj["Coords"])} coords)' for obj in scanAreas)
-    return f'The configured areas are: {areaText}\n\nThe areas you\'re allowed to scan are: {",".join(formatTextForDisplay(authorizedAreas))}'
+    return f'The configured areas are: {areaText}\n\nThe areas you\'re allowed to scan are: {",".join([formatTextForDisplay(obj) for obj in authorizedAreas])}'
 
 async def startScanRequest(location, author):
     scanArea = [obj for obj in scanAreas if obj['Name'] == formatTextForBackend(location)]
@@ -1390,13 +1396,14 @@ async def scanCoordinates(driver, wait, coords):
     await asyncio.sleep(5)
 
     lowQueue = await checkScanQueue(wait)
-
-    if not lowQueue:
-        raise Exception('The queue is too high to scan! Aborting!')
     
     await confirmScanRequest(wait)
 
     await addToScanLog(f'Successfully sent a scan request at {coords[0]}, {coords[1]}')
+
+    #wait out the longer scan cooldown
+    if not lowQueue:
+        await asyncio.sleep(50)
 
 async def checkScanQueue(wait, maxRetries=3):
     queueText = wait.until(
@@ -1409,7 +1416,7 @@ async def checkScanQueue(wait, maxRetries=3):
         return False
 
     #something is up, too much traffic to scan
-    if queueCount >= 1000:
+    if queueCount >= 500:
         raise Exception(f'The queue count is at {queueCount}! It\'s way too high to scan right now!')
 
     #long cooldown range, should wait until the cooldown drops
