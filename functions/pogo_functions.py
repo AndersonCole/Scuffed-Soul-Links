@@ -1265,6 +1265,17 @@ async def addToScanLog(message):
 
     await saveDataVariableToFile(pogoFileLocations.get('ScanLog'), scanLog)
 
+def displayMessageContent(messagesToDisplay, charLimit=1024):
+    fieldContent = ['', '']
+    
+    for msg in messagesToDisplay:
+        if len(fieldContent[1]) >= charLimit:
+            return fieldContent
+        fieldContent[0] += f'{msg["Time"]}\n'
+        fieldContent[1] += f'{msg["Message"]}\n'
+
+    return fieldContent
+
 async def showRecentLogs():
     embed = discord.Embed(title='Shuckles Scan Log',
                           description='Ready to Scan!',
@@ -1280,28 +1291,35 @@ async def showRecentLogs():
 
     else:
         messagesToDisplay = scanLog[readyMsgIndexes[-2] + 1:readyMsgIndexes[-1]]
+    
+    fieldContent = displayMessageContent(messagesToDisplay)
 
-    fieldContent = ['', '']
+    if len(fieldContent[1]) < 1024:
+        embed.add_field(name='Time',
+                        value=fieldContent[0],
+                        inline=True)
 
-    for msg in messagesToDisplay:
-        fieldContent[0] += f'{msg["Time"]}\n'
-        fieldContent[1] += f'{msg["Message"]}\n'
+        embed.add_field(name=f'Message',
+                        value=fieldContent[1][:1024],
+                        inline=True)
 
-    embed.add_field(name='Time',
-                    value=fieldContent[0],
-                    inline=True)
+    else:
+        fieldContent = displayMessageContent(messagesToDisplay, charLimit=750)
 
-    embed.add_field(name=f'Message{"(Cut short)" if len(fieldContent[1]) > 1024 else ""}',
-                    value=fieldContent[1][:1024],
-                    inline=True)
+        fieldContent[0] += f'...\n'
+        fieldContent[1] += f'...\n'
+        
+        for msg in messagesToDisplay[-2:]:
+            fieldContent[0] += f'{msg["Time"]}\n'
+            fieldContent[1] += f'{msg["Message"]}\n'
 
     return embed
 
 async def listScanAreas(author):
     authorizedAreas = [obj['Name'] for obj in scanAreas if author in obj['Users']]
 
-    areaText = ','.join(f'{formatTextForDisplay(obj["Name"])} ({len(obj["Coords"])} coords)' for obj in scanAreas)
-    return f'The configured areas are: {areaText}\n\nThe areas you\'re allowed to scan are: {",".join([formatTextForDisplay(obj) for obj in authorizedAreas])}'
+    areaText = ', '.join(f'{formatTextForDisplay(obj["Name"])} ({len(obj["Coords"])} coords)' for obj in scanAreas)
+    return f'The configured areas are: {areaText}\n\nThe areas you\'re allowed to scan are: {", ".join([formatTextForDisplay(obj) for obj in authorizedAreas])}'
 
 async def startScanRequest(location, author):
     scanArea = [obj for obj in scanAreas if obj['Name'] == formatTextForBackend(location)]
