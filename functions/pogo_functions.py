@@ -1294,16 +1294,7 @@ async def showRecentLogs():
     
     fieldContent = displayMessageContent(messagesToDisplay)
 
-    if len(fieldContent[1]) < 1024:
-        embed.add_field(name='Time',
-                        value=fieldContent[0],
-                        inline=True)
-
-        embed.add_field(name=f'Message',
-                        value=fieldContent[1][:1024],
-                        inline=True)
-
-    else:
+    if len(fieldContent[1]) >= 1024:
         fieldContent = displayMessageContent(messagesToDisplay, charLimit=750)
 
         fieldContent[0] += f'...\n'
@@ -1312,6 +1303,14 @@ async def showRecentLogs():
         for msg in messagesToDisplay[-2:]:
             fieldContent[0] += f'{msg["Time"]}\n'
             fieldContent[1] += f'{msg["Message"]}\n'
+
+    embed.add_field(name='Time',
+                    value=fieldContent[0],
+                    inline=True)
+
+    embed.add_field(name=f'Message',
+                    value=fieldContent[1],
+                    inline=True)
 
     return embed
 
