@@ -78,7 +78,7 @@ class DiscordClient(discord.Client):
 
             userCommand = message.content[len('$pogo'):].strip('-, ')
 
-            response = await pogoMiscCommands(userCommand, message.author, message.guild)
+            response = await pogoMiscCommands(userCommand, message.author, message.guild, message.channel)
 
         elif message.content.startswith('$pvp'):
             await message.add_reaction(assignReactionEmoji('PVP'))

@@ -4,7 +4,7 @@ from functions.shared_functions import formatCommand, formatSplitInput, handleAd
 
 owner = int(loadDataVariableFromFile(sharedFileLocations.get('Owner'), readJson=False))
 
-async def pogoMiscCommands(userInput, author, guild):
+async def pogoMiscCommands(userInput, author, guild, channel):
     if userInput == 'help':
         response = await pogoHelp()
 
@@ -155,7 +155,7 @@ async def pogoMiscCommands(userInput, author, guild):
             response = await showRecentLogs()
 
         else:
-            response = await startScanRequest(userInput, author.id)
+            response = await startScanRequest(userInput, author.id, channel)
     #endregion
 
     #region mons add delete read

@@ -5,6 +5,7 @@ Cole Anderson, Aug 2025
 """
 
 import discord
+import io
 import aiohttp
 import json
 import copy
@@ -1286,8 +1287,8 @@ async def showRecentLogs():
     readyMsgIndexes = [i for i, obj in enumerate(scanLog) if obj['Message'] == 'Ready']
     
     if not await checkScanReady():
-        embed.description = 'Scanning in progress...'
         messagesToDisplay = scanLog[readyMsgIndexes[-1] + 1:]
+        embed.description = f'Scanning in progress... ({len(messagesToDisplay)} scanned so far)'
 
     else:
         messagesToDisplay = scanLog[readyMsgIndexes[-2] + 1:readyMsgIndexes[-1]]
@@ -1300,7 +1301,7 @@ async def showRecentLogs():
         fieldContent[0] += f'...\n'
         fieldContent[1] += f'...\n'
         
-        for msg in messagesToDisplay[-2:]:
+        for msg in messagesToDisplay[-3:]:
             fieldContent[0] += f'{msg["Time"]}\n'
             fieldContent[1] += f'{msg["Message"]}\n'
 
@@ -1309,7 +1310,7 @@ async def showRecentLogs():
                     inline=True)
 
     embed.add_field(name=f'Message',
-                    value=fieldContent[1],
+                    value=fieldContent[1][:1024],
                     inline=True)
 
     return embed
@@ -1320,7 +1321,7 @@ async def listScanAreas(author):
     areaText = ', '.join(f'{formatTextForDisplay(obj["Name"])} ({len(obj["Coords"])} coords)' for obj in scanAreas)
     return f'The configured areas are: {areaText}\n\nThe areas you\'re allowed to scan are: {", ".join([formatTextForDisplay(obj) for obj in authorizedAreas])}'
 
-async def startScanRequest(location, author):
+async def startScanRequest(location, author, channel):
     scanArea = [obj for obj in scanAreas if obj['Name'] == formatTextForBackend(location)]
 
     if len(scanArea) == 0:
@@ -1337,7 +1338,7 @@ async def startScanRequest(location, author):
 
     await addToScanLog(message)
 
-    asyncio.create_task(scanCoordinateSet(scanArea['Coords']))
+    asyncio.create_task(scanCoordinateSet(scanArea['Coords'], scanArea['TakePicture'], channel))
 
     return message
 
@@ -1351,7 +1352,7 @@ async def initWebDriver():
 
     return driver
 
-async def scanCoordinateSet(coordsList):
+async def scanCoordinateSet(coordsList, takePicture, channel):
     driver = await initWebDriver()
 
     try:
@@ -1374,12 +1375,62 @@ async def scanCoordinateSet(coordsList):
             await scanCoordinates(driver, wait, coords)
             await asyncio.sleep(10)
 
+        if takePicture:
+            await asyncio.sleep(45)
+            await addToScanLog('Taking results picture!')
+            await scanResultsPicture(driver, wait, channel)
+
     except Exception as ex:
         await addToScanLog(f'An error occured while attempting to scan: {ex}')
 
     finally:
         driver.quit()
         await addToScanLog('Ready')
+
+async def scanResultsPicture(driver, wait, channel):
+    for i in range(2):
+        zoomBtn = wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Zoom Out"]'))
+        )
+        zoomBtn.click()
+        await asyncio.sleep(1)
+
+    #show pokemon on map
+    await scanTogglePokemon(wait, True)
+
+    screenshot = driver.get_screenshot_as_png()
+    file = discord.File(io.BytesIO(screenshot), filename='scan.png')
+    await channel.send(file=file)
+
+    #hide pokemon on map
+    await scanTogglePokemon(wait, True)
+
+async def scanTogglePokemon(wait, show):
+    settingsBtn = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Open Menu"]'))
+    )
+    settingsBtn.click()
+
+    #if dropdown isnt expanded, open it
+    pokemonDropdown = wait.until(
+        EC.element_to_be_clickable((By.XPATH, '//div[@role="buutton"][@aria-expanded][.//p[normalize-space(.)="Pokémon"]]'))
+    )
+    if pokemonDropdown.get_attribute('aria-expanded') != 'true':
+        pokemonDropdown.click()
+
+    #toggles pokemon visibility
+    pokemonToggle = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[name="Show normal Pokémon"]'))
+    )
+    if pokemonToggle.is_selected() != show:
+        pokemonToggle.click()
+
+    closeBtn = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="close"]'))
+    )
+    closeBtn.click()
+
+    await asyncio.sleep(1)
 
 async def scanCoordinates(driver, wait, coords):
     areaScanBtn = wait.until(
