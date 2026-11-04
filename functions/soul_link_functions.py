@@ -6,21 +6,23 @@ import math
 import copy
 import asyncio
 import aiohttp
+import roman
+from collections import defaultdict
 from PIL import Image
 from io import BytesIO
-from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, getDiscordName,
-                                        getPokeApiJsonData, getPokeAPISpriteUrl, openHttpImage, getUserPing, recurseEvoChain,
-                                        getDexNum, formatTextForDisplay, formatTextForBackend, getMon, getMonName, pasteMonOnImage,
+from functions.shared_functions import (loadDataVariableFromFile, saveDataVariableToFile, getDiscordName, pasteExtraOnImage,
+                                        getPokeApiJsonData, getPokeAPISpriteUrl, openItemImage, getUserPing, recurseEvoChain, getMoveCategoryFromType,
+                                        getDexNum, formatTextForDisplay, formatTextForBackend, getMon, getMonName, pasteMonOnImage, getBaseStat,
                                         getTypeEmoji, getTypeEmbedColour, getTypeTextColour, writeImageText, addPaginatedEmbedFields, getUserIdFromNickname,
-                                        loadShucklePersonality, rollForShiny, checkClassification, pokemon)
+                                        loadShucklePersonality, rollForShiny, checkClassification, getTypesFromPokeAPI, getBaseStatsFromPokeAPI, pokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedColours
-from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, gens, games
+from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, excludedEncounterConditions, excludedVersionGroups, gens, games
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
 
 runs = loadDataVariableFromFile(soulLinksFileLocations.get('Runs'))
 
-currentRun = copy.deepcopy(defaultRun)
+currentRun = loadDataVariableFromFile(soulLinksFileLocations.get('CurrentRun'))
 
 #region help command
 #dev commands, undo-death {name}, reset, undo-status
@@ -69,13 +71,20 @@ def getGroup(game):
     except:
         return None
 
+def getRandomGameFromGroup(versionGroup):
+    try:
+        groupGames = [obj for obj in games if obj['Name'] == versionGroup][0]['Games']
+        return groupGames[random.randint(0,len(groupGames)-1)]
+    except:
+        return None
+
 def checkDuplicateName(name):
     if len([obj for obj in runs if obj['Name'] == name]) >= 1:
         return True
     return False
 
 def formatVersionGroupName(versionGroup):
-    if versionGroup == '':
+    if versionGroup is None:
         versionGroupName = 'Unknown'
     elif versionGroup == 'legends-za':
         versionGroupName = 'Legends Z-A'
@@ -97,6 +106,52 @@ def formatEncounterNameForDisplay(encounterName):
     words = re.split(r'[\s-.]+', encounterName)
     text = ' '.join(word.capitalize() for word in words)
     return text
+
+def formatEggGroupNames(eggGroups):
+    eggGroupText = ''
+    for group in eggGroups:
+        match group['name']:
+            case 'ground':
+                eggGroupText += 'Field'
+            case 'plant':
+                eggGroupText += 'Grass'
+            case 'humanshape':
+                eggGroupText += 'Human-Like'
+            case 'indeterminate':
+                eggGroupText += 'Amorphous'
+            case _:
+                eggGroupText += f'{formatTextForDisplay(group["name"])}'
+        eggGroupText += ', '
+
+    return eggGroupText.rstrip(', ')
+
+def formatGenderDisplay(genderRatio):
+    if genderRatio == -1:
+        return 'Genderless'
+
+    femaleChance = genderRatio / 8 * 100
+
+    if femaleChance == 100:
+        return f':female_sign: 100%'
+    elif femaleChance == 0:
+        return f':male_sign: 100%'
+
+    return f':male_sign: {100-femaleChance}% | {femaleChance}% :female_sign:'
+
+def formatAbilities(abilities):
+    abilityText = ''
+    for ability in abilities:
+        abilityText += f'{"HA: " if ability["HA"] else ""}{formatTextForDisplay(ability["Name"])}\n'
+
+    return abilityText
+
+def formatEVs(stats):
+    evText = ''
+    for stat in stats:
+        if stat['EV'] > 0:
+            evText += f'{getBaseStatText(stat["Name"])}: {stat["EV"]}\n'
+
+    return evText
 
 def getSerebiiLink(gameGen, monData):
     serebiiLink = f'https://www.serebii.net/pokedex{gameGen["SerebiiLink"]}/'
@@ -157,18 +212,20 @@ def matchPlayer(player, run):
 def checkEncounter(name, run):
     return any(encounter['Name'] == formatTextForBackend(name) for encounter in run['Encounters'])
 
-def determineGenSpecificSprite(gameGen, versionGroup):
+def determineGenSpecificSprite(gameGen, versionGroup, gameName):
     baseUrlAddition = ''
     extension = '.png'
     rollShiny = True
 
     if gameGen['Name'] <= 5:
         if versionGroup == 'gold-silver':
-            randNum = random.randint(0,1)
-            if randNum == 0:
-                versionName = 'gold'
+            if gameName is None:
+                randNum = random.randint(0,1)
+                versionName = 'gold' if randNum == 0 else 'silver'
             else:
-                versionName = 'silver'
+                versionName = gameName
+        elif versionGroup in ['colosseum', 'xd']:
+            versionName = 'emerald'
         elif versionGroup == 'black-2-white-2':
             versionName = 'black-white'
         else:
@@ -177,18 +234,28 @@ def determineGenSpecificSprite(gameGen, versionGroup):
         if gameGen['Name'] == 1:
             rollShiny = False
 
-        baseUrlAddition += f'/versions/generation-{gameGen["RomanNumeral"]}/{versionName}/'
-        
-        if gameGen['Name'] == 5:
+        baseUrlAddition += f'versions/generation-{gameGen["RomanNumeral"]}/{versionName}/'
+
+        if versionGroup in ['red-blue', 'yellow', 'gold-silver']:
+            baseUrlAddition += 'transparent/'
+
+        if versionGroup == 'crystal' or gameGen['Name'] == 5:
+            #pokeapi has emerald, dppt, and hgss animated, but they're pngs, so discord doesnt support them lol
             baseUrlAddition += 'animated/'
             extension = '.gif'
 
     return baseUrlAddition, extension, rollShiny
 
-def addMoveData(moveset, moveData):
+def addMoveData(moveset, moveData, gen):
     for move, data in zip(moveset, moveData):
         move['Type'] = formatTextForDisplay(data['type']['name'])
-        move['Category'] = formatTextForDisplay(data['damage_class']['name'])
+
+        moveCategory = formatTextForDisplay(data['damage_class']['name'])
+        if gen['Name'] <= 3:
+            if moveCategory != 'Status':
+                moveCategory = getMoveCategoryFromType(move['Type'])
+        move['Category'] = moveCategory
+
         move['Power'] = '\- ' if data['power'] is None else data['power']
         move['Accuracy'] = '\- ' if data['accuracy'] is None else data['accuracy']
 
@@ -202,7 +269,7 @@ def getGameData(gameName):
 
 def getGroupGen(versionGroup):
     try:
-        return [obj for obj in gens if any(group["Name"] == versionGroup for group in obj["VersionGroups"])][0]
+        return [obj for obj in gens if any(group['Name'] == versionGroup for group in obj['VersionGroups'])][0]
     except:
         return None
 
@@ -283,10 +350,12 @@ async def createNewRun(gameName, runName, players, guild):
         'RunNotes': ''
     })
 
+    currentRun['Game'] = gameName
     currentRun['VersionGroup'] = versionGroup
     currentRun['RunName'] = runName
 
     await saveDataVariableToFile(soulLinksFileLocations.get('Runs'), runs)
+    await saveDataVariableToFile(soulLinksFileLocations.get('CurrentRun'), currentRun)
 
     await createRole(playerIds, guild)
 
@@ -864,21 +933,24 @@ async def listDeaths(guild):
 #endregion
 
 #region $sl runs, reset, select-run command
-def selectRun(name):
+async def selectRun(name):
     run = getRun(name)
 
     if run is None:
         return 'The name of the run wasn\'t recognized!'
-    
+
+    currentRun['Game'] = copy.deepcopy(run['Game'])
     currentRun['VersionGroup'] = copy.deepcopy(run['VersionGroup'])
     currentRun['RunName'] = copy.deepcopy(run['Name'])
 
+    await saveDataVariableToFile(soulLinksFileLocations.get('CurrentRun'), currentRun)
+
     return f'Focus set to run \'{formatTextForDisplay(run["Name"])}\'!'
 
-def resetFocus():
-    global currentRun
-
+async def resetFocus():
     currentRun = copy.deepcopy(defaultRun)
+
+    await saveDataVariableToFile(soulLinksFileLocations.get('CurrentRun'), currentRun)
 
     return 'Run unfocused!'
 
@@ -1136,42 +1208,20 @@ async def setRunStatus(status, guild):
 #region dex commands
 
 #region evo chain image
-async def openItemImage(value, resizeTo=None):
-    itemImage = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/{value}.png', returnNone=True)
-
-    if itemImage is None:
-        try:
-            itemImage = Image.open(f'images/evo_helpers/{value}.png').convert('RGBA')
-        except FileNotFoundError:
-            itemImage = Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
-
-    if resizeTo is not None:
-        itemImage = itemImage.resize((resizeTo, resizeTo))
-
-    return itemImage
-
-async def pasteExtraOnArrow(arrowImg, evolution, location):
-    if evolution['Extra'] is not None:
-        extraImage = await openItemImage(evolution['Extra'], resizeTo=10)
-    
-        arrowImg.paste(extraImage, location, mask=extraImage)
-        extraImage.close()
-
-    return arrowImg
-
 async def createArrowImage(type, evolution):
     arrowImg = Image.open(f'images/evo_helpers/arrows/arrow_{type}.png').convert('RGBA')
 
     if evolution['Method'] == 'level-up':
-        arrowImg = await pasteExtraOnArrow(arrowImg, evolution, (36, 20))
+        arrowImg = await pasteExtraOnImage(arrowImg, evolution, (36, 20))
         arrowImg = writeImageText(arrowImg, f'Lv. {evolution["Value"]}', getTypeTextColour(type), 7, 13)
 
     elif evolution['Method'] == 'use-item':
         itemImage = await openItemImage(evolution['Value'])
+        itemImage = itemImage.resize((30, 30))
         arrowImg.paste(itemImage, (10, 4), mask=itemImage)
         itemImage.close()
 
-        arrowImg = await pasteExtraOnArrow(arrowImg, evolution, (30, 20))
+        arrowImg = await pasteExtraOnImage(arrowImg, evolution, (30, 20))
 
     return arrowImg
 
@@ -1184,8 +1234,14 @@ async def pasteArrowImage(backgroundImage, positionX, positionY, type, evolution
     return backgroundImage
 
 async def pastePokemonOntoBackground(backgroundImage, pokemonToPaste, arrowType, pokemonPositions, arrowPositions):
+    showEvoMethodOnPokemon = False
+    
     for mon, monPos in zip(pokemonToPaste, pokemonPositions):
-        backgroundImage = await pasteMonOnImage(backgroundImage, mon['DexNum'], monPos[0], monPos[1])
+        backgroundImage = await pasteMonOnImage(backgroundImage, mon, monPos[0], monPos[1], showEvoMethod=showEvoMethodOnPokemon)
+        
+        if len(pokemonToPaste) == 9:
+            #eevee pastes normally, then all its evos get the evo item on them
+            showEvoMethodOnPokemon = True
 
     for mon, arrowPos in zip(pokemonToPaste[1:], arrowPositions):
         backgroundImage = await pasteArrowImage(backgroundImage, arrowPos[0], arrowPos[1], arrowType, mon)
@@ -1313,7 +1369,6 @@ async def createEvoChainImage(dexNum, type):
                     monPositions.append([315, 50])
                     arrowPositions.append([275, arrowHeights[0]])
        
-
     backgroundImage = await pastePokemonOntoBackground(backgroundImage, evoMons, type, monPositions, arrowPositions)
 
     imageBuffer = BytesIO()
@@ -1329,48 +1384,95 @@ async def createEvoChainImage(dexNum, type):
 #endregion
 
 #region $sl dex command
-async def makePokedexEmbed(mon, gameName):
+def getAbilities(monData, gameGen):
+    monAbilities = []
+        
+    for ability in monData['abilities']:
+        monAbilities.append({
+            'Name': ability['ability']['name'],
+            'Slot': ability['slot'],
+            'HA': ability['is_hidden']
+        })
+
+    pastAbilities = []
+    if monData['past_abilities']:
+        for abilities in monData['past_abilities']:
+            pastGameAbilities = []
+            for ability in abilities['abilities']:
+                pastGameAbilities.append({
+                    'Name': None if ability['ability'] is None else ability['ability']['name'],
+                    'Slot': ability['slot'],
+                    'HA': ability['is_hidden']
+                })
+            pastAbilities.append({
+                'Gen': roman.fromRoman(re.split(r'[\s-.]+', abilities['generation']['name'])[1]),
+                'Abilities': pastGameAbilities
+            })
+            
+        pastAbilities = sorted(pastAbilities, key=lambda x: x['Gen'], reverse=True)
+
+        for pastGen in pastAbilities:
+            if gameGen['Name'] <= pastGen['Gen']:
+                for pastAbility in pastGen['Abilities']:
+                    for i, ability in enumerate(monAbilities):
+                        if pastAbility['Slot'] == ability['Slot']:
+                            monAbilities[i] = pastAbility
+                            break
+
+        monAbilities = sorted([obj for obj in monAbilities if obj['Name'] is not None], key=lambda x: x['Slot'])
+
+    return monAbilities
+
+async def makePokedexEmbed(mon, gameName=None):
     dexNum = getDexNum(mon)
 
-    versionGroup = getGroup(gameName)
-
-    if versionGroup is None:
+    if gameName is None:
+        gameName = copy.deepcopy(currentRun['Game'])
         versionGroup = copy.deepcopy(currentRun['VersionGroup'])
+    else:
+        versionGroup = getGroup(gameName)
 
     embeds = []
 
     if dexNum == -1:
-        return f'The pokemon \'{mon}\' was not recognized!'
+        return f'The pokemon \'{mon}\' was not recognized!', None
     
     if gameName is not None and versionGroup is None:
-        return f'\'{gameName}\' was not recognized as a valid game name!'
+        return f'\'{gameName}\' was not recognized as a valid game name!', None
 
     monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
 
     if monData is None:
-        return f'An error occured while checking the api!'
+        return f'An error occured while checking the api!', None
 
     monTypes = []
     typeEmojis = ''
 
-    for type in monData['types']:
-        typeName = type['type']['name'].capitalize()
-        monTypes.append(typeName)
-        typeEmojis += getTypeEmoji(typeName)
+    speciesData = await getPokeApiJsonData(monData['species']['url'])
     
     movesets, versionGroup = await getMoves(monData['moves'], versionGroup)
+    if gameName is None:
+        gameName = getRandomGameFromGroup(versionGroup)
+
+    monTypes = await getTypesFromPokeAPI(monData=monData, gameGen=getGroupGen(versionGroup))
+    for type in monTypes:
+        typeEmojis += getTypeEmoji(type)
+
+    abilities = getAbilities(monData, getGroupGen(versionGroup))
+
+    encounters = await getEncounters(monData['location_area_encounters'], gameName)
 
     imageBuffer = await createEvoChainImage(dexNum, monTypes[0])
 
-    stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
+    stats = await getBaseStatsFromPokeAPI(monData=monData, gameGen=getGroupGen(versionGroup))
 
-    embed = discord.Embed(title=f'#{monData["species"]["url"][42:].strip("/")} {getMonName(dexNum)} {typeEmojis}',
+    embed = discord.Embed(title=f'#{speciesData["id"]} {getMonName(dexNum)} {typeEmojis}',
                           color=getTypeEmbedColour(monTypes[0]))
 
-    if versionGroup != '':
+    if versionGroup is not None:
         gameGen = getGroupGen(versionGroup)
 
-        baseUrlAddition, extension, rollShiny = determineGenSpecificSprite(gameGen, versionGroup)
+        baseUrlAddition, extension, rollShiny = determineGenSpecificSprite(gameGen, versionGroup, gameName)
 
         embed.set_thumbnail(url=getPokeAPISpriteUrl(dexNum, baseUrlAddition=baseUrlAddition, extension=extension, rollShiny=rollShiny))
 
@@ -1383,6 +1485,11 @@ async def makePokedexEmbed(mon, gameName):
 
     embed.set_image(url=f"attachment://{monTypes[0]}.png")
 
+    embeds = addPokemonInfoEmbed(embed, embeds, monData, speciesData, abilities, stats, versionGroup, imageBuffer, monTypes)
+
+    #need to pass in a list of the encounters where the mon can be found
+    embeds = addPaginatedEncounterEmbeds(embed, embeds, encounters, stats, versionGroup, gameName, imageBuffer, monTypes)
+
     embeds = addPaginatedLearnsetEmbeds(embed, embeds, movesets, 'Level', 'Level', stats, versionGroup, imageBuffer, monTypes)
     
     if len(movesets['Machine']) > 0:
@@ -1394,32 +1501,114 @@ async def makePokedexEmbed(mon, gameName):
     if len(movesets['Egg']) > 0:
         embeds = addPaginatedLearnsetEmbeds(embed, embeds, movesets, 'Egg', 'Egg Move', stats, versionGroup, imageBuffer, monTypes, uniqueFieldTextOverride='-')
 
-    return embeds
+    return embeds, [{'Emoji': '<:sign:1566341626392084500>', 'PageNum': 0}]
 
-def addCommonDexEmbedFields(embed, stats, versionGroup, level=0):
+def addCommonDexEmbedFields(embed, stats, versionGroup, level=0, showEvText=False):
+    gen = getGroupGen(versionGroup)
     if level > 0:
-        embed.add_field(name=f'Stats - {sum(stats.values())} BST',
-                    value=f'HP: {calculateHpStat(int(stats["hp"]), level)}\nAtk: {calculateStat(int(stats["attack"]), level)}\nDef: {calculateStat(int(stats["defense"]), level)}',
+        embed.add_field(name=f'Stats - {sum([obj["BaseStat"] for obj in stats])} BST',
+                    value=(f'{getBaseStatText("hp")}: {calculateHpStat(getBaseStat(stats, "hp"), level, gen)}\n' +
+                           f'{getBaseStatText("attack")}: {calculateStat(getBaseStat(stats, "attack"), level, gen)}\n' +
+                           f'{getBaseStatText("defense")}: {calculateStat(getBaseStat(stats, "defense"), level, gen)}'),
                     inline=True)
-    
+
+        if gen['Name'] >= 2:
+            specialDisplay = (f'{getBaseStatText("special-attack")}: {calculateStat(getBaseStat(stats, "special-attack"), level, gen)}\n' +
+                              f'{getBaseStatText("special-defense")}: {calculateStat(getBaseStat(stats, "special-defense"), level, gen)}')
+        else:
+            specialDisplay = f'{getBaseStatText("special")}: {calculateStat(getBaseStat(stats, "special"), level, gen)}'
+
         embed.add_field(name=f'31 IVs, 0 EVs, Neutral',
-                        value=f'Speed: {calculateStat(int(stats["speed"]), level)}\nSp.Atk: {calculateStat(int(stats["special-attack"]), level)}\nSp.Def: {calculateStat(int(stats["special-defense"]), level)}',
+                        value=(f'{getBaseStatText("speed")}: {calculateStat(getBaseStat(stats, "speed"), level, gen)}\n' +
+                               specialDisplay),
                         inline=True)
     
     else:
-        embed.add_field(name=f'Stats - {sum(stats.values())} BST',
-                        value=f'HP: {stats["hp"]}\nAtk: {stats["attack"]}\nDef: {stats["defense"]}',
-                        inline=True)
-        
-        embed.add_field(name=f'᲼',
-                        value=f'Speed: {stats["speed"]}\nSp.Atk: {stats["special-attack"]}\nSp.Def: {stats["special-defense"]}',
+        embed.add_field(name=f'Stats - {sum([obj["BaseStat"] for obj in stats])} BST',
+                        value=(f'{getBaseStatText("hp")}: {getBaseStat(stats, "hp")}\n' +
+                               f'{getBaseStatText("attack")}: {getBaseStat(stats, "attack")}\n' +
+                               f'{getBaseStatText("defense")}: {getBaseStat(stats, "defense")}'),
                         inline=True)
 
-    embed.add_field(name=f'Moveset Data from {formatVersionGroupName(versionGroup)}',
-                    value='',
-                    inline=False)
+        evDisplay = '᲼'
+        if showEvText and gen['Name'] <= 2:
+            evDisplay = 'Base Stats = EVs Given'
+
+        if gen['Name'] >= 2:
+            specialDisplay = (f'{getBaseStatText("special-attack")}: {getBaseStat(stats, "special-attack")}\n' +
+                              f'{getBaseStatText("special-defense")}: {getBaseStat(stats, "special-defense")}')
+        else:
+            specialDisplay = f'{getBaseStatText("special")}: {getBaseStat(stats, "special")}'
+
+        embed.add_field(name=evDisplay,
+                        value=(f'{getBaseStatText("speed")}: {getBaseStat(stats, "speed")}\n' +
+                               specialDisplay),
+                        inline=True)
     
     return embed
+
+def addPokemonInfoEmbed(embed, embeds, monData, speciesData, abilities, stats, versionGroup, imageBuffer, monTypes):
+    gen = getGroupGen(versionGroup)
+
+    embed.add_field(name=f'{[obj for obj in speciesData["genera"] if obj["language"]["name"] == "en"][0]["genus"]}',
+                    value=(f'Catch Rate: {speciesData["capture_rate"]}\n' +
+                           f'Height: {monData["height"]/10} m\n' +
+                           f'Weight: {monData["weight"]/10} kg'),
+                    inline=True)
+
+    embed.add_field(name=f'᲼',
+                    value=(f'Eggs: {formatEggGroupNames(speciesData["egg_groups"])}\n' +
+                           f'Hatch Cycles: {speciesData["hatch_counter"]}\n' +
+                           f'{formatGenderDisplay(speciesData["gender_rate"])}'),
+                    inline=True)
+
+    embed.add_field(name='', value='', inline=False)
+
+    if gen['Name'] >= 3:
+        embed.add_field(name='Abilities',
+                        value=formatAbilities(abilities),
+                        inline=True)
+
+        embed.add_field(name='EVs Given',
+                        value=formatEVs(stats),
+                        inline=True)
+
+    embed.add_field(name='', value='', inline=False)
+
+    embed = addCommonDexEmbedFields(embed, stats, versionGroup, showEvText=True)
+
+    embeds.append((copy.deepcopy(embed), imageBuffer, f'{monTypes[0]}', 'png'))
+
+    embed.clear_fields()
+
+    return embeds
+
+def addPaginatedEncounterEmbeds(embed, embeds, encounters, stats, versionGroup, gameName, imageBuffer, monTypes):
+    fieldTitles = ['Location', 'Method', 'Max Rate']
+    fieldContent = ['', '', '']
+
+    pageCount = 20
+    for i, encounter in enumerate(encounters, start=1):
+        fieldContent[0] += f'{encounter["Location"]}\n'
+        fieldContent[1] += f'{encounter["Method"], encounter["Conditions"]}\n'
+        fieldContent[2] += f'{encounter["MaxChance"]}%\n'
+
+        if i % pageCount == 0:
+            embed = addCommonDexEmbedFields(embed, stats, versionGroup)
+            embed.add_field(name=f'Encounter Data from {formatTextForDisplay(gameName)}',
+                            value='',
+                            inline=False)
+            embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds, extraEmbedData=(imageBuffer, f'{monTypes[0]}', 'png'))
+            fieldContent = ['', '', '']
+
+    if fieldContent[0] != '':
+        embed = addCommonDexEmbedFields(embed, stats, versionGroup)
+        embed.add_field(name=f'Encounter Data from {formatTextForDisplay(gameName)}',
+                        value='',
+                        inline=False)
+        embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds, extraEmbedData=(imageBuffer, f'{monTypes[0]}', 'png'))
+
+    return embeds
 
 def addPaginatedLearnsetEmbeds(embed, embeds, movesets, movesetKey, uniqueFieldHeader, stats, versionGroup, imageBuffer, monTypes, uniqueFieldTextOverride=None):
     if not movesets[movesetKey]:
@@ -1436,14 +1625,106 @@ def addPaginatedLearnsetEmbeds(embed, embeds, movesets, movesetKey, uniqueFieldH
 
         if i % pageCount == 0:
             embed = addCommonDexEmbedFields(embed, stats, versionGroup)
+            embed.add_field(name=f'Moveset Data from {formatVersionGroupName(versionGroup)}',
+                            value='',
+                            inline=False)
             embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds, extraEmbedData=(imageBuffer, f'{monTypes[0]}', 'png'))
             fieldContent = ['', '', '']
 
     if fieldContent[0] != '':
         embed = addCommonDexEmbedFields(embed, stats, versionGroup)
+        embed.add_field(name=f'Moveset Data from {formatVersionGroupName(versionGroup)}',
+                        value='',
+                        inline=False)
         embed, embeds = addPaginatedEmbedFields(fieldTitles, fieldContent, embed, embeds, extraEmbedData=(imageBuffer, f'{monTypes[0]}', 'png'))
 
     return embeds
+
+def defineConflictingConditions(condition):
+    if condition.startswith('time-'):
+        #handles time-morning, time-day, time-night
+        return 'time'
+    elif condition.startswith('slot2-'):
+        #handles slot2-ruby, slot2-sapphire, slot2-emerald, slot2-firered, slot2-leafgreen
+        return 'dual-slot'
+    elif condition.startswith('radio-'):
+        #handles radio-hoenn, radio-sinnoh
+        return 'radio'
+    elif condition.startswith('season-'):
+        #handles season-spring, season-summer, season-fall, season-winter
+        return 'season'
+    elif condition.startswith('weekday-'):
+        #handles weekday-sunday, weekday-monday, weekday-tuesday, 
+        #        weekday-wednesday, weekday-thursday, weekday-friday, weekday-saturday
+        return 'weekday'
+    elif condition.startswith('weather-'):
+        #handles weather-overcast, weather-raining, weather-thunderstorm, weather-snowing, 
+        #        weather-snowstorm, weather-sandstorm, weather-intense-sun, weather-fog
+        return 'weather'
+    elif condition.startswith('johto-safari-blocks-'):
+        #handles a whole shit ton of block configurations
+        return 'safari-blocks'
+    elif condition.startswith('great-marsh-daily-slot-'):
+        #handles great-marsh-daily-slot-1-of-32, great-marsh-daily-slot-2-of-32, great-marsh-daily-slot-3-of-32,
+        #        great-marsh-daily-slot-4-of-32, great-marsh-daily-slot-5-of-32, great-marsh-daily-slot-15-of-32
+        return 'great-marsh-daily'
+    elif condition == 'story-progress-national-dex' or condition == 'story-progress-before-national-dex':
+        return 'nat-dex'
+    elif condition == 'story-progress-hall-of-fame' or condition == 'story-progress-before-hall-of-fame':
+        return 'hall-of-fame'
+    else:
+        return condition
+
+def determineBestEncounterConditions(encounterDetails):
+    conditionlessSum = sum(obj['Chance'] for obj in encounterDetails if len(obj['Conditions']) == 0)
+
+    conditionedEncounters = [obj for obj in encounterDetails if len(obj['Conditions']) >= 1]
+
+    conditionGroupSums = defaultdict(lambda: defaultdict(int))
+    for detail in conditionedEncounters:
+        for condition in detail['Conditions']:
+            conditionGroupSums[defineConflictingConditions(condition)][condition] += detail['Chance']
+
+    bestConditions = {
+        group: max(values, key=values.get)
+        for group, values in conditionGroupSums.items()
+    }
+
+    conditionalSum = sum(obj['Chance'] for obj in conditionedEncounters if set(obj['Conditions']) <= set(bestConditions.values()))
+
+    return conditionlessSum + conditionalSum, bestConditions
+
+async def getEncounters(encountersLink, gameName):
+    encounterData = await getPokeApiJsonData(encountersLink)
+
+    gameEncounters = []
+    for location in encounterData:
+        for version in location['version_details']:
+            if version['version']['name'] == gameName:
+                encounterMethods = defaultdict(list)
+                for detail in version['encounter_details']:
+                    encounterConditions = []
+                    for condition in detail['condition_values']:
+                        if condition['name'] not in excludedEncounterConditions:
+                            encounterConditions.append(condition['name'])
+                    encounterMethods[detail['method']['name']].append({
+                        'Chance': detail['chance'],
+                        'Conditions': encounterConditions,
+                        'GuaranteedShiny': detail['pokemon_details']['always_shiny'] if detail['pokemon_details'] else False
+                    })
+
+                for method, details in encounterMethods.items():
+                    maxChance, bestConditions = determineBestEncounterConditions(details)
+
+                    gameEncounters.append({
+                        'Location': location['location_area']['name'],
+                        'Game': version['version']['name'],
+                        'Method': method,
+                        'MaxChance': maxChance,
+                        'Conditions': bestConditions
+                    })
+
+    return gameEncounters
 #endregion
 
 #region $sl moves command
@@ -1471,11 +1752,12 @@ async def getMoves(moves, versionGroup, excludedVersions=None):
 
     excludedVersions = excludedVersions or set()
 
-    if versionGroup == '' or versionGroup in excludedVersions:
+    if versionGroup is None or versionGroup in excludedVersions:
         availableVersions = set()
         for move in moves:
             for details in move['version_group_details']:
-                availableVersions.add(details['version_group']['name'])
+                if details['version_group']['name'] not in excludedVersionGroups:
+                    availableVersions.add(details['version_group']['name'])
         availableVersions -= excludedVersions
 
         if not availableVersions:
@@ -1503,7 +1785,7 @@ async def getMoves(moves, versionGroup, excludedVersions=None):
 
     if not (levelUpMoveset or machineMoveset or tutorMoveset or eggMoveset) and moves:
         excludedVersions.add(versionGroup)
-        return await getMoves(moves, '', excludedVersions=excludedVersions)
+        return await getMoves(moves, None, excludedVersions=excludedVersions)
 
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -1529,10 +1811,10 @@ async def getMoves(moves, versionGroup, excludedVersions=None):
         machineDataTasks = [getPokeApiJsonData(url, session=session) for url in machineUrls]
         machineItemData = await asyncio.gather(*machineDataTasks)
 
-    levelUpMoveset = addMoveData(levelUpMoveset, levelUpMoveData)
-    machineMoveset = addMoveData(machineMoveset, machineMoveData)
-    tutorMoveset = addMoveData(tutorMoveset, tutorMoveData)
-    eggMoveset = addMoveData(eggMoveset, eggMoveData)
+    levelUpMoveset = addMoveData(levelUpMoveset, levelUpMoveData, getGroupGen(versionGroup))
+    machineMoveset = addMoveData(machineMoveset, machineMoveData, getGroupGen(versionGroup))
+    tutorMoveset = addMoveData(tutorMoveset, tutorMoveData, getGroupGen(versionGroup))
+    eggMoveset = addMoveData(eggMoveset, eggMoveData, getGroupGen(versionGroup))
 
     for move, data in zip(machineMoveset, machineItemData):
         move['Machine'] = str(data['item']['name']).upper()
@@ -1593,10 +1875,11 @@ async def showMoveSet(mon, level):
     monName = ' '.join(word.capitalize() for word in monName)
 
     movesets, versionGroup = await getMoves(monData['moves'], currentRun['VersionGroup'])
+    gameName = currentRun['Game']
 
     fieldContent, comment = movesetTextLevel(movesets['Level'], level)
 
-    stats = {obj['stat']['name']: obj['base_stat'] for obj in monData['stats']}
+    stats = await getBaseStatsFromPokeAPI(monData=monData, gameGen=getGroupGen(versionGroup))
 
     embed = discord.Embed(title=f'Level {level} {monName}',
                           description=comment,
@@ -1605,7 +1888,7 @@ async def showMoveSet(mon, level):
     if versionGroup != '':
         gameGen = getGroupGen(versionGroup)
 
-        baseUrlAddition, extension, rollShiny = determineGenSpecificSprite(gameGen, versionGroup)
+        baseUrlAddition, extension, rollShiny = determineGenSpecificSprite(gameGen, versionGroup, gameName)
 
         embed.set_thumbnail(url=getPokeAPISpriteUrl(dexNum, baseUrlAddition=baseUrlAddition, extension=extension, rollShiny=rollShiny))
 
@@ -1617,6 +1900,10 @@ async def showMoveSet(mon, level):
     embed.set_author(name='Moveset Data', url=serebiiLink)
 
     embed = addCommonDexEmbedFields(embed, stats, versionGroup, level=level)
+
+    embed.add_field(name=f'Moveset Data from {formatVersionGroupName(versionGroup)}',
+                        value='',
+                        inline=False)
     
     embed.add_field(name='Name',
                     value=fieldContent[0],
@@ -1632,19 +1919,53 @@ async def showMoveSet(mon, level):
     
     return embed
 
-def calculateHpStat(baseStat, level):
+def getBaseStatText(statName):
+    match statName:
+        case 'hp':
+            return 'HP'
+        case 'attack':
+            return 'Atk'
+        case 'defense':
+            return 'Def'
+        case 'special-attack':
+            return 'Sp.Atk'
+        case 'special-defense':
+            return 'Sp.Def'
+        case 'special':
+            return 'Special'
+        case 'speed':
+            return 'Speed'
+
+def displayStat(baseStat, level, gen):
+    text = getBaseStatText(baseStat['Name'])
+        
+    if baseStat['Name'] == 'hp':
+        stat = calculateHpStat(baseStat, level, gen)
+    else:
+        stat = calculateStat(baseStat, level, gen)
+
+    return f'{text}: {stat}'
+
+def getStartingStats(baseStat, gen):
+    if gen['Name'] >= 3:
+        startingStats = 2 * baseStat + 31
+    else:
+        startingStats = 2 * (baseStat + 15)
+
+    return startingStats
+
+def calculateHpStat(baseStat, level, gen):
     if baseStat == 1:
         hpStat = 1
     else:
-        hpStat = math.floor(((2 * baseStat + 31) * level)/100) + level + 10
+        hpStat = math.floor((getStartingStats(baseStat, gen) * level)/100) + level + 10
 
     return hpStat
 
-def calculateStat(baseStat, level):
-    stat = math.floor(((2 * baseStat + 31) * level)/100) + 5
+def calculateStat(baseStat, level, gen):
+    stat = math.floor((getStartingStats(baseStat, gen) * level)/100) + 5
 
     return stat
-
 #endregion
 
 #endregion

@@ -3,6 +3,8 @@ from functions.soul_link_functions import *
 from functions.shared_functions import formatCommand, formatSplitInput, getUserIdFromNickname
 
 async def soulLinkCommands(userInput, author, guild):
+    embedPageJumps = None
+
     if userInput == 'help':
         response = await soulLinksHelp()
 
@@ -77,7 +79,7 @@ async def soulLinkCommands(userInput, author, guild):
         response = await undoDeath(formatCommand('undo-death', userInput), author.id)
 
     elif userInput.startswith('select-run'):
-        response = selectRun(formatCommand('select-run', userInput))
+        response = await selectRun(formatCommand('select-run', userInput))
 
     elif userInput == 'runs':
         response = await listRuns()
@@ -124,9 +126,9 @@ async def soulLinkCommands(userInput, author, guild):
         splitInput = formatSplitInput(userInput)
     
         if splitInput is None:
-            response = await makePokedexEmbed(userInput, None)
+            response, embedPageJumps = await makePokedexEmbed(userInput)
         else:
-            response = await makePokedexEmbed(splitInput[0], splitInput[1])
+            response, embedPageJumps = await makePokedexEmbed(splitInput[0], gameName=splitInput[1])
 
     elif userInput.startswith('moves'):
         userInput = formatCommand('moves', userInput)
@@ -139,7 +141,7 @@ async def soulLinkCommands(userInput, author, guild):
             response = await showMoveSet(splitInput[0], splitInput[1])
 
     elif userInput == 'reset':
-        response = resetFocus()
+        response = await resetFocus()
 
     elif userInput == 'rare-candies':
         response = await makeRareCandiesEmbed()
@@ -147,4 +149,4 @@ async def soulLinkCommands(userInput, author, guild):
     else:
         response = 'I\'ve never seen that soul links command before! You typed it horribly wrong! Get some `$sl help`!'
 
-    return response
+    return response, embedPageJumps

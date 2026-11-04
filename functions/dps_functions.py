@@ -19,8 +19,7 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         formatCapitalize, formatTextForBackend, formatTextForDisplay,
                                         getTypesFromPokeAPI, getTypeEmbedColour, getPogoStatsFromDexNum,
                                         getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, checkDuplicatePoGoMon, pogoRound, addPaginatedEmbedFields,
-                                        getPokeApiJsonData, calcPoGoStatsFromBaseStats, getDexNum, getMonName,
-                                        loadShucklePersonality, rollForShiny, getMon, checkClassification, pogoPokemon)
+                                        getDexNum, getMonName, rollForShiny, getMon, checkClassification, pogoPokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedColours, types
 from dictionaries.dps_dictionaries import dpsFileLocations, defaultModifiers, activeModifiers, battleTierStats, battleStatOverrides, weather
 
@@ -522,8 +521,8 @@ async def dpsCheck(monName, battleSystem, author, extraInputs=None):
     
     mon = [obj for obj in pogoPokemon if obj['DexNum'] == dexNum][0]
 
-    monTypes = await getTypesFromPokeAPI(mon['DexNum'])
-    bossTypes = await getTypesFromPokeAPI(modifiers['Boss']['DexNum'])
+    monTypes = await getTypesFromPokeAPI(dexNum=mon['DexNum'])
+    bossTypes = await getTypesFromPokeAPI(dexNum=modifiers['Boss']['DexNum'])
 
     moveset = copy.deepcopy(mon['Moves'])
 
@@ -1015,7 +1014,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                     elif megaDexNum == getDexNum('rayquaza-mega'):
                         megaTypes = weather.get('windy')
                     else:
-                        megaTypes = await getTypesFromPokeAPI(megaDexNum)
+                        megaTypes = await getTypesFromPokeAPI(dexNum=megaDexNum)
 
                     modifiers['MegaTypes'] = megaTypes
                     modifiers['ApplyMegaBoost'] = True

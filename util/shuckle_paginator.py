@@ -25,13 +25,13 @@ class ShucklePaginator(discord.ui.View):
 
     def __init__(self, *,
                  timeout: int = 60,
-                 PreviousButton: discord.ui.Button = discord.ui.Button(emoji=discord.PartialEmoji(name="\U000025c0")),
-                 NextButton: discord.ui.Button = discord.ui.Button(emoji=discord.PartialEmoji(name="\U000025b6")),
+                 PreviousButton: discord.ui.Button | None = None,
+                 NextButton: discord.ui.Button | None = None,
                  PageCounterStyle: discord.ButtonStyle = discord.ButtonStyle.grey,
                  InitialPage: int = 0,
                  ephemeral: bool = False) -> None:
-        self.PreviousButton = PreviousButton
-        self.NextButton = NextButton
+        self.PreviousButton = PreviousButton or discord.ui.Button(emoji=discord.PartialEmoji(name="\U000025c0"))
+        self.NextButton = NextButton or discord.ui.Button(emoji=discord.PartialEmoji(name="\U000025b6"))
         self.PageCounterStyle = PageCounterStyle
         self.InitialPage = InitialPage
         self.ephemeral = ephemeral
@@ -42,15 +42,24 @@ class ShucklePaginator(discord.ui.View):
         self.current_page = None
         self.page_counter = None
         self.total_page_count = None
+        self.jump_to_buttons: list[tuple[discord.ui.Button, int]] = []
 
         super().__init__(timeout=timeout)
 
-    async def start(self, ctx: discord.Interaction|commands.Context, pages: list[discord.Embed] | list[tuple[discord.Embed, bytes, str, str]]):
+    async def start(self, ctx: discord.Interaction|commands.Context, 
+                    pages: list[discord.Embed] | list[tuple[discord.Embed, bytes, str, str]],
+                    jump_to_buttons: list[dict] | None = None):
         '''
-        Accepts a list of embeds
-        Or, a list of tuples that contains the embed, file as bytes, filename, then file extension
+        Page:
+            Accepts a list of embeds
+            Or, a list of tuples that contains the embed, file as bytes, filename, then file extension
 
-        If the file is passed in as a discord.File as soon as its tabbed away from the file gets destroyed
+            If the file is passed in as a discord.File as soon as its tabbed away from the file gets destroyed
+        
+        JumpToButtons:
+            list of dicts to instantly jump to a section
+            page number is the index of the page, not the 'real' page num
+            {'Emoji': '<:emoji:12345>', 'PageNum': 3}
         '''
         if isinstance(ctx, discord.Interaction):
             ctx = await commands.Context.from_interaction(ctx)
@@ -64,12 +73,17 @@ class ShucklePaginator(discord.ui.View):
         self.NextButton.callback = self.next_button_callback
 
         self.page_counter = ShucklePaginatorPageCounter(style=self.PageCounterStyle,
-                                                       TotalPages=self.total_page_count,
-                                                       InitialPage=self.InitialPage)
+                                                        TotalPages=self.total_page_count,
+                                                        InitialPage=self.InitialPage)
 
         self.add_item(self.PreviousButton)
         self.add_item(self.page_counter)
         self.add_item(self.NextButton)
+
+        for jumpPage in (jump_to_buttons or []):
+            await self.add_jump_to_button(jumpPage)
+
+        await self._disable_current_page_jump_to_button()
 
         page = self.pages[self.InitialPage]
         if isinstance(page, tuple):
@@ -79,13 +93,29 @@ class ShucklePaginator(discord.ui.View):
         else:
             self.message = await ctx.send(embed=page, view=self)
 
-    async def previous(self):
-        if self.current_page == 0:
-            self.current_page = self.total_page_count - 1
-        else:
-            self.current_page -= 1
+    async def add_jump_to_button(self, jumpPage: dict):
+        if not 1 <= (jumpPage['PageNum']+1) <= self.total_page_count:
+            raise ValueError(f'PageNum {jumpPage["PageNum"]} is out of the total page range!')
 
+        button = discord.ui.Button(emoji=jumpPage['Emoji'], style=discord.ButtonStyle.gray)
+
+        async def callback(interaction: discord.Interaction, target=jumpPage['PageNum']):
+            await self.show_page(target)
+            await interaction.response.defer()
+
+        button.callback = callback
+        self.add_item(button)
+        self.jump_to_buttons.append((button, jumpPage['PageNum']))
+
+    async def _disable_current_page_jump_to_button(self):
+        for button, target in self.jump_to_buttons:
+            button.disabled = (self.current_page == target)
+
+    async def show_page(self, index: int):
+        self.current_page = index
         self.page_counter.label = f"{self.current_page + 1}/{self.total_page_count}"
+        await self._disable_current_page_jump_to_button()
+
         page = self.pages[self.current_page]
         if isinstance(page, tuple):
             embed, bytes, filename, extension = page
@@ -93,39 +123,18 @@ class ShucklePaginator(discord.ui.View):
             await self.message.edit(embed=embed, attachments=[file], view=self)
         else:
             await self.message.edit(embed=page, view=self)
+
+    async def previous(self):
+        await self.show_page(self.total_page_count - 1 if self.current_page == 0 else self.current_page - 1)
 
     async def next(self):
-        if self.current_page == self.total_page_count - 1:
-            self.current_page = 0
-        else:
-            self.current_page += 1
-
-        self.page_counter.label = f"{self.current_page + 1}/{self.total_page_count}"
-        page = self.pages[self.current_page]
-        if isinstance(page, tuple):
-            embed, bytes, filename, extension = page
-            file = discord.File(BytesIO(bytes), filename=f'{filename}.{extension}')
-            await self.message.edit(embed=embed, attachments=[file], view=self)
-        else:
-            await self.message.edit(embed=page, view=self)
+        await self.show_page(0 if self.current_page == self.total_page_count - 1 else self.current_page + 1)
 
     async def next_button_callback(self, interaction: discord.Interaction):
-        '''
-        if interaction.user != self.ctx.author:
-            embed = discord.Embed(description="You cannot control this pagination because you did not execute it.",
-                                  color=discord.Colour.red())
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
-        '''
         await self.next()
         await interaction.response.defer()
 
     async def previous_button_callback(self, interaction: discord.Interaction):
-        '''
-        if interaction.user != self.ctx.author:
-            embed = discord.Embed(description="You cannot control this pagination because you did not execute it.",
-                                  color=discord.Colour.red())
-            return await interaction.response.send_message(embed=embed, ephemeral=True)
-        '''
         await self.previous()
         await interaction.response.defer()
 

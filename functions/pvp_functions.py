@@ -15,7 +15,7 @@ from dictionaries.pvp_dictionaries import pvpFileLocations, defaultPvpModifiers,
 from dictionaries.shared_dictionaries import sharedImagePaths, sharedColours, pogoLevels
 from functions.shared_functions import (
     rollForShiny, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, pogoRound, writeImageText, getPogoStatsFromDexNum,
-    getDexNum, getPokeApiJsonData, calcPoGoStatsFromBaseStats, getMon, formatTextForBackend, checkClassification,
+    getDexNum, getMon, formatTextForBackend, checkClassification,
     getTypesFromPokeAPI, getTypeEmbedColour, getTypeTextColour, getMonName, getPokeAPISpriteUrl, loadDataVariableFromFile, 
     saveDataVariableToFile, addPaginatedEmbedFields, pasteMonOnImage, pogoPokemon
 )
@@ -145,25 +145,8 @@ async def showPreMegaCP(dexNum, rank, superMega, show):
         if not checkClassification(dexNum, 'Mega'):
             raise Exception
 
-        pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == mon['EvolvesFrom']), None)
-
-        if pogoMon is None:
-            monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{mon["EvolvesFrom"]}')
-    
-            if monData is None:
-                raise FileNotFoundError
-    
-            stats = []
-    
-            for i in range(6):
-                stats.append(int(monData['stats'][i]['base_stat']))
-    
-            baseAttack, baseDefence, baseStamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
-        else:
-            baseAttack = pogoMon['Attack']
-            baseDefence = pogoMon['Defence']
-            baseStamina = pogoMon['Stamina']
-
+        baseAttack, baseDefence, baseStamina, nerfAmount = await getPogoStatsFromDexNum(dexNum)
+        
         if superMega:
             cpMultiplier = getPoGoCPMultiplier(rank['Level'] - 2.0)
         else:
@@ -199,7 +182,7 @@ async def pvpRankCheck(monName, extraInputs=None):
 
     rankList, modifiers = await getPvpRankList(dexNum, modifiers)
 
-    monTypes = await getTypesFromPokeAPI(dexNum)
+    monTypes = await getTypesFromPokeAPI(dexNum=dexNum)
 
     embed = discord.Embed(title=f'PvP Ranks for {getMonName(dexNum)} under {modifiers["LeagueLimit"]}',
                           description=f'Attack: {modifiers["BaseStats"]["Attack"]:g}\nDefence: {modifiers["BaseStats"]["Defence"]:g}\nStamina: {modifiers["BaseStats"]["Stamina"]:g}',
@@ -612,15 +595,15 @@ async def getTrackingString(monName, author, extraInputs=None):
 
 #region image
 async def createPvpWildImage(dexNum, originalDexNum, rank, league, maxWildLevel, cpList):
-    monTypes = await getTypesFromPokeAPI(dexNum)
+    monTypes = await getTypesFromPokeAPI(dexNum=dexNum)
 
     backgroundImage = Image.open(f'images/type_backgrounds/{monTypes[0]}.png')
 
     if dexNum == originalDexNum:
-        backgroundImage = await pasteMonOnImage(backgroundImage, dexNum, 152, 50)
+        backgroundImage = await pasteMonOnImage(backgroundImage, getMon(dexNum), 152, 50)
     else:
-        backgroundImage = await pasteMonOnImage(backgroundImage, dexNum, 152, 25)
-        backgroundImage = await pasteMonOnImage(backgroundImage, originalDexNum, 174, 150, resizeTo=48)
+        backgroundImage = await pasteMonOnImage(backgroundImage, getMon(dexNum), 152, 25)
+        backgroundImage = await pasteMonOnImage(backgroundImage, getMon(originalDexNum), 174, 150, resizeTo=48)
 
     if rank['Ivs']['Attack'] == 15 and rank['Ivs']['Defence'] == 15 and rank['Ivs']['Stamina'] == 15:
         league = 'hundo'
@@ -688,24 +671,7 @@ async def getPvpWildImage(monName, extraInputs=None):
 
     displayedDexNum = getDexNum(getTrackedMonName(dexNum, True))
 
-    pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == displayedDexNum), None)
-    
-    if pogoMon is None:
-        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{displayedDexNum}')
-
-        if monData is None:
-            raise FileNotFoundError
-
-        stats = []
-
-        for i in range(6):
-            stats.append(int(monData['stats'][i]['base_stat']))
-
-        baseAttack, baseDefence, baseStamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
-    else:
-        baseAttack = pogoMon['Attack']
-        baseDefence = pogoMon['Defence']
-        baseStamina = pogoMon['Stamina']
+    baseAttack, baseDefence, baseStamina, nerfAmount = await getPogoStatsFromDexNum(displayedDexNum)
 
     cpList = []
     maxWildLevel = 35

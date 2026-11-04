@@ -1,22 +1,59 @@
 soulLinksFileLocations = {
-    'Runs': 'text_files/soul_links/runs.txt'
+    'Runs': 'text_files/soul_links/runs.txt',
+    'CurrentRun': 'text_files/soul_links/current_run.txt'
 }
 
 defaultRun = {
-    'VersionGroup': '',
-    'RunName': '',
+    'Game': '',
+    'VersionGroup': None,
+    'RunName': ''
 }
 
+excludedEncounterConditions = ['swarm-no', 'radar-off', 'slot2-none', 'radio-off', 'backlot-not-mentioned', 'bug-catching-contest-no', 'great-marsh-daily-slot-none', 'weather-normal',
+                               'time-minute-00-to-19', 'time-minute-20-to-39', 'time-minute-40-to-59', 'time-04-00-to-19-59', 'time-20-00-to-21-59', 'time-22-00-to-03-59',
+                               'starter-bulbasaur', 'starter-charmander', 'starter-squirtle', 'starter-chespin', 'starter-fennekin', 'starter-froakie', 'starter-grookey', 'starter-scorbunny', 'starter-sobble', 
+                               'story-progress-none', 'story-progress-awakened-beasts', 'story-progress-beat-galactic-coronet', 'story-progress-oak-eterna-city', 
+                               'story-progress-vermillion-copycat', 'story-progress-met-tornadus-thundurus', 'story-progress-beat-elite-four-round-two', 'tv-option-red', 'tv-option-blue',
+                               'story-progress-cure-eldritch-nightmares', 'story-progress-defeat-jupiter', 'story-progress-beat-team-galactic-iron-island', 'story-progress-zephyr-badge', 
+                               'story-progress-receive-tm-from-claire', 'story-progress-defeat-mars', 'story-progress-returned-machine-part', 'story-progress-juniper-cave-of-being',
+                               'story-progress-quake-badge', 'story-progress-beat-olivias-trial', 'story-progress-finished-looker-side-quest', 'story-progress-defeated-groudon-or-kyogre', 
+                               'story-progress-catch-all-shadow-pokemon', 'story-progress-master-dojo-complete-first-trial', 'story-progress-master-dojo-complete-third-trial', 
+                               'story-progress-save-village-from-glastrier-spectrier', 'story-progress-catch-five-ultra-beasts', 'defeated-ghetsis', 'other-complete-mt-battle',
+                               'other-none', 'other-snorlax-11-beat-league', 'other-virtual-console', 'other-correct-password', 'other-received-kanto-starter', 'other-talk-to-cynthias-grandmother',
+                               'other-talked-to-32-people-underground', 'other-talked-to-32-people', 'other-event-arceus-in-party', 'other-found-11-times-roaming', 'other-captured-all-ultra-beasts',
+                               'other-caught-articuno', 'other-caught-zapdos', 'other-caught-moltres', 'other-giratina-not-caught-in-distortion-world', 
+                               'other-choose-regieleki-pattern', 'other-choose-regidrago-pattern', 'other-grow-iceroot-carrot', 'other-grow-shaderoot-carrot', 'other-witness-galarian-bird-fight',
+                               'item-none', 'item-helix-fossil', 'item-dome-fossil', 'item-old-amber', 'item-root-fossil', 'item-claw-fossil', 'item-skull-fossil', 'item-armor-fossil',
+                               'item-cover-fossil', 'item-plume-fossil', 'item-fossillized-drake', 'item-fossillized-dino', 'item-fossillized-fish', 'item-fossillized-bird', 'first-party-pokemon-high-friendship',
+                               'special-encounter-couldnt-capture-before', 'johto-safari-blocks-inactive', 'friend-safari-slot-1', 'friend-safari-slot-2', 'friend-safari-slot-3', 
+                               'headbutt-tree-common', 'headbutt-tree-rare', 'headbutt-tree-secret', 'honey-tree-group-a', 'honey-tree-group-b', 'honey-tree-group-c',
+                               'alolan-diglett-found-5', 'alolan-diglett-found-10', 'alolan-diglett-found-20', 'alolan-diglett-found-30', 'alolan-diglett-found-40', 'alolan-diglett-found-50', 
+                               'alolan-diglett-found-75', 'alolan-diglett-found-100', 'alolan-diglett-found-150', 'trade-togepi-or-togetic', 'trade-trapinch', 'trade-surskit', 'trade-wooper', 
+                               'trade-abra', 'trade-nidoran-m', 'trade-nidorino', 'trade-slowbro', 'trade-poliwhirl', 'trade-spearow', 'trade-raichu', 'trade-venonat', 'trade-ponyta', 'trade-clefairy', 
+                               'trade-cubone', 'trade-lickitung', 'trade-tangela', 'trade-golduck', 'trade-growlithe', 'trade-kangaskhan', 'trade-bellsprout', 'trade-drowzee', 'trade-krabby', 
+                               'trade-dragonair', 'trade-chansey', 'trade-gloom', 'trade-haunter', 'trade-dugtrio', 'trade-slakoth', 'trade-pikachu', 'trade-bellossom', 'trade-ralts', 'trade-volbeat', 
+                               'trade-bagon', 'trade-skitty', 'trade-cottonee', 'trade-petilil', 'trade-emolga', 'trade-mantine', 'trade-ditto', 'trade-excadrill', 'trade-hippowdon', 
+                               'trade-bunnelby', 'trade-meowth-galar', 'trade-minccino', 'trade-toxel', 'trade-maractus', 'trade-yamask-galar', 'trade-vanillish', 'trade-obstagoon', 
+                               'trade-frosmoth', 'trade-farfetchd-galar', 'trade-corsola-galar', 'trade-ponyta-galar', 'trade-mr-mime-galar', 'trade-darumaka-galar', 'trade-zigzagoon-galar', 
+                               'trade-stunfisk-galar', 'trade-weezing-galar', 'trade-exeggutor', 'trade-marowak', 'trade-nidoran-f', 'trade-nidorina', 'trade-machop', 'trade-buizel', 'trade-medicham', 
+                               'trade-finneon', 'trade-forretress', 'trade-bonsly', 'trade-any-pokemon', 'max-den-rarity-common', 'max-den-rarity-rare', 'max-den-rarity-special', 'max-den-rating-1-star',
+                               'max-den-rating-2-star', 'max-den-rating-3-star', 'max-den-rating-4-star', 'max-den-rating-5-star', 'trash-can-type-daily', 'trash-can-type-tuesday', 'trash-can-type-thursday',
+                               'berry-tree-type-red', 'berry-tree-type-blue', 'berry-tree-type-purple', 'berry-tree-type-green', 'berry-tree-type-yellow', 'berry-tree-type-pink']
+
+excludedVersionGroups = ['red-green-japan', 'blue-japan', 
+                         'the-isle-of-armor', 'the-crown-tundra', 
+                         'the-teal-mask', 'the-indigo-disk', 'mega-dimension', 'champions']
+
 gens = [
-    {'Name': 1, 'SerebiiLink': '', 'RomanNumeral': 'i', 'VersionGroups': [{'Name': 'red-blue'}, {'Name': 'yellow'}, {'Name': 'red-green-japan'}, {'Name': 'blue-japan'}]},
+    {'Name': 1, 'SerebiiLink': '', 'RomanNumeral': 'i', 'VersionGroups': [{'Name': 'red-blue'}, {'Name': 'yellow'}]},
     {'Name': 2, 'SerebiiLink': '-gs', 'RomanNumeral': 'ii', 'VersionGroups': [{'Name': 'gold-silver'}, {'Name': 'crystal'}]},
     {'Name': 3, 'SerebiiLink': '-rs', 'RomanNumeral': 'iii', 'VersionGroups': [{'Name': 'ruby-sapphire'}, {'Name': 'emerald'}, {'Name': 'firered-leafgreen'}, {'Name': 'colosseum'}, {'Name': 'xd'}]},
     {'Name': 4, 'SerebiiLink': '-dp', 'RomanNumeral': 'iv', 'VersionGroups': [{'Name': 'diamond-pearl'}, {'Name': 'platinum'}, {'Name': 'heartgold-soulsilver'}]},
     {'Name': 5, 'SerebiiLink': '-bw', 'RomanNumeral': 'v', 'VersionGroups': [{'Name': 'black-white'}, {'Name': 'black-2-white-2'}]},
     {'Name': 6, 'SerebiiLink': '-xy', 'RomanNumeral': 'vi', 'VersionGroups': [{'Name': 'x-y'}, {'Name': 'omega-ruby-alpha-sapphire'}]},
     {'Name': 7, 'SerebiiLink': '-sm', 'RomanNumeral': 'vii', 'VersionGroups': [{'Name': 'sun-moon'}, {'Name': 'ultra-sun-ultra-moon'}, {'Name': 'lets-go-pikachu-lets-go-eevee'}]},
-    {'Name': 8, 'SerebiiLink': '-swsh', 'RomanNumeral': 'viii', 'VersionGroups': [{'Name': 'sword-shield'}, {'Name': 'the-isle-of-armor'}, {'Name': 'the-crown-tundra'}, {'Name': 'brilliant-diamond-shining-pearl'}, {'Name': 'legends-arceus'}]},
-    {'Name': 9, 'SerebiiLink': '-sv', 'RomanNumeral': 'ix', 'VersionGroups': [{'Name': 'scarlet-violet'}, {'Name': 'the-teal-mask'}, {'Name': 'the-indigo-disk'}, {'Name': 'legends-za'}, {'Name': 'mega-dimension'}, {'Name': 'champions'}]}
+    {'Name': 8, 'SerebiiLink': '-swsh', 'RomanNumeral': 'viii', 'VersionGroups': [{'Name': 'sword-shield'}, {'Name': 'brilliant-diamond-shining-pearl'}, {'Name': 'legends-arceus'}]},
+    {'Name': 9, 'SerebiiLink': '-sv', 'RomanNumeral': 'ix', 'VersionGroups': [{'Name': 'scarlet-violet'}, {'Name': 'legends-za'}]}
 ]
 
 '''

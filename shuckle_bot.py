@@ -1,5 +1,5 @@
 import discord
-from functions.shared_functions import assignReactionEmoji, loadDataVariableFromFile, formatTextForBackend
+from functions.shared_functions import assignReactionEmoji, loadDataVariableFromFile
 from dictionaries.shared_dictionaries import sharedFileLocations
 from commands.misc_commands import miscShuckleCommands
 from commands.soul_link_commands import soulLinkCommands
@@ -28,6 +28,7 @@ class DiscordClient(discord.Client):
         
         response = None
         file = None
+        embedPageJumps = None
 
         if message.content.startswith('$'):
             message.content = message.content.lower()
@@ -50,7 +51,7 @@ class DiscordClient(discord.Client):
 
             userCommand = message.content[len('$sl'):].lstrip('-, ')
 
-            response = await soulLinkCommands(userCommand, message.author, message.guild)
+            response, embedPageJumps = await soulLinkCommands(userCommand, message.author, message.guild)
 
         elif message.content.startswith('$routes'):
             await message.add_reaction(assignReactionEmoji('Routes'))
@@ -116,8 +117,8 @@ class DiscordClient(discord.Client):
                 else:
                     await message.channel.send(embed=response)
             elif (isinstance(response, list)):
-                #handles list[discord.Embed] and list[tuple(discord.Embed, bytes, str, str)]
-                await ShucklePaginator().start(message.channel, pages=response)
+                #pages handles list[discord.Embed] and list[tuple(discord.Embed, bytes, str, str)]
+                await ShucklePaginator().start(message.channel, pages=response, jump_to_buttons=embedPageJumps)
 
 ## Set up and log in
 if __name__ == "__main__":

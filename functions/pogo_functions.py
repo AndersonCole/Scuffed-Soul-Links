@@ -27,7 +27,7 @@ from dictionaries.pogo_dictionaries import pogoFileLocations, eventColours, filt
 from dictionaries.pvp_dictionaries import pvpFileLocations
 from functions.shared_functions import (
     formatTextForDisplay, getMonFromName, getRegionFromDexNum, getUserIdFromNickname, getDiscordName, calcNerfOverride, getMonName, getPogoStatsFromDexNum,
-    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeEmbedColour, verifyRegion, getMon, addPaginatedEmbedFields, getNerfText,
+    getPokeAPISpriteUrl, getTypesFromPokeAPI, getTypeEmbedColour, verifyRegion, getMon, addPaginatedEmbedFields, getNerfText, getBaseStatsFromPokeAPI,
     rollForShiny, getDexNum, getPokeApiJsonData, getPoGoCPMultiplier, calcPoGoCP, calcPoGoStat, calcPoGoStatsFromBaseStats,
     loadDataVariableFromFile, saveDataVariableToFile, formatTextForBackend, checkClassification, recurseEvoChain, pogoPokemon
 )
@@ -355,7 +355,7 @@ async def calculateOdds(monName, extraInputs=None):
                                        f'**1/{(inverseProbability):.1f}**\n\n' +
                                        f'{attemptsFor50} attempts for a 50% chance\n' +
                                        f'{attemptsFor95} attempts for a 95% chance'),
-                          color=getTypeEmbedColour((await getTypesFromPokeAPI(mon['DexNum']))[0]))
+                          color=getTypeEmbedColour((await getTypesFromPokeAPI(dexNum=mon['DexNum']))[0]))
     
     embed.set_thumbnail(url=getPokeAPISpriteUrl(mon['DexNum'], rollShiny=False, forceShiny=tryingForShiny(modifiers['ShinyChance'])))
     
@@ -748,22 +748,12 @@ async def checkTrackedMon(monName, user, guild):
     
     userTrackedMon = [obj for obj in userTracked if obj['DexNum'] == mon['DexNum']][0]
 
-    monTypes = await getTypesFromPokeAPI(mon['DexNum'])
+    monTypes = await getTypesFromPokeAPI(dexNum=mon['DexNum'])
 
     pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == mon['DexNum']), {})
 
     if len(pogoMon) == 0:
-        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{mon["DexNum"]}')
-
-        if monData is None:
-            return f'An error occured while checking the api!'
-
-        stats = []
-
-        for i in range(6):
-            stats.append(int(monData['stats'][i]['base_stat']))
-
-        pogoMon['Attack'], pogoMon['Defence'], pogoMon['Stamina'], nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
+        pogoMon['Attack'], pogoMon['Defence'], pogoMon['Stamina'], nerfAmount = getPogoStatsFromDexNum(mon['DexNum'])
     
     embed = discord.Embed(title=f'{formatTextForDisplay(mon["Name"])} tracked by {formatTextForDisplay(discordName)}',
                           description=f'Attack: {pogoMon["Attack"]}\n'
@@ -1046,7 +1036,7 @@ async def ivComboCheck(monName, extraInputs=None):
 
     ivCombos, modifiers = await getIvComboList(dexNum, modifiers)
 
-    monTypes = await getTypesFromPokeAPI(dexNum)
+    monTypes = await getTypesFromPokeAPI(dexNum=dexNum)
 
     embed = discord.Embed(title=f'Iv Combos for {getMonName(dexNum)} at CP {modifiers["TargetCP"]}',
                           description=f'Attack: {modifiers["BaseStats"]["Attack"]:g}\nDefence: {modifiers["BaseStats"]["Defence"]:g}\nStamina: {modifiers["BaseStats"]["Stamina"]:g}\n\nTotal Iv Combos: {len(ivCombos)}',
@@ -1378,7 +1368,7 @@ async def scanCoordinateSet(coordsList, pictureSettings, channel):
         if pictureSettings['Show']:
             await addToScanLog('Preparing to take results picture now...')
             await asyncio.sleep(30)
-            await scanResultsPicture(driver, wait, pictureSettings['Zoom'], channel)
+            await scanResultsPicture(driver, wait, pictureSettings, channel)
 
     except Exception as ex:
         await addToScanLog(f'An error occured while attempting to scan: {ex}')
@@ -1387,8 +1377,32 @@ async def scanCoordinateSet(coordsList, pictureSettings, channel):
         driver.quit()
         await addToScanLog('Ready')
 
-async def scanResultsPicture(driver, wait, zoom, channel):
-    for i in range(zoom):
+async def scanResultsPicture(driver, wait, pictureSettings, channel):
+    areaScanBtn = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Scan an Area"]'))
+    )
+    areaScanBtn.click()
+
+    await asyncio.sleep(1)
+
+    #go to coord location
+    coordinates = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[aria-label="Coordinates (latitude, longitude)"]'))
+    )
+    coordinates.click()
+    coordinates.send_keys(f'{pictureSettings["Coords"]["Latitude"]}, {pictureSettings["Coords"]["Longitude"]}')
+    coordinates.send_keys(Keys.ENTER)
+
+    await asyncio.sleep(5)
+
+    areaScanBtn = wait.until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Scan an Area"]'))
+    )
+    areaScanBtn.click()
+
+    await asyncio.sleep(1)
+    
+    for i in range(pictureSettings['Zoom']):
         zoomBtn = wait.until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Zoom Out"]'))
         )
@@ -1541,23 +1555,13 @@ async def convertToGoStatsFromName(monName, nerfOverride=None):
 
     if dexNum == -1:
         return f'The pokemon \'{monName}\' was not recognized!'
-    
-    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-
-    if monData is None:
-        return f'An error occured while checking the api!'
-
-    stats = []
-
-    for i in range(6):
-        stats.append(int(monData['stats'][i]['base_stat']))
 
     if nerfOverride is not None:
         nerfOverride = calcNerfOverride(nerfOverride)
         if (isinstance(nerfOverride, str)):
             return nerfOverride
-    
-    attack, defence, stamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
+                
+    attack, defence, stamina, nerfAmount = await getPogoStatsFromDexNum(dexNum, nerfOverride=nerfOverride)
 
     lv40CP = determineCPFromBaseStat(attack, defence, stamina, 40)
     lv50CP = determineCPFromBaseStat(attack, defence, stamina, 50)

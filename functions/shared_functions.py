@@ -11,6 +11,7 @@ from datetime import datetime
 import math
 import discord
 import copy
+import roman
 from dictionaries.shared_dictionaries import sharedFileLocations, reactionEmojis, pokemonClassifications, types, pogoLevels, sharedColours
 
 pokeApiCache = Cache('./cache/poke_api')
@@ -45,7 +46,9 @@ users = loadDataVariableFromFile(sharedFileLocations.get('UserNicknames'))
 
 #region poke api
 async def getPokeApiJsonData(url, session=None):
-    if '/pokemon/' in url:
+    if url.endswith('/encounters'):
+        label = 'encounters'
+    elif '/pokemon/' in url:
         label = 'pokemon'
     elif '/pokemon-species/' in url:
         label = 'species'
@@ -83,25 +86,85 @@ async def getPokeApiJsonData(url, session=None):
         print(ex)
         return None
 
-async def getTypesFromPokeAPI(dexNum):
+async def getTypesFromPokeAPI(dexNum=None, monData=None, gameGen=None):
     monTypes = []
 
     try:
-        if dexNum < 0:
-            raise Exception
-        
-        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+        if monData is None:
+            monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
 
         if monData is None:
             raise Exception
-        
-        monTypes.append(str(monData['types'][0]['type']['name']).capitalize())
-        if len(monData['types']) > 1:
-            monTypes.append(str(monData['types'][1]['type']['name']).capitalize())
+
+        apiTypes = monData['types']
+
+        if gameGen is not None:
+            if monData['past_types']:
+                genRomanNum = re.split(r'[\s-.]+', monData['past_types'][0]['generation']['name'])[1]
+                if gameGen['Name'] <= roman.fromRoman(genRomanNum):
+                    apiTypes = monData['past_types'][0]['types']
+
+        for type in apiTypes:
+            monTypes.append(type['type']['name'].capitalize())
+            
     except:
         monTypes.append('Unknown')
 
     return monTypes
+
+def getBaseStat(stats, statName):
+    try:
+        return [obj for obj in stats if obj['Name'] == statName][0]['BaseStat']
+    except:
+        return 0
+
+async def getBaseStatsFromPokeAPI(dexNum=None, monData=None, gameGen=None):
+    monStats = []
+
+    if monData is None:
+        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+
+        if monData is None:
+            return None
+        
+    for stat in monData['stats']:
+        monStats.append({
+            'Name': stat['stat']['name'],
+            'BaseStat': stat['base_stat'],
+            'EV': stat['effort']
+        })
+
+    if gameGen is not None:
+        pastStats = []
+        if monData['past_stats']:
+            for stats in monData['past_stats']:
+                pastGameStats = []
+                for stat in stats['stats']:
+                    pastGameStats.append({
+                        'Name': stat['stat']['name'],
+                        'BaseStat': stat['base_stat'],
+                        'EV': stat['effort']
+                    })
+                pastStats.append({
+                    'Gen': roman.fromRoman(re.split(r'[\s-.]+', stats['generation']['name'])[1]),
+                    'Stats': pastGameStats
+                })
+                
+            pastStats = sorted(pastStats, key=lambda x: x['Gen'], reverse=True)
+
+            for pastGen in pastStats:
+                if gameGen['Name'] <= pastGen['Gen']:
+                    for pastStat in pastGen['Stats']:
+                        if pastStat['Name'] == 'special':
+                            monStats = [obj for obj in monStats if obj['Name'] not in ('special-attack', 'special-defense')]
+                            monStats.append(pastStat)
+                        else:
+                            for i, stat in enumerate(monStats):
+                                if pastStat['Name'] == stat['Name']:
+                                    monStats[i] = pastStat
+                                    break
+
+    return monStats
 
 def getPokeAPISpriteUrl(dexNum, baseUrlAddition=None, extension='.png', rollShiny=True, forceShiny=False):
     baseURL = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'
@@ -167,16 +230,49 @@ def addPaginatedEmbedFields(fieldTitle, fieldContent, embed, embeds, extraEmbedD
     embed.clear_fields()
 
     return embed, embeds
+#endregion
 
-async def pasteMonOnImage(backgroundImage, dexNum, positionX, positionY, resizeTo=None):
-    image = await openHttpImage(getPokeAPISpriteUrl(dexNum))
+#region image pasting
+async def pasteMonOnImage(backgroundImage, mon, positionX, positionY, resizeTo=None, showEvoMethod=False):
+    image = await openHttpImage(getPokeAPISpriteUrl(mon['DexNum']))
 
     if resizeTo is not None:
         image = image.resize((resizeTo, resizeTo))
     backgroundImage.paste(image, (positionX, positionY), mask=image)
     image.close()
 
+    if showEvoMethod:
+        if mon['Method'] == 'use-item':
+            itemImage = await openItemImage(mon['Value'])
+            backgroundImage.paste(itemImage, (positionX+55, positionY+60), mask=itemImage)
+            itemImage.close()
+
+            backgroundImage = await pasteExtraOnImage(backgroundImage, mon, (positionX+75, positionY+80))
+
     return backgroundImage
+
+async def openItemImage(value, resizeTo=None):
+    itemImage = await openHttpImage(f'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/{value}.png', returnNone=True)
+
+    if itemImage is None:
+        try:
+            itemImage = Image.open(f'images/evo_helpers/{value}.png').convert('RGBA')
+        except FileNotFoundError:
+            itemImage = Image.open(f'images/evo_helpers/small_missing_no.png').convert('RGBA')
+
+    if resizeTo is not None:
+        itemImage = itemImage.resize((resizeTo, resizeTo))
+
+    return itemImage
+
+async def pasteExtraOnImage(img, evolution, location):
+    if evolution['Extra'] is not None:
+        extraImage = await openItemImage(evolution['Extra'], resizeTo=10)
+    
+        img.paste(extraImage, location, mask=extraImage)
+        extraImage.close()
+
+    return img
 
 def writeImageText(backgroundImage, text, typeColour, positionX, positionY):
     draw = ImageDraw.Draw(backgroundImage)
@@ -224,6 +320,9 @@ def getTypeEmoji(type, moveCategory=None):
         category = moveCategory
 
     return f'<:_:{[obj for obj in types if obj["Name"] == type][0]["Emoji"][category]}>'
+
+def getMoveCategoryFromType(type):
+    return [obj for obj in types if obj['Name'] == type][0]['OldCategory']
 
 def convertColourToRGB(colour):
     r = (colour >> 16) & 0xFF
@@ -440,7 +539,6 @@ def calcPoGoCP(attack, defence, stamina):
     return cp
 
 def calcPoGoStatsFromBaseStats(hp, attack, defence, spAttack, spDefence, speed, nerfAmount=None):
-
     speedMult = ((speed-75)/500) + 1
 
     attackScaled = pogoRound(((7/4)*max(attack, spAttack)) + ((1/4)*min(attack, spAttack))) * speedMult
@@ -489,7 +587,7 @@ def getNerfText(nerfAmount):
         return '(After a 3% nerf)'
     return ''
 
-async def getPogoStatsFromDexNum(dexNum):
+async def getPogoStatsFromDexNum(dexNum, nerfOverride=None):
     pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == dexNum), None)
         
     if pogoMon is not None:
@@ -498,17 +596,13 @@ async def getPogoStatsFromDexNum(dexNum):
         baseStamina = pogoMon['Stamina']
         statText = 'Using the stats we\'ve entered'
     else:
-        monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
+        stats = await getBaseStatsFromPokeAPI(dexNum=dexNum)
 
-        if monData is None:
+        if stats is None:
             raise Exception
-
-        stats = []
-
-        for i in range(6):
-            stats.append(int(monData['stats'][i]['base_stat']))
-
-        baseAttack, baseDefence, baseStamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5])
+                
+        baseAttack, baseDefence, baseStamina, nerfAmount = calcPoGoStatsFromBaseStats(getBaseStat(stats, 'hp'), getBaseStat(stats, 'attack'), getBaseStat(stats, 'defense'),
+                                                                                      getBaseStat(stats, 'special-attack'), getBaseStat(stats, 'special-defense'), getBaseStat(stats, 'speed'), nerfAmount=nerfOverride)
         statText = f'Using the most recent main series stats {getNerfText(nerfAmount)}'
 
     return baseAttack, baseDefence, baseStamina, statText
@@ -544,22 +638,12 @@ async def pogoAddMonFromCalc(monName, nerfOverride=None):
     if checkDuplicatePoGoMon(dexNum):
         return 'That pokemon is already registered!'
 
-    monData = await getPokeApiJsonData(f'https://pokeapi.co/api/v2/pokemon/{dexNum}')
-    
-    if monData is None:
-        return f'An error occured while checking the api!'
-
-    stats = []
-
-    for i in range(6):
-        stats.append(int(monData['stats'][i]['base_stat']))
-
     if nerfOverride is not None:
         nerfOverride = calcNerfOverride(nerfOverride)
         if (isinstance(nerfOverride, str)):
             return nerfOverride
-    
-    attack, defence, stamina, nerfAmount = calcPoGoStatsFromBaseStats(stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], nerfOverride)
+                
+    attack, defence, stamina, nerfAmount = await getPogoStatsFromDexNum(dexNum, nerfOverride=nerfOverride)
 
     addResponse = await pogoAddMon(monName, attack, defence, stamina)
 
