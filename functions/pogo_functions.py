@@ -753,7 +753,7 @@ async def checkTrackedMon(monName, user, guild):
     pogoMon = next((dpsMon for dpsMon in pogoPokemon if dpsMon['DexNum'] == mon['DexNum']), {})
 
     if len(pogoMon) == 0:
-        pogoMon['Attack'], pogoMon['Defence'], pogoMon['Stamina'], nerfAmount = getPogoStatsFromDexNum(mon['DexNum'])
+        pogoMon['Attack'], pogoMon['Defence'], pogoMon['Stamina'], nerfAmount = await getPogoStatsFromDexNum(mon['DexNum'])
     
     embed = discord.Embed(title=f'{formatTextForDisplay(mon["Name"])} tracked by {formatTextForDisplay(discordName)}',
                           description=f'Attack: {pogoMon["Attack"]}\n'
@@ -1343,9 +1343,8 @@ async def initWebDriver():
     return driver
 
 async def scanCoordinateSet(coordsList, pictureSettings, channel):
-    driver = await initWebDriver()
-
     try:
+        driver = await initWebDriver()
         driver.get(mapUrl)
         wait = WebDriverWait(driver, 5)
 

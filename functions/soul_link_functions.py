@@ -16,13 +16,24 @@ from functions.shared_functions import (loadDataVariableFromFile, saveDataVariab
                                         getTypeEmoji, getTypeEmbedColour, getTypeTextColour, writeImageText, addPaginatedEmbedFields, getUserIdFromNickname,
                                         loadShucklePersonality, rollForShiny, checkClassification, getTypesFromPokeAPI, getBaseStatsFromPokeAPI, pokemon)
 from dictionaries.shared_dictionaries import sharedFileLocations, sharedImagePaths, sharedColours
-from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, excludedEncounterConditions, excludedVersionGroups, gens, games
+from dictionaries.soul_link_dictionaries import soulLinksFileLocations, defaultRun, excludedEncounterConditions, excludedVersionGroups, encounterMethods, encounterConditions, gens, games
 
 openai.api_key = loadDataVariableFromFile(sharedFileLocations.get('ChatGPT'), False)
 
 runs = loadDataVariableFromFile(soulLinksFileLocations.get('Runs'))
 
 currentRun = loadDataVariableFromFile(soulLinksFileLocations.get('CurrentRun'))
+
+def buildEncounterMethodLookupTable():
+    global encounterMethodLookup
+
+    encounterMethodLookup = {}
+    for name, info in encounterMethods.items():
+        encounterMethodLookup[name] = name
+        for method in info['Methods']:
+            encounterMethodLookup[method] = name
+    
+buildEncounterMethodLookupTable()
 
 #region help command
 #dev commands, undo-death {name}, reset, undo-status
@@ -126,21 +137,25 @@ def formatEggGroupNames(eggGroups):
     return eggGroupText.rstrip(', ')
 
 def formatGenderDisplay(genderRatio):
+    maleEmoji = '<:male:1569252193822052393>'
+    femaleEmoji = '<:female:1569252360176533664>'
     if genderRatio == -1:
         return 'Genderless'
 
     femaleChance = genderRatio / 8 * 100
 
     if femaleChance == 100:
-        return f':female_sign: 100%'
+        return f'{femaleEmoji} 100%'
     elif femaleChance == 0:
-        return f':male_sign: 100%'
+        return f'{maleEmoji} 100%'
 
-    return f':male_sign: {100-femaleChance}% | {femaleChance}% :female_sign:'
+    return f'{maleEmoji} {100-femaleChance}% | {femaleChance}% {femaleEmoji}'
 
-def formatAbilities(abilities):
+def formatAbilities(abilities, gen):
     abilityText = ''
     for ability in abilities:
+        if ability['HA'] and gen['Name'] < 5:
+            continue
         abilityText += f'{"HA: " if ability["HA"] else ""}{formatTextForDisplay(ability["Name"])}\n'
 
     return abilityText
@@ -300,6 +315,21 @@ def getGameBoxArtEmoji(gameName):
         return gameData['Emojis']['BoxArt'][[game for game in gameData['Games']].index(gameName)]
     except:
         return ''
+
+def getEncounterMethodEmoji(method):
+    try:
+        return encounterMethods.get(method)['Emoji']
+    except:
+        return method
+
+def getEncounterConditionsEmoji(conditions):
+    if not conditions:
+        return ''
+    conditionEmojis = '|'
+    for condition in conditions:
+        conditionEmojis += encounterConditions.get(condition, condition)
+
+    return conditionEmojis
 #endregion
 
 #region $sl new-sl command and createRole func
@@ -1431,6 +1461,7 @@ async def makePokedexEmbed(mon, gameName=None):
         versionGroup = copy.deepcopy(currentRun['VersionGroup'])
     else:
         versionGroup = getGroup(gameName)
+        gameName = formatTextForBackend(gameName)
 
     embeds = []
 
@@ -1566,7 +1597,7 @@ def addPokemonInfoEmbed(embed, embeds, monData, speciesData, abilities, stats, v
 
     if gen['Name'] >= 3:
         embed.add_field(name='Abilities',
-                        value=formatAbilities(abilities),
+                        value=formatAbilities(abilities, gen),
                         inline=True)
 
         embed.add_field(name='EVs Given',
@@ -1590,7 +1621,7 @@ def addPaginatedEncounterEmbeds(embed, embeds, encounters, stats, versionGroup, 
     pageCount = 20
     for i, encounter in enumerate(encounters, start=1):
         fieldContent[0] += f'{encounter["Location"]}\n'
-        fieldContent[1] += f'{encounter["Method"], encounter["Conditions"]}\n'
+        fieldContent[1] += f'{getEncounterMethodEmoji(encounter["Method"])}{getEncounterConditionsEmoji(encounter["Conditions"])}\n'
         fieldContent[2] += f'{encounter["MaxChance"]}%\n'
 
         if i % pageCount == 0:
@@ -1641,7 +1672,10 @@ def addPaginatedLearnsetEmbeds(embed, embeds, movesets, movesetKey, uniqueFieldH
     return embeds
 
 def defineConflictingConditions(condition):
-    if condition.startswith('time-'):
+    if condition.startswith('swarm-'):
+        #handles swarm-yes, swamm-no
+        return 'swarm'
+    elif condition.startswith('time-'):
         #handles time-morning, time-day, time-night
         return 'time'
     elif condition.startswith('slot2-'):
@@ -1661,6 +1695,12 @@ def defineConflictingConditions(condition):
         #handles weather-overcast, weather-raining, weather-thunderstorm, weather-snowing, 
         #        weather-snowstorm, weather-sandstorm, weather-intense-sun, weather-fog
         return 'weather'
+    elif condition.startswith('backlot-'):
+        #handles backlot-mentioned, backlot-not-mentioned
+        return 'backlot'
+    elif condition.startswith('bug-catching-contest'):
+        #handles bug-catching-contest-yes, bug-catching-contest-no
+        return 'bug-catching-contest'
     elif condition.startswith('johto-safari-blocks-'):
         #handles a whole shit ton of block configurations
         return 'safari-blocks'
@@ -1674,6 +1714,32 @@ def defineConflictingConditions(condition):
         return 'hall-of-fame'
     else:
         return condition
+
+def removeUselessConditions(conditions):
+    if [obj for obj in conditions if obj.startswith('coins-')]:
+        conditions.add('game-corner')
+    elif [obj for obj in conditions if obj.startswith('great-marsh-daily-slot-')]:
+        conditions.add('great-marsh-daily')
+    elif [obj for obj in conditions if obj.startswith('johto-safari-blocks-')]:
+        conditions.add('johto-safari-blocks')
+    if 'other-nicknamed-cold-item-regice-regirock-registeel3' in conditions:
+        conditions.add('other-regirock-regice-registeel-in-party')
+        conditions.remove('other-nicknamed-cold-item-regice-regirock-registeel3')
+    if 'other-dialga-or-palkia-in-party' in conditions:
+            conditions.add('other-dialga-palkia-in-party')
+            conditions.remove('other-dialga-or-palkia-in-party')
+    if 'other-captured-reshiram-or-zekrom' in conditions:
+        conditions.add('other-reshiram-zekrom-in-party')
+        conditions.remove('other-captured-reshiram-or-zekrom')
+
+    conditionsToDisplay = [obj for obj in list(conditions) if not obj.startswith('coins-')
+                                                           and not obj.startswith('great-marsh-daily-slot-')
+                                                           and not obj.startswith('johto-safari-blocks-')
+                                                           and obj not in ['swarm-no', 'radar-off', 'radio-off',
+                                                                           'slot2-none', 'backlot-not-mentioned', 'weather-normal',
+                                                                           'bug-catching-contest-no', 'great-marsh-daily-slot-none']]
+
+    return conditionsToDisplay
 
 def determineBestEncounterConditions(encounterDetails):
     conditionlessSum = sum(obj['Chance'] for obj in encounterDetails if len(obj['Conditions']) == 0)
@@ -1692,7 +1758,9 @@ def determineBestEncounterConditions(encounterDetails):
 
     conditionalSum = sum(obj['Chance'] for obj in conditionedEncounters if set(obj['Conditions']) <= set(bestConditions.values()))
 
-    return conditionlessSum + conditionalSum, bestConditions
+    conditions = removeUselessConditions(set([value for key, value in bestConditions.items()]))
+    
+    return conditionlessSum + conditionalSum, conditions
 
 async def getEncounters(encountersLink, gameName):
     encounterData = await getPokeApiJsonData(encountersLink)
@@ -1719,7 +1787,7 @@ async def getEncounters(encountersLink, gameName):
                     gameEncounters.append({
                         'Location': location['location_area']['name'],
                         'Game': version['version']['name'],
-                        'Method': method,
+                        'Method': encounterMethodLookup.get(method, method),
                         'MaxChance': maxChance,
                         'Conditions': bestConditions
                     })
