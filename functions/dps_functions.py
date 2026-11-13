@@ -1053,6 +1053,7 @@ async def determineModifierValues(extraInputs, battleSystem, author):
                 bossDexNum = getDexNum(input[len('boss'):])
 
                 modifiers['Boss']['Stats']['Attack'], modifiers['Boss']['Stats']['Defence'], bossSta, nerfText = await getPogoStatsFromDexNum(bossDexNum)
+                modifiers['Boss']['DexNum'] = bossDexNum
                 
                 modifiers['Boss']['Stats']['Attack'] += 15
                 modifiers['Boss']['Stats']['Defence'] += 15
